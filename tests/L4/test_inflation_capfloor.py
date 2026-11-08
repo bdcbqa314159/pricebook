@@ -240,3 +240,45 @@ def test_the_capfloor_round_trips_and_refuses_an_unknown_version() -> None:
     bad["schema_version"] = 99
     with pytest.raises(ValueError, match="reads up to"):
         InflationCapFloor.from_dict(bad)
+
+
+def test_INVARIANT_6_excludes_a_period_PAYING_EXACTLY_on_the_valuation_date() -> None:
+    """The boundary, found untested by re-audit #1's remediation (tranche 24) — and it matters *here*.
+
+    §3's invariant 6 says a flow *"on or before `valuation_date`"* is historical: excluded from the
+    mark, PV 0, *"never discounted with non-positive `t`"*. So the filter is `pay > valuation_date`
+    and a period paying exactly today is dropped. Flipping that `>` to `>=` includes it.
+
+    **That mutation survived all 820 tests, and on this product it is a real mispricing.** On a
+    schedule whose middle payment lands exactly on the valuation date, including it moves the price
+    from **5,929.24 to 8,363.52 — about +41%**. The same mutation is *provably harmless* in
+    `nominal_cap` and `yoy` (bit-identical prices across four schedules, measured), because a
+    Hull-White caplet whose expiry has passed is worth exactly zero, so keeping or dropping it
+    changes nothing. An inflation cap/floor period that has already paid is different: both index
+    levels are known, the payoff is **determined**, and it carries real value — which is precisely
+    why it belongs to the shell and not to the mark.
+
+    So this is the one engine of the three where the boundary has a price, and the one that needed
+    the test. Asserted one day either side as well, so the oracle pins the *comparison* rather than
+    just the exclusion."""
+    def schedule_offset(days: int) -> CouponSchedule:
+        return CouponSchedule(tuple(VAL + timedelta(days=365 * k + days) for k in range(4)), DC)
+
+    on_the_line = schedule_offset(-730)
+    assert on_the_line.dates[2] == VAL, "the premise: the middle payment is exactly today"
+    priced = _pv(InflationCapFloor(HICP, on_the_line, 0.02, Money(N, EUR), CapFloorKind.CAP), _model())
+
+    # Only the one live period survives; the period paying exactly today is the shell's business.
+    live_only = CouponSchedule((VAL, VAL + timedelta(days=365)), DC)
+    assert priced == pytest.approx(
+        _pv(InflationCapFloor(HICP, live_only, 0.02, Money(N, EUR), CapFloorKind.CAP), _model()),
+        rel=1e-12,
+    )
+
+    # One day later, that period IS live and the price strictly rises — so the filter is not simply
+    # dropping everything, and the boundary is where it is claimed to be.
+    later = _pv(
+        InflationCapFloor(HICP, schedule_offset(-729), 0.02, Money(N, EUR), CapFloorKind.CAP),
+        _model(),
+    )
+    assert later > priced * 1.2

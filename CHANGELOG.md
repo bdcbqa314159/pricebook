@@ -6,6 +6,58 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-08
+
+Tranche 24 — **the conventions register rebuilt to this tree** (re-audit #1 findings F-3.1, F-3.2,
+F-2.1). Second and last remediation tranche; **re-audit entry #1 is complete**. Specced as docs-only
+— and the honest re-derivation earned §2's optional guard and **found a second hole the audit had
+not**.
+
+### A second hole: the inflation cap/floor's valuation-date boundary, worth 41%
+Re-deriving the invariant-6 register row meant establishing what the five engines actually agree on,
+and the honest way to establish that is to flip the boundary and see who notices. `>` → `>=` **survives
+in three of five**. The first instinct — "three engines have an untested boundary" — was **wrong for
+two of them**: `nominal_cap` and `yoy` are **proved equivalent mutants**, prices bit-identical across
+four schedules including the boundary, because a Hull-White caplet whose expiry has passed is worth
+exactly zero so including or dropping such a period changes nothing. I nearly wrote a guard on that
+false premise; measuring stopped me.
+
+`capfloor` is the one that mattered. A period that has already paid has **both index levels known** —
+the payoff is *determined*, not an expired option — so it carries real value, and including it moved
+the price from **5,929.24 to 8,363.52, about +41%**. A genuine mispricing a wrong comparison would
+have caused, with nothing to catch it. Closed by
+`test_INVARIANT_6_excludes_a_period_PAYING_EXACTLY_on_the_valuation_date`.
+
+### The row is `per-module`, not `guarded`, and that is the honest entry
+A cross-module test comparing all five engines would catch **nothing** the per-engine boundary tests
+do, while duplicating three market fixtures and claiming a guarantee that does not exist. What would
+make C10 structurally guarded is what makes C9 guarded: **an atom**. Five engines inline
+`pay > valuation_date`, so a divergence is expressible; extracting one `is_historical(...)` is recorded
+as the row's upgrade trigger rather than done, since this was ruled a docs tranche.
+
+### The register, and one of my own rows was overstated
+C1–C6 described `risk/exposure.py`, `risk/xva.py`, `engine/linear.py`, `engine/equity.py`,
+`models/sabr_model.py` and seven more modules that **do not exist here**. They are now a labelled
+*archived* section (lessons only, not inventory), IDs **kept stable** because the handoffs, the audit
+docs and CLAUDE.md cite them. The live register is C7–C11, and a check confirms every module it names
+exists in `src/`.
+
+**My new C11 row was wrong twice before commit**, the same failure mode as the rows it replaced:
+"every L3 model carries a `MarketSnapshot`" (six do; six others are closed forms and parameter objects
+that never read market data — that is the convention's *scope*, not exceptions), and "there is no
+second place to pass a snapshot from" (false inside an engine — `inflation_leg_value`,
+`resolved_index_level` and the calibration objectives all take one legitimately; the guarantee is at
+the **entry point**, where every registered pricer is `(product, model)`). A register row is only worth
+the grep behind it.
+
+### Also
+- `to_go_deeper`: "Six `crosscheck:` markers" → **23** real targets (of 45 headers; the other 22 are
+  explicit `none — …` exemptions). "L5 is empty" → corrected: tranche 22 filled it; the *inflation*
+  risk layer the route describes is still genuinely unbuilt.
+- F-2.1 recorded: the driftless-forward terminal is inlined in `black_mc.py` and `sensitivities.py` —
+  rule-of-two has fired, extract at the next touch of either.
+- 821 tests, all eight gates green, ruff and pyright clean, zero suppressions.
+
 ## [0.28.0] - 2026-11-07
 
 Tranche 23 — **the linker coupon accrual oracle** (re-audit #1 finding F-1.2). The first

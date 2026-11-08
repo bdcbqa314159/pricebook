@@ -19,10 +19,16 @@ interest picks it (§1) and Cowork writes the real plan (§10).
 Built: all four ch-1 instruments, the three models (JY, MM-I, MM-II) behind one seam, and the three
 ch-5 calibrations — pricing analytics, verified, seasoned. What the document still holds:
 
-1. **Risk & sensitivities (§1.3).** We priced; we never made the price *move*. L5 is empty — no
-   deltas, no scenario engine. **Route:** an L5 risk layer over the existing engine + a `Priceable`
-   protocol; bump-and-reprice first, analytic/AD sensitivities later. **Source:** none new — the
-   pricers we have are enough. The most self-contained next step.
+1. **Risk & sensitivities (§1.3).** We priced; the *inflation* prices still do not move. **Corrected
+   at tranche 24** (re-audit #1 F-3.2): L5 is **no longer empty** — tranche 22 put
+   `risk/sensitivities.py` there (Black/forward delta, gamma, vega by three methods, anchored on the
+   analytic Greeks). What this route describes is still genuinely unbuilt, and it is a *different*
+   thing: a risk layer over the **inflation** engines, reached by bumping a `MarketSnapshot` and
+   repricing through the registry, plus the `Priceable` protocol §2 of the charter anticipates (which
+   T22 deliberately did not build — one consumer shape would make it a single-implementation
+   abstraction, §6). **Route:** bump-and-reprice over the registered pricers first, analytic/AD
+   later; the protocol arrives with the second kind of priceable. **Source:** none new. Still the
+   most self-contained next step.
 
 2. **HJM dynamics & simulation (§2.1–2.4).** We take the curves as given and never reconstruct them
    from drift conditions; there is no Monte Carlo anywhere. **Route:** a simulation engine for the
@@ -50,9 +56,12 @@ ch-5 calibrations — pricing analytics, verified, seasoned. What the document s
    fit a parameter set per (expiry, strike) cell rather than one per expiry; a calibration variant,
    not a new model. **Source:** `BERHAN-2012` §5.4.2 (`worked-from`) — in hand.
 
-6. **External cross-check (the QuantLib tier).** Six `crosscheck:` markers already name the sites;
-   the tier itself is unbuilt. **Route:** stand up the optional, dev-only QuantLib tier against those
-   six sites (never a merge gate — §8). **Source:** QuantLib (a library, not a paper).
+6. **External cross-check (the QuantLib tier).** **23** `crosscheck:` markers now name real targets
+   (of 45 provenance headers carrying the marker; the other 22 are explicit `crosscheck: none — …`
+   exemptions, which §8's presence gate requires). **Corrected at tranche 24** (re-audit #1 F-3.2):
+   the line said "six", which was true at tranche 6 and has not been true since. The tier itself is
+   still unbuilt. **Route:** stand up the optional, dev-only QuantLib tier against those 23 sites
+   (never a merge gate — §8). **Source:** QuantLib (a library, not a paper).
 
 **The one honest caveat that governs any return (FP-1):** BERHAN's empirical results are *plots, not
 tables* (Figs 1.1, 1.2, 5.1–5.10). Nothing above licenses reading a number off a chart — a deeper
@@ -66,6 +75,14 @@ to the library and its oracle.
 Built as the working spine: generation (7, 8, 9), processes (2, 3, 4), variance reduction (10 core),
 Greeks (11), the BGM/J application (12). See `docs/jaeckel_completion_arc.md`. What the book still
 holds — chapters skipped wholesale, then the debt *inside* the chapters we closed:
+
+**Cross-cutting, recorded by re-audit #1 (F-2.1) — a rule-of-two second consumer:** the driftless
+forward terminal `F·exp(−½V² + V·z)` is inlined in **two** places, `models/black_mc.py` and
+`risk/sensitivities.py`'s `_terminal`. Identical one-liners today, so nothing is wrong; the risk is
+the *convention* drifting between them (a sign, a half). §6's rule of two has fired, so **extract a
+shared helper at the next touch of either file** — not a tranche of its own, and not worth a change
+that no present defect motivates. (Tranche 24 also measured the adjacent C10 case and found five
+inline copies of the invariant-6 comparison; that one is registered with its own upgrade trigger.)
 
 **Acquisitions the arc hit (primitive data the book leaves on its CD):**
 - **Sobol past 32 dimensions (ch 8.3).** Our table (Jäckel 8.3) covers d≤32; the primitive

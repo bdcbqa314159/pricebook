@@ -183,6 +183,62 @@ That is also why the algorithm is **not a correctness dependency**: tranche 20 i
 `norm_cdf` by a guarded root-find as the primary, exact path, and Acklam's coefficients stay
 *untrusted until they agree with it*.
 
+### `CREPEY-2026` — `in-hand`
+
+Crépey, S., *XVA Analysis: Probabilistic, Risk Measure, and Machine Learning Issues*. Chapman &
+Hall/CRC Financial Mathematics Series, CRC Press, first edition 2026. 417 pp. ISBN 978-1-041-01420-1.
+Held at `_stock/NewDocuments/XVA Analysis ... (Stéphane Crépey) ...pdf` (gitignored — copyrighted;
+only this record is tracked).
+
+**Project three (2026-11-08, Bernardo), after the Jäckel arc.** The XVA vertical — the one the
+archived predecessor faked (the phantom `risk/xva.py` rows T24 is pruning) and this tree never built.
+
+**Read honestly, this is a stretch for our method, and the arc is scoped around that.** Crépey is a
+research monograph on the **cost-of-capital XVA frontier** (balance-sheet KVA, "fininsurance" measure,
+anticipated BSDEs), and its numerics are overwhelmingly **neural-net regression + Monte Carlo** (neural
+131×, regression 147×, BSDE 61×, expected-shortfall 61× across 417 pp; "closed form" appears 4×). Its
+own validation is *twin Monte Carlo*, not a closed form, and its results are **figures, not tables** —
+so §4's "no number off a plot" binds hard.
+
+- **Used for: the XVA frame and its identities, which are requirement oracles — NOT concrete prices.**
+  Crépey's CVA/FVA/KVA are abstract balance-sheet expectations and semilinear fixed-point equations:
+  `CVA = E[(1−J)P⁺]`-type (Ch I §3), `FVA = γ(P−CVA−FVA)⁺` (the fixed point), `FV = CA−CL = CVA−DVA`,
+  `FTP = ΔCVA + ΔFVA + ΔKVA`. These relations hold for all parameters by the finance, so they are
+  exactly the §4 **requirement oracles** the spine is anchored on. The concrete closed-form numbers
+  (survival curves, defaultable bonds, CDS, expected exposure) come from `CAPINSKI-ZASTAWNIAK` and the
+  standard CVA integral, pointwise-transcribed — the two sources split as "requirement oracle +
+  pointwise transcription, neither replaces the other" (§4).
+- **Deferred wholesale** (→ `to_go_deeper` when the arc closes): the neural-net/regression chapters
+  (IV–VII), KVA and the anticipated-BSDE machinery, the risk-measure/equilibrium/reverse-stress-test
+  chapters (VIII–X), and HVA (XI). None is closed-form-oracle-able our way; the honest spine is the
+  static/one-period elementary XVA, same move as BERHAN ch 1–5 and Jäckel's 9-of-14.
+
+**Status `in-hand`, not `worked-from`** until T25 lands. Concept map + arc in `docs/xva_spine_arc.md`.
+
+---
+
+### `CAPINSKI-ZASTAWNIAK` — `in-hand`
+
+Capiński, M. and Zastawniak, T., *Credit Risk*. Mastering Mathematical Finance, Cambridge University
+Press. 202 pp. Held at `_stock/NewDocuments/Capiński, Zastawniak - Credit Risk.pdf` (gitignored —
+copyrighted; only this record is tracked). Same series as `MCINERNEY-ZASTAWNIAK`.
+
+**The closed-form credit authority the XVA spine pulls** — paired with `CREPEY-2026` (which assumes
+this material as background, writing for readers who already know it). An elementary-to-intermediate
+text with proofs, so its formulas are genuine pointwise-transcription anchors:
+
+| ch | what | XVA spine use |
+|---|---|---|
+| 1 | Structural (Merton, barrier) models | closed-form default probability `Φ(−d₂)`-type |
+| 2 | Hazard function, default time, risk-neutral probability | the **survival curve** `S(t)=exp(−∫λ)` (L1 credit market-data primitive) |
+| 3 | Defaultable bond pricing with hazard + calibration, recovery schemes | closed-form defaultable bond; survival↔price calibration |
+| 4 | Credit Default Swap | the **CDS par spread** closed form; survival↔CDS calibration |
+| 5–6 | Hazard *process* (enlarged filtration) | the advanced tie-in to Crépey's filtration machinery — deferred |
+
+**Status `in-hand`, not `worked-from`** until the first credit-layer tranche (T25) lands.
+
+---
+
 ## Named-but-not-in-hand — NOT citable as `source:` until obtained
 
 Transcribed verbatim from `BERHAN-2012`'s reference list (p. 49), so they are grounded in a held
