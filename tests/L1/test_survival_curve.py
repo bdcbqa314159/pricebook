@@ -25,7 +25,7 @@ from pricebook.market.survival_curve import SurvivalCurve
 from datetime import date
 
 ANCHOR = date(2026, 1, 1)
-DC = DayCountConvention.ACT_365F
+DC = DayCountConvention.ACT_365_FIXED
 TM = TimeMeasure(ANCHOR, DC)
 
 # Piecewise-constant hazard: distinct pieces, so a cumulation bug cannot hide (see the docstring).

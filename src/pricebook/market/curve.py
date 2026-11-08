@@ -40,6 +40,8 @@ class CurveHandle(Protocol):
 
     def df(self, d: date) -> float: ...
 
+    def df_at(self, t: float) -> float: ...
+
     @property
     def time_measure(self) -> TimeMeasure: ...
 
@@ -90,9 +92,17 @@ class DiscountCurve:
         r0, r1 = self.zero_rates[i], self.zero_rates[i + 1]
         return r0 + (r1 - r0) * (t - t0) / (t1 - t0)
 
-    def df(self, d: date) -> float:
-        t = self.time_measure.year_fraction(d)
+    def df_at(self, t: float) -> float:
+        """The discount factor at a year fraction: `exp(-z(t)*t)`.
+
+        Separate from `df` because an integral over a *time grid* - a CVA exposure profile, tranche
+        25 - holds `t` and no date, and reconstructing a date from it would invert the time measure
+        for no reason. `df` delegates here, so the two cannot drift apart.
+        """
         return math.exp(-self.zero_rate(t) * t)
+
+    def df(self, d: date) -> float:
+        return self.df_at(self.time_measure.year_fraction(d))
 
     def bumped(self, shift: float) -> DiscountCurve:
         """A new curve with every zero rate shifted by `shift`. The base is never mutated."""

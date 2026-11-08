@@ -20,6 +20,7 @@ from datetime import date
 
 import pytest
 from scipy.integrate import quad
+from scipy.special import ndtr
 from scipy.stats import norm
 
 from pricebook.foundation.day_count import DayCountConvention
@@ -34,7 +35,7 @@ from pricebook.risk.credit_valuation_adjustment import (
 )
 
 ANCHOR = date(2026, 1, 1)
-DC = DayCountConvention.ACT_365F
+DC = DayCountConvention.ACT_365_FIXED
 TM = TimeMeasure(ANCHOR, DC)
 
 HORIZON = 5.0
@@ -53,14 +54,34 @@ def _stdev(t: float) -> float:
     return 30.0 * math.sqrt(t)
 
 
-def _reference_epe(mean: float, stdev: float) -> float:
-    """`∫(mean+stdev·z)φ(z)dz` over the region where the payoff is positive — the test's own
-    quadrature, independent of the analytic `Φ/φ` form under test."""
+def _epe_by_quadrature(mean: float, stdev: float) -> float:
+    """`∫(mean+stdev·z)φ(z)dz` over the positive region — an independent ROUTE to the EPE.
+
+    Different algebra from the analytic form under test, which is what makes it an oracle rather
+    than a restatement. **Its accuracy argument, which this tranche had to learn (§4: a reference
+    is code too):** the interval must be finite and must contain the mass. Integrating from
+    `-mean/stdev` to `+∞` makes scipy's infinite-range transform miss the peak entirely when the
+    ratio is large — it returned ~0 where the true EPE was 99.975 — and a fixed `lower + 60`
+    truncates above the mass for the same reason. Clipping the lower limit at −8 and taking a
+    16-wide window holds the whole distribution for any ratio. Trustworthy to ~1e-15 for
+    `|mean/stdev| <= 8`; in a far negative tail the integral itself is ~1e-24 and this route is the
+    weaker side, so the extreme regime is asserted against scipy instead.
+    """
     if stdev == 0.0:
         return max(mean, 0.0)
-    lower = -mean / stdev
-    value, _ = quad(lambda z: (mean + stdev * z) * norm.pdf(z), lower, lower + 60.0, limit=400)
+    lower = max(-mean / stdev, -8.0)
+    value, _ = quad(lambda z: (mean + stdev * z) * norm.pdf(z), lower, lower + 16.0, limit=400)
     return value
+
+
+def _epe_by_scipy(mean: float, stdev: float) -> float:
+    """The same algebra through scipy's `ndtr` — an independent IMPLEMENTATION, accurate across
+    every ratio, so it is what the CVA integrand and the extreme-ratio checks use (the T20a
+    arrangement: the oracle may reach for scipy while the library may not)."""
+    if stdev == 0.0:
+        return max(mean, 0.0)
+    ratio = mean / stdev
+    return float(mean * ndtr(ratio) + stdev * norm.pdf(ratio))
 
 
 def _profile(points: int = 2001, horizon: float = HORIZON) -> ExposureProfile:
@@ -78,7 +99,7 @@ def _reference_cva(survival: SurvivalCurve = SURVIVAL, lgd: float = LGD) -> floa
 
     def integrand(t: float) -> float:
         df = math.exp(-DISCOUNT.zero_rate(t) * t)
-        epe = _reference_epe(_mean(t), _stdev(t))
+        epe = _epe_by_scipy(_mean(t), _stdev(t))
         return df * epe * survival.hazard(t) * survival.survival(t)
 
     value, _ = quad(integrand, 0.0, HORIZON, limit=400)
@@ -99,9 +120,22 @@ class TestTheFixtureIsNotDegenerate:
 
 
 class TestExposureIsTranscribedPointwise:
-    @pytest.mark.parametrize("mean,stdev", [(100.0, 30.0), (0.0, 25.0), (-40.0, 50.0), (80.0, 5.0), (-100.0, 10.0)])
+    @pytest.mark.parametrize("mean,stdev", [(100.0, 30.0), (0.0, 25.0), (-40.0, 50.0), (80.0, 15.0), (-20.0, 100.0)])
     def test_the_analytic_EPE_matches_the_tests_OWN_quadrature(self, mean: float, stdev: float) -> None:
-        assert expected_positive_exposure(mean, stdev) == pytest.approx(_reference_epe(mean, stdev), rel=1e-9)
+        """The independent route, inside the regime where the route itself is accurate."""
+        assert abs(mean / stdev) <= 8.0, "outside the quadrature route's argued regime"
+        assert expected_positive_exposure(mean, stdev) == pytest.approx(_epe_by_quadrature(mean, stdev), rel=1e-9)
+
+    @pytest.mark.parametrize("mean,stdev", [(99.975, 1.5), (300.0, 2.0), (80.0, 5.0), (-100.0, 10.0)])
+    def test_the_analytic_EPE_holds_RELATIVE_accuracy_at_EXTREME_ratios(self, mean: float, stdev: float) -> None:
+        """Where the profile actually lives: `m/s` reaches 66 at the short end, and at `m/s = -10`
+        the EPE is ~1e-24, so an absolute tolerance would be blind to any relative error (T20a)."""
+        assert expected_positive_exposure(mean, stdev) == pytest.approx(_epe_by_scipy(mean, stdev), rel=1e-12)
+
+    def test_the_TWO_references_agree_where_BOTH_are_valid(self) -> None:
+        """Makes the regime split explicit rather than implicit in which test calls which."""
+        for mean, stdev in [(100.0, 30.0), (0.0, 25.0), (99.975, 1.5), (-40.0, 50.0)]:
+            assert _epe_by_quadrature(mean, stdev) == pytest.approx(_epe_by_scipy(mean, stdev), rel=1e-12)
 
     def test_at_a_zero_mean_the_EPE_is_stdev_over_root_two_pi(self) -> None:
         assert expected_positive_exposure(0.0, 40.0) == pytest.approx(40.0 / math.sqrt(2.0 * math.pi), rel=1e-14)
@@ -119,13 +153,28 @@ class TestExposureIsTranscribedPointwise:
 
 class TestTheCvaIntegralAgainstAnIndependentQuadrature:
     def test_the_CVA_matches_scipy_quadrature_of_an_independently_built_integrand(self) -> None:
-        assert unilateral_cva(_profile(), SURVIVAL, DISCOUNT, LGD) == pytest.approx(_reference_cva(), rel=1e-5)
+        """**The band, and what a green here rules out (§4).** The gap is the trapezoid's own
+        discretisation error, not noise: measured 9.4e-05 relative at 8001 points, so the 2e-04
+        band carries ~2x headroom and a green rules out any systematic defect above ~0.02% of the
+        adjustment. The order test below is what pins the error as discretisation rather than a
+        wrong integrand — a tolerance alone cannot tell those apart.
+        """
+        assert unilateral_cva(_profile(8001), SURVIVAL, DISCOUNT, LGD) == pytest.approx(
+            _reference_cva(), rel=2e-4
+        )
 
-    def test_refining_the_grid_IMPROVES_the_agreement(self) -> None:
+    def test_the_trapezoid_converges_at_the_SECOND_ORDER_rate(self) -> None:
+        """A tolerance says the two numbers are close; the RATE says they are the same integral.
+
+        Halving `h` must quarter the error for a trapezoid. A wrong integrand — a dropped factor, a
+        mis-indexed hazard — converges to the WRONG limit, so its error ratio flattens towards 1
+        instead of holding at 4. This tranche needed the distinction: a broken test reference
+        plateaued the error at 3e-04 and only the failure to converge revealed it.
+        """
         reference = _reference_cva()
-        coarse = abs(unilateral_cva(_profile(51), SURVIVAL, DISCOUNT, LGD) - reference)
-        fine = abs(unilateral_cva(_profile(801), SURVIVAL, DISCOUNT, LGD) - reference)
-        assert fine < coarse, f"trapezoid must converge: coarse {coarse}, fine {fine}"
+        errors = [abs(unilateral_cva(_profile(n), SURVIVAL, DISCOUNT, LGD) - reference) for n in (501, 2001, 8001)]
+        ratios = [a / b for a, b in zip(errors, errors[1:])]
+        assert all(3.8 < r < 4.2 for r in ratios), f"second-order convergence required, got {ratios}"
 
 
 class TestTheRequirementOraclesCrepeyForces:
