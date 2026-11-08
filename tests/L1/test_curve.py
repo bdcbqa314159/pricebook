@@ -63,3 +63,25 @@ def test_the_currency_is_open_not_an_enum() -> None:
     assert Currency("BRL").code == "BRL"
     assert Currency("JPY", minor_units=0).minor_units == 0
     assert Currency("USD") == Currency("USD")  # keyed by value
+
+
+class TestDfAtIsAPureExtraction:
+    """Tranche 25 moved the discount-factor arithmetic into `df_at(t)` and made `df(date)` delegate.
+
+    The operation ORDER is unchanged — `df` computes the same year fraction and hands it to the same
+    `exp(-z(t)*t)` — so §4's stronger proof is available here: bit-identity, not an ULP bound.
+    """
+
+    def test_df_is_BIT_IDENTICAL_to_df_at_on_the_same_year_fraction(self) -> None:
+        anchor = date(2026, 1, 1)
+        curve = DiscountCurve(
+            TimeMeasure(anchor, DayCountConvention.ACT_365_FIXED), (0.0, 2.0, 7.0), (0.01, 0.025, 0.02)
+        )
+        for days in (1, 30, 400, 1000, 3000):
+            d = anchor + timedelta(days=days)
+            assert curve.df(d) == curve.df_at(curve.time_measure.year_fraction(d))
+
+    def test_a_flat_curve_df_at_is_exactly_exp_minus_rate_t(self) -> None:
+        flat = DiscountCurve.flat(date(2026, 1, 1), 0.03, DayCountConvention.ACT_365_FIXED)
+        for t in (0.25, 1.0, 12.0):
+            assert flat.df_at(t) == math.exp(-0.03 * t)

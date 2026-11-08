@@ -51,9 +51,16 @@ Neither source replaces the other — exactly §4's "requirement oracle + pointw
   a hazard-rate survival curve. Pure closed-form oracle, no MC — honoring §4's "closed form > MC."
   Spec: `docs/tranches/25_unilateral_cva.md`.
 - **T26 — the Monte-Carlo exposure engine.** EPE/ENE by simulation over a real instrument through
-  `price()` (reusing the Jäckel MC machinery), **cross-checked against T25's closed-form EE** on the
-  analytic case (the reduction + cross-product oracle), then the CVA of an uncollateralized swap. This
-  is where "L5 on the engine + a `Priceable` protocol" (§2) materializes.
+  `price()` (reusing the Jäckel MC machinery). **Oracled on two legs, not one** (ruled 2026-11-08 on
+  Code's T25 Ask): (a) the **exact reduction** to T25's closed-form EE on the analytic case —
+  necessary, but *self-consistency against our own code*, which telescopes (§4), and T25's closed form
+  is now load-bearing for the whole arc; (b) an **independent anchor that never consults T25** — the
+  numéraire-relative **martingale identity** `E[V(t)/B_N(t)] = V(0)/B_N(0)`, exact by construction, no
+  model result (the T19 free control) — pinning the simulated process under the right measure before
+  its `⁺` transform is checked against T25. Then the CVA of an uncollateralized swap. This is where
+  "L5 on the engine + a `Priceable` protocol" (§2) materializes, and the natural point where the
+  `is_historical` atom (C10's trigger) is **pulled** (the exposure reads the historical boundary) and
+  C10 upgrades to `guarded — structurally`.
 - **T27 — bilateral CVA + DVA.** Both parties default; oracled by Crépey's `FV = CVA − DVA` identity
   and the party-swap symmetry (DVA of A = CVA seen by B), plus first-to-default survival.
 - **T28 — FVA.** The funding adjustment as Crépey's semilinear fixed point `FVA = γ(P−CVA−FVA)⁺`
@@ -65,11 +72,23 @@ Neither source replaces the other — exactly §4's "requirement oracle + pointw
 ## The completion ratio — honest
 At arc end, of Crépey's twelve chapters we will have built the **static/one-period elementary spine**:
 the survival/credit curve, expected exposure, and unilateral + bilateral CVA/DVA and FVA — oracled
-against `CAPINSKI-ZASTAWNIAK`'s closed forms and `CREPEY-2026`'s identities. Deferred wholesale to
-`docs/to_go_deeper.md` under `CREPEY-2026`: the neural-net/regression chapters (IV–VII), KVA and the
-anticipated-BSDE machinery (II, VII), the risk-measure / equilibrium / reverse-stress-test chapters
-(VIII–X), and HVA (XI). The cost-of-capital KVA — the book's actual thesis — is explicitly *not* in
-the spine; it is the richest deferred route, the "part two."
+against `CAPINSKI-ZASTAWNIAK`'s closed forms and `CREPEY-2026`'s identities. The deferral splits by
+§4's oracle gate (charter §1), not "deferred wholesale":
+
+- **`docs/to_go_deeper.md`** (oracle-able, unpulled — come-back-same-method): the **static one-period
+  KVA identity** (`KVA = (h/(1+h))·ES(L◦)`, closed form — the book's thesis, and the richest "part two");
+  collateral/CSA (VM/IM) exposure; CDS and defaultable-bond **calibration** of the survival curve;
+  Merton structural default probability as a second credit model.
+- **`docs/out_of_method.md`** (cannot be oracled as the method stands — candidates for a future §4
+  statistical-oracle tier): the **neural-net/quantile regression** chapters (IV–VII, XI §7), the
+  **continuous-time anticipated-BSDE** numerical XVA (II §3, VII §1) for a realistic portfolio, and
+  the **risk-measure / equilibrium / reverse-stress-test** case studies (VIII–X). Their validation is
+  twin Monte Carlo and their results are figures — §4's "named green oracle" and "no number off a
+  plot" cannot be met without extending the method.
+
+The cost-of-capital XVA computed by ML — the book's actual contribution — is therefore mostly
+out-of-method, not debt; only its static closed-form reductions and identities enter our world. That
+honesty is the whole reason the arc is scoped to the elementary spine.
 
 ## The honesty caveat (as for BERHAN and Jäckel)
 Crépey's results are figures (and neural-net convergence diagnostics), not tables. No number is read

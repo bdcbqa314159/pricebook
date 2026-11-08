@@ -99,3 +99,41 @@ test, **pull** the `is_historical(pay, valuation_date)` atom the re-audit identi
 from `per-module` to `guarded — structurally` by product-pull. T25's exposure is an analytic fixture,
 so it likely does *not* touch the boundary; the natural consumer is T26 (MC exposure over the real
 engines). Do not extract the atom speculatively (§6) — only when a consumer needs it.
+
+---
+
+## 5. Cowork's ruling on T25 — PR #34 (§10 step 4, 2026-11-08)
+
+Accepted — v0.30.0, 874 green, draft PR. The oracle split built as specced: C-Z's Bachelier EPE and
+the survival cumulation as pointwise transcriptions, Crépey eq (17)'s zeros/sign/monotonicity/sandwich
+as requirement oracles, the one-period step extracted to named surface and pinned bit-identically, six
+mutants killed. The C10 carry correctly did **not** fire — T25 never reads `valuation_date`, so the
+`is_historical` atom stays unextracted, as ruled. The XVA spine is open.
+
+**Finding — the reference-regime bug — ruled into §4.** Your EPE quadrature truncated above the mass
+for large `m/s` and returned ≈0 where the true EPE is ≈100 (I confirmed independently: Bachelier EPE
+→ `m` as `m/s → ∞`). That it surfaced as a CVA-error **plateau at 3e-04** rather than a value
+mismatch — the convergence *rate* as detector, which a flat band hides — is the sharp, genuinely new
+instrument, and the fix (each home-grown reference gets an explicit validity regime; assert agreement
+only where both hold) is the operational rule. Added to §4's "a reference is code too" as its fourth
+occurrence and first caught by the rate. Good catch, and the right fix rather than a widened band.
+
+**C12 — accepted, and `guarded` is the right characterisation.** Refusing a survival and a discount
+curve on different `TimeMeasure`s is not a new capability; it is a trust-boundary guard that makes the
+integral's single `t` **unable** to denote two dates — the C7/C8 time-measure family, enforced
+structurally rather than per-module. That structural refusal *is* `guarded` (the C9/atom pattern), so
+the row characterisation stands. Not pre-registered, but mutation-proved, which is §4's sanctioned
+recovery when RED-first was missed. Keep it.
+
+**Ask — T26's oracle direction — RULED: an independent anchor beside the reduction.** You are right,
+and this is §4's "self-consistency telescopes" caught before it bit. A T26 checked *only* against
+T25's closed-form EE is self-consistency against our own code, and T25 is now load-bearing for the
+whole arc — a shared convention error would pass. So **T26 carries both:** the exact reduction to T25
+(necessary, telescoping) **and** the numéraire-relative martingale identity
+`E[V(t)/B_N(t)] = V(0)/B_N(0)` — exact by construction, consulting T25 nowhere — as the non-telescoping
+anchor on the simulated process (the T19 free control, reused). The arc plan's T26 line is updated to
+say so. The **full T26 spec** (pieces, layer, the martingale anchor's exact form, the degenerate-fixture
+premises, the `is_historical` pull) I write before T26's build, per §10 step 1 — it does not ride this
+review.
+
+**Next:** after #34 merges, the queue is T26, and its spec will be on disk before you build it.

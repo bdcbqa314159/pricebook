@@ -6,6 +6,59 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-08
+
+Tranche 25 — **unilateral CVA and the survival curve: the XVA spine opens.** First unit of the XVA
+arc (`docs/xva_spine_arc.md`), and the first adjustment this tree has ever priced — it replaces the
+archived predecessor's faked `risk/xva.py`, whose register rows named a CVA module that never
+existed (pruned by tranche 24).
+
+### Added
+
+- **`market/survival_curve.py` (L1)** — `SurvivalCurve`, survival probability from a
+  piecewise-constant hazard: `S(t) = exp(-cumulative_hazard(t))`, with `cumulative_hazard` and
+  `default_density` (`lambda(t)S(t)`) as named surface rather than steps buried in the exponential.
+  Market data, not a model: a hazard rate is quote-side credit, the same status as a zero rate.
+  Source `CAPINSKI-ZASTAWNIAK` ch 2.
+- **`risk/credit_valuation_adjustment.py` (L5)** — `expected_positive_exposure` (the Bachelier
+  positive part `m*Phi(m/s) + s*phi(m/s)`), `ExposureProfile` (+ `.gaussian`), `unilateral_cva` and
+  the extracted one-period step `unilateral_cva_one_period`. Crepey Prop 1 eq (17)'s
+  `CVA = E[(1-J)P+]` under **exposure/default independence**, which is the simplification this
+  tranche makes and the thing wrong-way risk would recover. L5's second consumer after Greeks.
+- **A shared-clock guard (register `C12`)** — `unilateral_cva` refuses a survival and a discount
+  curve on different `TimeMeasure`s. The profile's `t` is read on both, so two anchors would make
+  one `t` denote two dates and the integral would mix them. The C7/C8 family, guarded rather than
+  recorded; its test is mutation-proved (removing the guard fails it).
+- **`DiscountCurve.df_at(t)`** — the discount factor at a year fraction, with `df(date)`
+  delegating. A time-grid integral holds `t` and no date; the delegation preserves operation order,
+  so the extraction is proved **bit-identical** rather than ULP-bounded (§4).
+
+### Oracles
+
+- The EPE against the test's **own numerical integral** (independent route) inside the regime where
+  that route is accurate, and against scipy's `ndtr` composition at the **extreme ratios the
+  profile actually visits** (`m/s` reaches 66), with relative tolerance — an absolute one is blind
+  where the EPE is ~1e-24 (T20a's rule).
+- The CVA against scipy quadrature of an **independently built integrand**, banded at 2e-04 from a
+  measured 9.4e-05, **plus the second-order convergence rate** — the rate is what proves it is the
+  same integral rather than merely a close number.
+- Crepey's requirement oracles: **two separate zeros** (`LGD = 0` and `lambda = 0`), sign,
+  monotonicity in both the hazard level and `LGD`, linearity in `LGD`, and the sandwich.
+- The one-period step pinned **bit-identically** to a hand computation.
+- **Six mutants, all killed** — dropped `LGD`, density replaced by the survival level, EPE replaced
+  by the forward, flat hazard cumulation, dropped `DF(t)`, hazard segment off-by-one. The
+  non-degeneracy premises (non-flat hazard, non-flat discount curve, `m/s = O(1)`) are each
+  asserted, and each is what kills one of these.
+
+### Fixed
+
+- A **defect in this tranche's own test reference**, caught by the convergence rate rather than by a
+  tolerance: the EPE quadrature integrated from `-m/s` over a fixed-width window, which truncates
+  above the distribution's mass once the ratio is large — it returned ~0 where the true EPE was
+  99.975. It made the CVA error *plateau* at 3e-04 instead of converging. The references now carry
+  explicit validity regimes and are asserted to agree where both hold. §4's "a reference is code
+  too", fourth occurrence.
+
 ## [0.29.0] - 2026-11-08
 
 Tranche 24 — **the conventions register rebuilt to this tree** (re-audit #1 findings F-3.1, F-3.2,

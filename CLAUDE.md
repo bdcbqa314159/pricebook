@@ -38,6 +38,28 @@ by interest; `0.x` holds through the build. **What `1.0.0` will mean is delibera
 is too early to fix a finish line** — except that it will not be a module count (the migration bar
 is retired). The question returns when it is ripe, from a ruling, not a guess now.
 
+**What enters the spine, and where the rest goes.** A capability is *built* — enters the spine — only
+if it passes three gates, all already in this charter: the **oracle gate** (§4 — a named green oracle
+exists, in the order closed form > cross-check > self-consistency > trusted mark), the **pull gate**
+(§1/§6 — a product worth having needs it *now*; nothing speculative), and the **interest gate**
+(interest picks it). The oracle gate is the hard one, and it *is* the debt line: **what cannot be
+oracled is not "debt to go deeper" — it is out of method.** So deferred work splits in two, by the
+gate it fails:
+
+- **`docs/to_go_deeper.md`** — a route that *would* pass the oracle gate (oracle-able with our
+  discipline, perhaps after acquiring a source) but is not pulled yet. Genuine come-back-same-method
+  debt.
+- **`docs/out_of_method.md`** — a capability a held source offers that *cannot* pass the oracle gate
+  as the method stands: a result anchored only by a plot or a stochastic twin-MC run, with no closed
+  form, cross-check, or requirement-identity to pin it (Crépey's neural-net XVA regressions). Not
+  repayable as-is — repaying it means a deliberate **§4 extension** (a statistical/stochastic-oracle
+  tier that accepts convergence-based validation). Recorded as a **candidate** for that extension,
+  ruled on only if interest ever pulls that way; never built under §4 as it stands.
+
+*(Ruled with Bernardo, 2026-11-08, after three arcs made the spine/deferred cut by judgement —
+BERHAN ch 1–5, Jäckel 9-of-14, XVA's elementary spine. The cut is a test now, not taste. The gates
+are not new; the two-bin split and the out-of-method candidate flag are.)*
+
 ---
 
 ## 2. The spine (layers — dependencies point DOWN only)
@@ -357,6 +379,14 @@ not an oracle. Ruled principles:
   assert **relative** accuracy against a reference that has it. *(T20a: a root-find on `norm_cdf` was the
   weaker side three times — disagreeing in the tail, failing to resolve a root at `p=1−1e-12`, missing at
   `p=0.999` where the code was bit-exact; primary cross-check moved to `scipy.special.ndtri`.)*
+  **And a reference's regime error can hide as a convergence *plateau* rather than a value mismatch —
+  so the convergence RATE is the detector a flat band misses.** Give each home-grown reference an
+  explicit **validity regime** and assert the references agree only where both hold. *(T25: an EPE
+  quadrature truncated above the distribution's mass for large `m/s` and returned ≈0 where the true
+  EPE was ≈100 (Bachelier EPE → `m` as `m/s → ∞`); the CVA error then **plateaued at 3e-04 instead
+  of converging**, and only the plateau — no single value — revealed it. Fourth "a reference is code
+  too", and the first caught by the rate, not the value: a flat percentage band would have absorbed
+  it as quadrature noise.)*
 - **A pure refactor is proved by an exact-arithmetic identity, not always by bit-identity.** Bit-
   identity (the equivalent-mutant proof above, and the Black and HW extractions) is available only
   when the refactor *preserves the order* of the floating-point operations. When the refactor
@@ -389,6 +419,16 @@ inferred from the stock's code, which may be a weaker or different object. *(Pre
 anchor was mistakenly taken as `ρ → 0` from the stock's first-order `yoy_convexity_adjustment`; the
 source's eq 2.5.11 makes it `σr → 0`. Caught at the handoff by pre-registration.)* Each purified
 piece earns its own oracle; an imported-but-unoracled convention is worse than an absent one.
+
+**Our own `docs/` are not an authority either — the same rule, one level up.** A formula parked in a
+spec, a `to_go_deeper` anchor, or a ruling is *content*, not the source: at build time it is
+re-transcribed from the held source in two renderings (§4), never copied forward from our doc. A
+number can be wrong in our doc exactly as it can be wrong in the stock, and a wrong anchor copied
+forward launders the error into code. *(2026-11-08: the §1 ruling recorded the static KVA as
+`h·ES(L◦)`; Crépey eq (25) is `(h/(1+h))·ES(L◦)` — a `pdftotext -layout` reflow split the fraction
+across two lines, the exact §4 single-rendering hazard, caught before it reached `to_go_deeper` by
+the dual rendering and by the printed requirement bound `0 ≤ KVA ≤ ES(L◦)`, which holds
+unconditionally only for the fraction.)*
 
 ---
 
