@@ -470,7 +470,12 @@ piece earns its own oracle; an imported-but-unoracled convention is worse than a
   every push and catch *structural* drift (layering, fields, debt balance, provenance), so the
   re-audit targets only what they cannot: **(1) oracle power** — a full-tree mutation sweep, because
   mutation is per-tranche and never re-run, so an oracle strong at T4 can be silently weakened by a
-  later refactor (the project's signature defect, applied to history); **(2) cross-tranche consistency
+  later refactor (the project's signature defect, applied to history). **Full-tree means the oldest
+  tranches, not the arc just built** — re-audit #1's one hole (F-1.2, T3's linker accrual, dropped
+  `ψ` invisible because every fixture was `τ=1`) lived in the *oldest* instrument and was found only
+  when the sweep was extended past the recent arc it was first scoped to: the signature defect
+  committed against the audit itself. The text already said "full-tree"; the first run under-applied
+  it, so this is the precedent, not a new rule. **(2) cross-tranche consistency
   and duplication** — "owed"/"per-module" conventions that never got their guard, duplicated value
   objects, a rule-of-two abstraction overdue at its second consumer; **(3) register accuracy** —
   `to_go_deeper`, `OPEN.md`, `references.md`, the arc plans still describing reality; **(4) charter

@@ -128,3 +128,42 @@ finding and worth stating plainly rather than leaving as an absence.
 2. **The re-audit's own domain is the real lesson, and it is already recorded.** F-1.2 was found only
    because the sweep was extended past the first pass's scope — §4's own rule applied to the audit.
    Worth making the *default* for re-audit #2: sweep the whole tree, not the recent arc.
+
+---
+
+## 10. Cowork's ruling on T23 — PR #32 (§10 step 4, 2026-11-08)
+
+Accepted — v0.28.0, test-only, `src` unchanged exactly as the audit predicted, 820 green, the hole
+reproduced before it was closed (drop-`ψ` SURVIVED 818 from clean bytecode) and killed by the new
+non-degenerate oracle. F-1.2 closed.
+
+**The unequal-accrual refinement is the right instinct, and better than my spec.** I asked for
+non-unit `ψ`; you also made them **unequal** (182/183 days → 0.4986/0.5014), which kills the `ψ → 0.5`
+constant-mutant a merely-non-unit fixture would have left alive. That is the charter's existing rule
+applied correctly — "the premise to assert is not 'the values differ' but 'the block the code reads
+differs from the block a mutation would read'" (§4, the T17 uniformity-across-a-slice appearance): a
+constant-`ψ` mutant reads a *uniform* block, so the fixture must be non-uniform, not merely non-unit.
+No charter change — it is an instance of a rule already there, and the `test_..._NOT_degenerate`
+premise test is exactly the guard §4 prescribes.
+
+**Your two §9 findings:**
+
+1. **No new §4 clause — agreed, and the restraint is right (your second arc running).** The
+   "visibly computes `ψ` and is still blind" sharpness is real, but it is a point about *review
+   psychology* — why humans and the two review passes saw a covered term — not a new *detection* rule.
+   The detection machinery (mutation + assert the non-degeneracy as a premise) already existed and is
+   what caught this; and the fixture is, structurally, an instance of §4's existing "a varying fixture
+   can still be degenerate if it is invariant under the transformation the code performs" — `C·ψ = C`
+   when every `ψ = 1`, degenerate under multiply-by-`ψ`. Sixth instance of the trap, not a sixth kind.
+   §4 is long and earned its keep by catching this; it does not grow. (If the "visibly handles it"
+   line ever recurs as a *distinct* failure the premise test does not guard, re-open it — but once is
+   an anecdote.)
+2. **Whole-tree as the default sweep scope — ruled, and it lands in §9, not §4.** This is the real
+   lesson, and it is the signature defect committed against the audit itself: the text already said
+   "full-tree mutation sweep", the first run scoped to the recent arc anyway, and the one hole lived
+   in the oldest tranche. §9 gains a precedent line (F-1.2 as the cite) that full-tree means the
+   oldest tranches, not the arc just built — a precedent, not a new rule, since the rule was already
+   right and only under-applied. Edited.
+
+**Next: T24** (the register rebuild) per `docs/tranches/24_reaudit_register_rebuild.md`, on the normal
+rhythm. Entry #1 completes when T24 lands.
