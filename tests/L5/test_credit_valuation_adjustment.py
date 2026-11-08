@@ -238,6 +238,12 @@ class TestTheGuardsAreReachable:
         with pytest.raises(ValueError, match="two"):
             unilateral_cva(ExposureProfile((0.0,), (10.0,)), SURVIVAL, DISCOUNT, LGD)
 
+    def test_two_curves_on_DIFFERENT_clocks_are_refused(self) -> None:
+        """C12. The profile's `t` is read on both curves, so one `t` must mean one date."""
+        elsewhere = SurvivalCurve(TimeMeasure(date(2027, 6, 1), DC), SURVIVAL.times, SURVIVAL.hazards)
+        with pytest.raises(ValueError, match="share one time measure"):
+            unilateral_cva(_profile(), elsewhere, DISCOUNT, LGD)
+
     def test_a_loss_given_default_outside_the_unit_interval_is_refused(self) -> None:
         with pytest.raises(ValueError, match="loss given default"):
             unilateral_cva(_profile(), SURVIVAL, DISCOUNT, 1.5)

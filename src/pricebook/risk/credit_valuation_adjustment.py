@@ -142,6 +142,14 @@ def unilateral_cva(
         raise ValueError(f"loss given default must lie in [0, 1], got {loss_given_default}")
     if len(profile.times) < 2:
         raise ValueError("integrating an exposure profile needs at least two grid points")
+    if survival.time_measure != discount.time_measure:
+        # The profile's `t` is read on BOTH curves. Different anchors or day counts mean the same
+        # `t` denotes two different dates, and the integral silently mixes them - the C7/C8 family
+        # of shared-clock conventions, guarded here rather than recorded and hoped for (§7).
+        raise ValueError(
+            "the survival and discount curves must share one time measure: "
+            f"{survival.time_measure} vs {discount.time_measure}"
+        )
 
     integrand = [
         discount.df_at(t) * epe * survival.default_density(t)
