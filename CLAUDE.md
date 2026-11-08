@@ -379,6 +379,14 @@ not an oracle. Ruled principles:
   assert **relative** accuracy against a reference that has it. *(T20a: a root-find on `norm_cdf` was the
   weaker side three times — disagreeing in the tail, failing to resolve a root at `p=1−1e-12`, missing at
   `p=0.999` where the code was bit-exact; primary cross-check moved to `scipy.special.ndtri`.)*
+  **And a reference's regime error can hide as a convergence *plateau* rather than a value mismatch —
+  so the convergence RATE is the detector a flat band misses.** Give each home-grown reference an
+  explicit **validity regime** and assert the references agree only where both hold. *(T25: an EPE
+  quadrature truncated above the distribution's mass for large `m/s` and returned ≈0 where the true
+  EPE was ≈100 (Bachelier EPE → `m` as `m/s → ∞`); the CVA error then **plateaued at 3e-04 instead
+  of converging**, and only the plateau — no single value — revealed it. Fourth "a reference is code
+  too", and the first caught by the rate, not the value: a flat percentage band would have absorbed
+  it as quadrature noise.)*
 - **A pure refactor is proved by an exact-arithmetic identity, not always by bit-identity.** Bit-
   identity (the equivalent-mutant proof above, and the Black and HW extractions) is available only
   when the refactor *preserves the order* of the floating-point operations. When the refactor

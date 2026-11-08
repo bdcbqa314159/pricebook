@@ -51,9 +51,16 @@ Neither source replaces the other — exactly §4's "requirement oracle + pointw
   a hazard-rate survival curve. Pure closed-form oracle, no MC — honoring §4's "closed form > MC."
   Spec: `docs/tranches/25_unilateral_cva.md`.
 - **T26 — the Monte-Carlo exposure engine.** EPE/ENE by simulation over a real instrument through
-  `price()` (reusing the Jäckel MC machinery), **cross-checked against T25's closed-form EE** on the
-  analytic case (the reduction + cross-product oracle), then the CVA of an uncollateralized swap. This
-  is where "L5 on the engine + a `Priceable` protocol" (§2) materializes.
+  `price()` (reusing the Jäckel MC machinery). **Oracled on two legs, not one** (ruled 2026-11-08 on
+  Code's T25 Ask): (a) the **exact reduction** to T25's closed-form EE on the analytic case —
+  necessary, but *self-consistency against our own code*, which telescopes (§4), and T25's closed form
+  is now load-bearing for the whole arc; (b) an **independent anchor that never consults T25** — the
+  numéraire-relative **martingale identity** `E[V(t)/B_N(t)] = V(0)/B_N(0)`, exact by construction, no
+  model result (the T19 free control) — pinning the simulated process under the right measure before
+  its `⁺` transform is checked against T25. Then the CVA of an uncollateralized swap. This is where
+  "L5 on the engine + a `Priceable` protocol" (§2) materializes, and the natural point where the
+  `is_historical` atom (C10's trigger) is **pulled** (the exposure reads the historical boundary) and
+  C10 upgrades to `guarded — structurally`.
 - **T27 — bilateral CVA + DVA.** Both parties default; oracled by Crépey's `FV = CVA − DVA` identity
   and the party-swap symmetry (DVA of A = CVA seen by B), plus first-to-default survival.
 - **T28 — FVA.** The funding adjustment as Crépey's semilinear fixed point `FVA = γ(P−CVA−FVA)⁺`
