@@ -43,7 +43,7 @@ MSc thesis, KTH Royal Institute of Technology, 2012. TRITA-MAT-E 2012:13.
 
 ---
 
-### `JAECKEL-2002` — `in-hand`
+### `JAECKEL-2002` — `worked-from`
 
 Jäckel, P., *Monte Carlo Methods in Finance*. Wiley, 2002. 235 pp. Held locally at
 `_stock/NewDocuments/Monte Carlo methods in finance (Jaeckel P.) ...pdf` (gitignored — copyrighted;
@@ -183,7 +183,7 @@ That is also why the algorithm is **not a correctness dependency**: tranche 20 i
 `norm_cdf` by a guarded root-find as the primary, exact path, and Acklam's coefficients stay
 *untrusted until they agree with it*.
 
-### `CREPEY-2026` — `in-hand`
+### `CREPEY-2026` — `worked-from`
 
 Crépey, S., *XVA Analysis: Probabilistic, Risk Measure, and Machine Learning Issues*. Chapman &
 Hall/CRC Financial Mathematics Series, CRC Press, first edition 2026. 417 pp. ISBN 978-1-041-01420-1.
@@ -213,11 +213,11 @@ so §4's "no number off a plot" binds hard.
   chapters (VIII–X), and HVA (XI). None is closed-form-oracle-able our way; the honest spine is the
   static/one-period elementary XVA, same move as BERHAN ch 1–5 and Jäckel's 9-of-14.
 
-**Status `in-hand`, not `worked-from`** until T25 lands. Concept map + arc in `docs/xva_spine_arc.md`.
+**Status `worked-from`** since T25 (v0.30.0): the CVA frame and eq (17)'s independence reduction are built and oracled in `risk/credit_valuation_adjustment.py`, extended by T26's exposure engine. Concept map + arc in `docs/xva_spine_arc.md`.
 
 ---
 
-### `CAPINSKI-ZASTAWNIAK` — `in-hand`
+### `CAPINSKI-ZASTAWNIAK` — `worked-from`
 
 Capiński, M. and Zastawniak, T., *Credit Risk*. Mastering Mathematical Finance, Cambridge University
 Press. 202 pp. Held at `_stock/NewDocuments/Capiński, Zastawniak - Credit Risk.pdf` (gitignored —
@@ -235,7 +235,7 @@ text with proofs, so its formulas are genuine pointwise-transcription anchors:
 | 4 | Credit Default Swap | the **CDS par spread** closed form; survival↔CDS calibration |
 | 5–6 | Hazard *process* (enlarged filtration) | the advanced tie-in to Crépey's filtration machinery — deferred |
 
-**Status `in-hand`, not `worked-from`** until the first credit-layer tranche (T25) lands.
+**Status `worked-from`** since T25 (v0.30.0): ch 2's hazard function and survival probability are built and oracled in `market/survival_curve.py`, and the Bachelier positive part in `risk/credit_valuation_adjustment.py`.
 
 ---
 

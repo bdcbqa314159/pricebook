@@ -141,3 +141,18 @@ inline copies of the invariant-6 comparison; that one is registered with its own
 **The honesty caveat (as for BERHAN):** Jäckel's results are convergence diagrams, not tables (§14.4).
 Any deeper build reproduces the *structure* — a rate, a bound, a variance-reduction factor — with
 every number attributed to the library and its oracle, never read off a plot.
+
+---
+
+## `CREPEY-2026` — *XVA Analysis* (the XVA spine arc: T25–, in progress)
+
+Routes recorded as the arc runs; the full set lands at the checkpoint `CP_xva_spine.md`. So far:
+
+1. **The amortising exposure profile over a swap's life — the realistic "hump".** T26 pins Leg B's
+   martingale anchor exactly by observing the swap only over `(0, T_first]`, where the claim is fixed,
+   deferring the full-life EPE profile across coupon payments (the canonical CVA picture). **Route:**
+   the deflated-value-plus-accumulated-cashflows martingale
+   `E[(V(t) + reinvested paid cashflows)/B_N(t)] = V(0)/B_N(0)`, exact across payments, which restores
+   the hump without weakening the anchor to an approximation. **Source:** `CREPEY-2026` (`worked-from`)
+   + standard exposure mechanics. Oracle-able and exact, not pulled — pulled when a product wants the
+   full profile.
