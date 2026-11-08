@@ -479,8 +479,15 @@ piece earns its own oracle; an imported-but-unoracled convention is worse than a
   and duplication** — "owed"/"per-module" conventions that never got their guard, duplicated value
   objects, a rule-of-two abstraction overdue at its second consumer; **(3) register accuracy** —
   `to_go_deeper`, `OPEN.md`, `references.md`, the arc plans still describing reality; **(4) charter
-  staleness** — a clause now stale or in tension (it has happened). Run with **independence** (§4's
-  spirit): the reviewer is not the surface that built the code — the `analysis/` read-only-copy +
+  staleness** — a clause now stale or in tension (it has happened). **(1) and (3) are not separate
+  passes — they inform each other.** Honestly re-deriving a register row *is* an oracle-power probe:
+  to establish what a convention row actually claims you mutate the convention and watch who notices.
+  Re-audit #1's second hole — a 41% `capfloor` mispricing the suite could not catch — was found in the
+  *register* pass, not the mutation pass, while re-deriving the invariant-6 row. So run the register
+  and oracle-power passes together. *(T24: flipping the historical-flow boundary `>`→`>=` while
+  re-deriving C10 gave three survivors — two proved equivalent, an expired Hull-White caplet being
+  exactly 0, one the real `capfloor` hole where an already-paid period's payoff is determined.)* Run
+  with **independence** (§4's spirit): the reviewer is not the surface that built the code — the `analysis/` read-only-copy +
   `AUDIT_FINDINGS.md` pattern pointed at current `main`. Findings are ruled by Cowork and become
   tranches or `to_go_deeper`/`OPEN` entries; the cadence is tracked in `docs/audit_log.md` (last
   re-audit: version + tranche) so the trigger is mechanical, not remembered. First run at the Jäckel

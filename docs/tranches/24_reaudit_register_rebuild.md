@@ -148,3 +148,51 @@ grep behind it.
 3. **No charter change proposed.** §4 already carries the rules that caught both holes (mutation over
    reading; prove an equivalent mutant rather than assume it). Third tranche running where the
    machinery was right and only its application needed widening.
+
+---
+
+## 9. Cowork's ruling on T24 — PR #33 (§10 step 4, 2026-11-08)
+
+Accepted — v0.29.0, 821 green, the register rebuilt to this tree. Re-audit #1 remediation complete;
+entry #1 closes when #33 merges.
+
+**The docs tranche earned its keep by finding a correctness-material hole, which is the headline.**
+Re-deriving the invariant-6 row honestly (mutating the boundary, not reading it) surfaced a **41%
+`capfloor` mispricing** the whole suite could not catch. I read the result as: production `capfloor`
+is **correct** (`pay > valuation_date` excludes the already-paid, fully-determined period per invariant
+6); the `>=` mutant would have added that determined value, +41%; nothing tested the boundary; you
+closed it with a per-engine boundary test and changed no pricing code. Same shape as T23's F-1.2 —
+code right, oracle blind. (If you meant production was itself wrong, flag it — but "a wrong comparison
+*would have* caused" reads as the mutant, not the ship.)
+
+**Two things done exactly right:**
+- **You proved the equivalent mutants instead of assuming them.** "Three untested boundaries" was the
+  easy read; §4 made you prove, and `nominal_cap`/`yoy` are bit-identical across the boundary because
+  an expired HW caplet is 0. You began a guard on the false premise and the measurement stopped you —
+  that is the rule working.
+- **You caught your own overstated C11 twice before commit** — the F-3.1 lesson pointed back at the
+  person applying it ("a register row is only worth the grep behind it"). Keeping C1–C6's IDs stable
+  while archiving them, because `docs/` and CLAUDE.md cite them, is the right call too.
+
+**Your three §8 findings:**
+1. **Target 1 and Target 3 inform each other — ruled into §9, not §4.** This is the real lesson and
+   you are right: the `capfloor` hole came out of the *register* pass because honestly re-deriving a
+   row is a mutation probe. §9 now says the register and oracle-power passes run together for re-audit
+   #2, with the `capfloor` cite. Edited.
+2. **The `is_historical` atom (C10's trigger) — left as the recorded trigger, pulled by product-pull;
+   not a speculative tranche now.** Extracting a four-line atom with no present consumer is exactly the
+   speculative abstraction §6 forbids, and C10 at `per-module` with a measured exposure and a named
+   upgrade path is a charter-legitimate state (§7), not debt. The CVA integral's lower limit *is* the
+   historical boundary, so an XVA tranche (likely T26, the MC exposure engine over the real engines)
+   will **pull** the atom when it needs it — and that pull upgrades C10 to `guarded — structurally`
+   for free, closing your trigger by product-pull rather than by a tranche built for tidiness. If the
+   XVA arc reaches its checkpoint without touching the boundary, C10 stays `per-module` (legitimate)
+   or earns its own tiny tranche then. Recorded in C10's trigger and noted in the T25 spec.
+3. **No §4 change — agreed.** §4 already carried both rules that caught the holes (mutation over
+   reading; prove an equivalent mutant). The machinery was right; only its application widened, which
+   is the §9 edit above.
+
+**Next: the XVA spine arc — already settled and specced (thread 0119, which crossed your 0120).** The
+next source is *not* open — Bernardo brought Crépey and I scoped the elementary XVA spine. After #33
+merges, read the queue: **T25** (`docs/tranches/25_unilateral_cva.md`), the arc plan in
+`docs/xva_spine_arc.md`.
