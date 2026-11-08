@@ -60,3 +60,91 @@ the check: `verify.py provenance`/`layers` stay green, and the rebuilt register 
 non-existent module) → `docs` → `chore(release): v0.29.0`. `source:` none. **Open as a DRAFT PR**
 (§10 step 3). Closes the re-audit #1 remediation; after it lands, `docs/audit_log.md` entry #1 is
 complete and the next-source direction is settled with Bernardo.
+
+
+---
+
+# BUILT — results (appended at build; §0–4 above are Cowork's spec, unedited)
+
+`v0.29.0`. 821 tests, all eight gates green, ruff and pyright clean. The register is rebuilt,
+`to_go_deeper`'s stale lines are corrected, F-2.1 is recorded — **and §2's optional guard turned out
+to be earned, for a reason the audit had not found.**
+
+## 5. §2's guard was earned — by mutation, not by reading
+
+The spec allowed a cheap cross-module guard *"only if the re-derivation earns it"*, and warned against
+manufacturing one to tidy the Guard column. My carry-in said I would re-derive first and judge after.
+Re-deriving the invariant-6 row meant establishing what the five engines actually agree on, and the
+honest way to establish that is to **flip the boundary and see who notices**:
+
+| engine | `>` → `>=` | verdict |
+|---|---|---|
+| `cash` | KILLED | tested |
+| `inflation` | KILLED | tested |
+| `nominal_cap` | SURVIVED | **proved equivalent** |
+| `capfloor` | SURVIVED | **a real hole — 41%** |
+| `yoy` | SURVIVED | **proved equivalent** |
+
+So three survivors, and the first instinct — "three engines have an untested boundary" — was **wrong
+for two of them.** §4 requires proving an equivalent mutant rather than assuming it, and the proof is
+that prices are **bit-identical** across four schedules including the boundary case: a Hull-White
+caplet whose expiry has already passed is worth exactly zero, so including or dropping such a period
+changes nothing. I nearly wrote a guard on that false premise; measuring stopped me.
+
+`capfloor` is the one that matters. An inflation cap/floor period that has already paid has **both
+index levels known** — the payoff is *determined*, not an expired option — so it carries real value,
+and including it moved the price from **5,929.24 to 8,363.52, about +41%**. That is a genuine
+mispricing a wrong comparison would have caused, with nothing to catch it. Closed.
+
+## 6. Why the row is `per-module` and not `guarded`
+
+A cross-module test comparing all five engines would catch **nothing** that the per-engine boundary
+tests do, while duplicating three market fixtures and claiming a guarantee that does not exist. What
+would make C10 structurally guarded is what makes C9 guarded: **an atom.** Five engines inline
+`pay > valuation_date`, so a divergence is expressible; extract one `is_historical(pay, valuation_date)`
+and the row joins C9 and C11 at *guarded — structurally*. That is recorded as the row's trigger rather
+than done, because it is a `src` change and this was ruled a docs tranche.
+
+This is the spec's own warning honoured rather than quoted: an honest `per-module` with a measured
+exposure and a named upgrade path beats a `guarded` that rests on a test comparing fixtures instead of
+modules.
+
+## 7. The register, rebuilt — and one of my own rows was overstated
+
+C1–C6 described `risk/exposure.py`, `risk/xva.py`, `engine/linear.py`, `engine/xccy.py`,
+`engine/equity.py`, `models/sabr_model.py` and seven more modules that **do not exist here**. They are
+now a clearly-labelled *archived* section (lessons only, not inventory), with the IDs **kept stable**
+because `docs/handoffs/`, `docs/audit/` and CLAUDE.md cite them and renumbering would silently change
+what those citations mean. The live register is C7–C11, and a check confirms **every module it names
+exists in `src/`**.
+
+**C11 as I first wrote it was wrong in two ways**, which is worth recording because it is the same
+failure mode as the rows I was replacing — a convention row asserting more than the code supports:
+
+* *"every L3 model carries a `MarketSnapshot`"* — false. Six do; `black`, `black_mc`,
+  `libor_market_model`, `swap_rate_vol`, `exercise_boundary` and `index_ratio` do not, because they
+  are closed forms, parameter objects and numerical helpers that never read market data. That is the
+  convention's **scope**, not a list of exceptions.
+* *"there is no second place to pass a snapshot from"* — false inside an engine. `inflation_leg_value`,
+  `resolved_index_level` and the three calibration objectives all take a snapshot explicitly, quite
+  legitimately, since they are called *from* a pricer that got it from `model.market`. The guarantee
+  is at the **entry point**: a caller cannot supply a mismatched snapshot, because every registered
+  pricer's signature is `(product, model)`.
+
+Both corrected before commit. The lesson is the one F-3.1 is about: a register row is only worth the
+grep behind it.
+
+## 8. Findings for Cowork (§10 — raised, not decided)
+
+1. **Target 3 and Target 1 are less separable than §9's list suggests.** The `capfloor` hole was found
+   by a *docs* tranche, because re-deriving a register row honestly means mutating the convention, not
+   reading the code. Worth folding into §9's re-audit description for #2: *re-deriving a register row
+   is an oracle-power probe*, so the register pass and the mutation pass should inform each other
+   rather than run as separate targets.
+2. **The `is_historical` atom (C10's trigger)** — a four-line extraction that would upgrade the
+   widest-spread live convention from `per-module` to `guarded — structurally`. Out of scope here by
+   your docs-only ruling; worth a small tranche of its own, or folding into whatever next touches an
+   engine. Not urgent: the exposure is now measured and two of the five survivors are proved harmless.
+3. **No charter change proposed.** §4 already carries the rules that caught both holes (mutation over
+   reading; prove an equivalent mutant rather than assume it). Third tranche running where the
+   machinery was right and only its application needed widening.
