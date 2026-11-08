@@ -37,5 +37,21 @@ vehicle, each resource-backed implementation doubling as teaching. Berhan's infl
   publishes (a Substack connector or a paste — sorted when the first piece is ready).
 - **Cadence: backlog-first.** The six built tranches (the whole inflation arc + the bugs the oracle
   discipline caught) are a strong opening; then one piece as each new tranche lands.
+- **The running journal is `_substack/journal.md`** (a **gitignored** directory — out of the tracked
+  tree per the rule above, the whole `_substack/` dir ignored wholesale like `_stock/`, so drafts and
+  the pipeline manual land there too). A captain's log, one entry per tranche/arc: what was built, its
+  source and oracle, and the bugs/honest-negatives that are the real material. Caught up through T25 on
+  2026-11-08 (the inflation, Jäckel, re-audit and XVA-opening backlog). The polished pieces are drawn
+  from it; the CHANGELOG is its source of truth.
+- **The capture discipline (so it never rots again).** Build-Cowork appends the journal entry at
+  **step-4 — the PR review/ruling** of each tranche (it fell 20 tranches behind once; tying it to a
+  step that always happens is the fix). Entries capture the method/meta track too, not only finance.
+- **The two-role split, and the manual for it.** The build and the publications work are two Cowork
+  roles with a §10-style boundary: Build-Cowork *produces* the journal and owns factual accuracy;
+  **Publications-Cowork** (a separate session) *consumes* it and owns editorial craft, drafting pieces
+  *with Bernardo*. Neither edits the other's world; a draft that needs an unrecorded number **raises a
+  request, never fabricates**. The operating manual the publications session reads first is
+  **`_substack/pipeline.md`** (gitignored) — role boundary, the file map, the honesty contract, the
+  entry template, drafts in `_substack/drafts/`, and the `_substack/requests.md` gap channel.
 - **Governed by the honesty principle above** — structure, not a source's pixels; every number
   attributed to the library and its oracle.

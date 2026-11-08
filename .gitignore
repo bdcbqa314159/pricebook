@@ -35,3 +35,11 @@ htmlcov/
 docs/papers/*.pdf
 docs/papers/*.djvu
 docs/papers/*.epub
+
+# ── the Substack journal & drafts — local working state, not repo content ───────────────────
+# The narrative/dev-journal behind the Substack series (FP-1 in docs/future_projects.md). Kept
+# OUT of the tracked tree: this repo is PUBLIC, and the series is a separate downstream project
+# (a consumer of the library), not the analytics library itself. docs/future_projects.md records
+# THAT it exists and where; the files themselves stay local, exactly as _stock/ and
+# .cowork/thread.md do.
+_substack/
