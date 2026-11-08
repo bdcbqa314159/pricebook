@@ -258,3 +258,28 @@ class TestTheGuardsAreReachable:
         """Past `T_first` the swap has paid, the claim changes, and Leg B would be false."""
         with pytest.raises(ValueError, match="before the span"):
             swap_values_on_paths(_paths(), TENOR, SPAN, STRIKE, (1, 2, 5))
+
+
+class TestThePathwiseAndProfileFormsAreOneQuantity:
+    """The module claims the pathwise mean reproduces T25's profile integral *exactly*. Assert it.
+
+    The deterministic weights commute with the average, so this is an algebraic identity, not an
+    approximation — and asserting it is what makes the pathwise standard error trustworthy: it
+    proves the estimator whose error we report is integrating the same thing T25 integrates, rather
+    than something merely close to it.
+    """
+
+    def test_the_pathwise_CVA_equals_T25s_integral_of_the_SAME_EPE_profile(self) -> None:
+        exposure = _brownian_exposure(8_000)
+        pathwise = mc_exposure_cva(exposure, SURVIVAL, DISCOUNT, LGD, EUR)
+        profile = unilateral_cva(exposure.estimate().profile(), SURVIVAL, DISCOUNT, LGD)
+        assert pathwise.pv.amount == pytest.approx(profile, rel=1e-12)
+
+    def test_the_identity_holds_on_the_SIMULATED_SWAP_too(self) -> None:
+        """Not only on the Gaussian fixture — the identity is about the weights, not the process."""
+        values = swap_values_on_paths(_paths(), TENOR, SPAN, STRIKE, OBSERVED).value
+        exposure = SimulatedExposure(tuple(TENOR_TIMES[i] for i in OBSERVED), values)
+        pathwise = mc_exposure_cva(exposure, SURVIVAL, DISCOUNT, LGD, EUR)
+        profile = unilateral_cva(exposure.estimate().profile(), SURVIVAL, DISCOUNT, LGD)
+        assert pathwise.pv.amount == pytest.approx(profile, rel=1e-12)
+        assert pathwise.standard_error > 0.0
