@@ -65,11 +65,23 @@ Neither source replaces the other — exactly §4's "requirement oracle + pointw
 ## The completion ratio — honest
 At arc end, of Crépey's twelve chapters we will have built the **static/one-period elementary spine**:
 the survival/credit curve, expected exposure, and unilateral + bilateral CVA/DVA and FVA — oracled
-against `CAPINSKI-ZASTAWNIAK`'s closed forms and `CREPEY-2026`'s identities. Deferred wholesale to
-`docs/to_go_deeper.md` under `CREPEY-2026`: the neural-net/regression chapters (IV–VII), KVA and the
-anticipated-BSDE machinery (II, VII), the risk-measure / equilibrium / reverse-stress-test chapters
-(VIII–X), and HVA (XI). The cost-of-capital KVA — the book's actual thesis — is explicitly *not* in
-the spine; it is the richest deferred route, the "part two."
+against `CAPINSKI-ZASTAWNIAK`'s closed forms and `CREPEY-2026`'s identities. The deferral splits by
+§4's oracle gate (charter §1), not "deferred wholesale":
+
+- **`docs/to_go_deeper.md`** (oracle-able, unpulled — come-back-same-method): the **static one-period
+  KVA identity** (`KVA = (h/(1+h))·ES(L◦)`, closed form — the book's thesis, and the richest "part two");
+  collateral/CSA (VM/IM) exposure; CDS and defaultable-bond **calibration** of the survival curve;
+  Merton structural default probability as a second credit model.
+- **`docs/out_of_method.md`** (cannot be oracled as the method stands — candidates for a future §4
+  statistical-oracle tier): the **neural-net/quantile regression** chapters (IV–VII, XI §7), the
+  **continuous-time anticipated-BSDE** numerical XVA (II §3, VII §1) for a realistic portfolio, and
+  the **risk-measure / equilibrium / reverse-stress-test** case studies (VIII–X). Their validation is
+  twin Monte Carlo and their results are figures — §4's "named green oracle" and "no number off a
+  plot" cannot be met without extending the method.
+
+The cost-of-capital XVA computed by ML — the book's actual contribution — is therefore mostly
+out-of-method, not debt; only its static closed-form reductions and identities enter our world. That
+honesty is the whole reason the arc is scoped to the elementary spine.
 
 ## The honesty caveat (as for BERHAN and Jäckel)
 Crépey's results are figures (and neural-net convergence diagnostics), not tables. No number is read

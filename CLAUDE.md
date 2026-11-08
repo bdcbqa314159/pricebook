@@ -38,6 +38,28 @@ by interest; `0.x` holds through the build. **What `1.0.0` will mean is delibera
 is too early to fix a finish line** — except that it will not be a module count (the migration bar
 is retired). The question returns when it is ripe, from a ruling, not a guess now.
 
+**What enters the spine, and where the rest goes.** A capability is *built* — enters the spine — only
+if it passes three gates, all already in this charter: the **oracle gate** (§4 — a named green oracle
+exists, in the order closed form > cross-check > self-consistency > trusted mark), the **pull gate**
+(§1/§6 — a product worth having needs it *now*; nothing speculative), and the **interest gate**
+(interest picks it). The oracle gate is the hard one, and it *is* the debt line: **what cannot be
+oracled is not "debt to go deeper" — it is out of method.** So deferred work splits in two, by the
+gate it fails:
+
+- **`docs/to_go_deeper.md`** — a route that *would* pass the oracle gate (oracle-able with our
+  discipline, perhaps after acquiring a source) but is not pulled yet. Genuine come-back-same-method
+  debt.
+- **`docs/out_of_method.md`** — a capability a held source offers that *cannot* pass the oracle gate
+  as the method stands: a result anchored only by a plot or a stochastic twin-MC run, with no closed
+  form, cross-check, or requirement-identity to pin it (Crépey's neural-net XVA regressions). Not
+  repayable as-is — repaying it means a deliberate **§4 extension** (a statistical/stochastic-oracle
+  tier that accepts convergence-based validation). Recorded as a **candidate** for that extension,
+  ruled on only if interest ever pulls that way; never built under §4 as it stands.
+
+*(Ruled with Bernardo, 2026-11-08, after three arcs made the spine/deferred cut by judgement —
+BERHAN ch 1–5, Jäckel 9-of-14, XVA's elementary spine. The cut is a test now, not taste. The gates
+are not new; the two-bin split and the out-of-method candidate flag are.)*
+
 ---
 
 ## 2. The spine (layers — dependencies point DOWN only)

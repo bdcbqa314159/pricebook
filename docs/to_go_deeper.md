@@ -12,6 +12,14 @@ we stopped there, what you'd build, and the source it needs — marking whether 
 inference still applies), or new. A route is a *hint*, not a spec; it becomes a tranche only when
 interest picks it (§1) and Cowork writes the real plan (§10).
 
+**This file is only for routes that would pass §4's oracle gate** (oracle-able with our discipline,
+perhaps after an acquisition). A capability a source offers that **cannot** be oracled as the method
+stands — a result anchored only by a plot or a stochastic twin-MC run, no closed form, cross-check, or
+requirement-identity — is *not* debt and does **not** go here; it goes to `docs/out_of_method.md` as a
+candidate for a future §4 statistical-oracle extension (charter §1). Draw the line per *capability*,
+not per chapter: a closed-form identity inside a numerical chapter is a route here; the chapter's
+numerical method is out of method.
+
 ---
 
 ## `BERHAN-2012` — *Pricing Inflation Derivatives* (ch 1–5 built, T2–T14)
