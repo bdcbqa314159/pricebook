@@ -631,5 +631,8 @@ changing who does what — Bernardo owns §10 and may veto.)*
 
 Steps 1 and 4 are both real passes, not one split in two: step 1 sets the oracle before a line is
 written (it is where T6's identifiability oracle was decided), while step 4 reviews what was
-actually built and is where a checkpoint gets written. Either may be skipped by Bernardo's call; the
-step-6-before-step-7 order may not.
+actually built, is where a checkpoint gets written, and is where **the tranche's journal beat is
+appended** — FP-1's capture discipline for the Substack series (`_substack/pipeline.md` §3), tied to
+this step precisely because it is the one that always happens, after the journal once fell twenty
+tranches behind. (The journal is gitignored; this is a plain append, not a committed artifact.)
+Either may be skipped by Bernardo's call; the step-6-before-step-7 order may not.
