@@ -49,6 +49,10 @@ guard.** In order:
   map is a contraction, factor `γ/(1+γ) < 1`); assert it reaches the closed form and report the rate.
   Keep it as a guard — it shares `γ` and `P−CVA` with the closed form, so it telescopes; the
   fixed-point-satisfaction check above is the non-telescoping correctness anchor.
+  **[Corrected post-build — see §5: the bracketed contraction claim is WRONG. The Lipschitz constant is
+  `γ`, not `γ/(1+γ)` (that is the *solution's* coefficient, not the map's); the iteration converges
+  only for `γ < 1`, oscillates at `γ = 1` and diverges for `γ > 1`, while the closed form holds for
+  every `γ ≥ 0` — which is exactly why the closed form, not the iteration, is the production value.]**
 - **Both regimes of the `⁺` (degenerate-fixture guard, mandatory).** Two fixtures: `P − CVA > 0`
   **materially** (FVA > 0, the `⁺` open — assert the non-degeneracy, else FVA ≡ 0 and the whole formula
   is invisible, the §4 trap), and `P − CVA < 0` (FVA = 0, the `⁺` binds — a **net receiver** has no
@@ -73,3 +77,35 @@ T29 / `to_go_deeper`. No KVA — the cost-of-capital adjustment and the `(1−γ
 normalisation are `to_go_deeper`/`out_of_method` (the deferred frontier; T27 route 2). No wrong-way
 risk. This closes the elementary spine's core; the arc checkpoint `CP_xva_spine.md` follows (after the
 optional collateral tranche, if interest pulls it).
+
+---
+
+## 5. Cowork's ruling on T28 — PR #39 (§10 step 4, 2026-11-09)
+
+Accepted — v0.34.0, 971 green, nine gates, seven mutants, draft PR. **The elementary XVA spine's core
+is complete: CVA · DVA · FVA.** The oracle ordering held: the closed-form-satisfies-eq-19 anchor plus
+the companion (the reflow misreading `γ(P−CVA)⁺` fails it) killed the dropped-`1/(1+γ)` mutant to 18
+tests, and deriving the closed form from eq 19 (`FVA(1+γ) = γ(P−CVA)`) put a derivation beside the two
+renderings — §4's stronger rung, available here.
+
+**I own a wrong claim in the spec, and execution caught it — §10's boundary working.** §2 said the
+iteration is "a contraction, factor `γ/(1+γ) < 1`." It is not: the Lipschitz constant is **`γ`** (with
+the `⁺` open, `e_{n+1} = −γ·e_n`), so the iteration **converges only for `γ < 1`**, oscillates at
+`γ = 1`, diverges for `γ > 1` — while the closed form satisfies eq 19 for **every `γ ≥ 0`**. I
+conflated the solution's coefficient with the map's contraction factor. §2 carries an inline correction
+marker; the module and CHANGELOG hold the authoritative wording, pinned by a converging and a diverging
+`γ` fixture.
+
+**The error strengthens the ruling rather than denting it.** "Solve eq 19 numerically" is the instinct
+a reader of the fixed point would have, and it ships code that **fails silently at a funding spread
+≥ 100%**. So the closed form is not merely more convenient — it is strictly stronger, and the
+fixed-point-satisfaction anchor is what proves it correct across the whole `γ ≥ 0` domain the iteration
+cannot reach. You characterised the boundary and asserted it rather than weakening the iteration oracle
+to hide it — the right handling.
+
+**`CA = CVA` named as the uncollateralized/no-IM assumption, with the general `CA = CVA + FVA` (eq 11)
+and the T29/`to_go_deeper` deferral beside it — correct, no silent substitution.**
+
+**Next — an arc boundary.** The core spine is done; the optional collateral tranche (T29) and the
+checkpoint `CP_xva_spine.md` remain, and closing the arc fires re-audit #2 (§9). Which, and whether, is
+Bernardo's interest-pick, settled with him — not raised in the build channel.

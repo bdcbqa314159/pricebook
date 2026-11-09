@@ -65,8 +65,9 @@ Neither source replaces the other — exactly §4's "requirement oracle + pointw
   and the party-swap symmetry (DVA of A = CVA seen by B), plus first-to-default survival.
 - **T28 — FVA.** The funding adjustment as Crépey's semilinear fixed point `FVA = γ(P−CVA−FVA)⁺`
   (eq 19); oracled by fixed-point convergence and the reduction `FVA=0` at zero funding spread.
-- **(conditional) T29 — collateral / CSA (VM).** Variation margin and the collateralized exposure, if
-  interest pulls it before the checkpoint; else deferred.
+- **T29 — collateral / CSA (VM).** **Scheduled — Bernardo's pick at the T28 arc boundary (2026-11-09).**
+  Variation margin and the collateralized exposure over the margin period of risk, feeding T25/T27's
+  CVA/DVA functionals unchanged. Spec: `docs/tranches/29_collateral_csa.md`. The last build of the arc.
 - **Checkpoint `CP_xva_spine.md`** closes the arc, as `CP_jaeckel_arc` closed the last.
 
 ## The completion ratio — honest
