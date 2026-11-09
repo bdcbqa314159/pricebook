@@ -6,6 +6,63 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-09
+
+Tranche 27 — **bilateral CVA + DVA: both parties can default.** Third unit of the XVA spine arc. The
+step from "only the counterparty defaults" to the mirror case, and with it the first-to-default
+conditioning the unilateral spine dropped.
+
+### Added
+
+- **`credit_adjustment(exposure, defaulting, surviving, discount, lgd)` (L5)** — the one integral
+  both credit legs are, extracted at the second real consumer (§6's rule-of-two: T25 was the first,
+  DVA is the second). CVA weights the EPE against the counterparty's default; DVA the ENE against
+  our own; the unilateral case is `surviving=None`.
+- **`CreditParties`** (both curves and both LGDs, §7's compelled bundling — it removes the commonest
+  bilateral error, passing the two curves or the two LGDs in the wrong order) and
+  **`BilateralAdjustment`** (`cva`, `dva`, with `bcva` a **property** so the net cannot drift from
+  its parts; both legs are always reported, since the same small net can be two large offsetting
+  legs or two negligible ones).
+- **`bilateral_credit_adjustment`** and the pathwise **`mc_bilateral_adjustment`** (a
+  `PricingResult` with its standard error, invariant 7), plus
+  **`ExposureEstimate.negative_profile()`** for the ENE side.
+
+### Oracles
+
+- **The reduction doubles as the purity proof.** `λ_own → 0` gives `DVA = 0` and the CVA leg exactly
+  T25's unilateral CVA. And T25's `unilateral_cva` routed through the extracted integral is
+  **bit-identical** — verified against the pre-refactor code from git on four grids (5 to 2001
+  points), every digit. `surviving=None` *skips* the multiplication rather than multiplying by 1.0,
+  which is what keeps the operation order literally T25's and makes §4's stronger proof available
+  instead of an identical-to-a-few-ULP argument.
+- **The party-swap symmetry is the independent, non-telescoping anchor** — our DVA equals the
+  counterparty's CVA against us, computed from a different composition of the pieces, and on
+  simulated paths `ENE(V) = EPE(−V)` exercises the **positive**-part code path on a negated
+  exposure. An ENE computed as `−mean(V)` rather than `mean(V⁻)`, or a swapped curve assignment,
+  dies here and in no within-DVA check.
+- **The first-to-default term is asserted by magnitude, not only sign** (§4's documented blind
+  spot): our own default risk *strictly reduces* the CVA, and the term is measured at **2.7%** of
+  the unilateral CVA on the fixture — percent, not epsilon.
+- `BCVA = CVA − DVA` exactly; both legs non-negative; BCVA either sign; monotonicity in each party's
+  hazard and LGD. The pathwise SE is asserted **not** to equal the quadrature sum of the two legs —
+  CVA and DVA share paths, so the difference's error is not the sum, which is why the pathwise
+  estimator is required rather than convenient.
+- **Eight mutants, all killed**: wrong surviving curve, swapped defaulting/surviving, dropped
+  surviving factor, flipped net sign, DVA fed the EPE, swapped LGDs, pathwise CVA dropping own
+  survival, `negative_profile` returning the EPE.
+- Non-degeneracy premises asserted: a genuinely **two-sided** exposure (EPE and ENE within 3× of
+  each other, so DVA is not ~0), two **differing** hazards, and two **differing** LGDs.
+
+### Open question raised, not ruled
+
+Crépey conditions through the **bank survival measure** (`EY = (1−γ)⁻¹E*(Y°)`, eq 7 p.37) — his
+first-to-default conditioning carries a `(1−γ)⁻¹` **normalisation**. This tranche builds the
+market-standard **explicit survival factor**, the natural extension of T25/T26, neither of which
+carries a normalisation. Both forms have the term present and both satisfy `BCVA = CVA − DVA`; they
+differ by that factor, measured at **4.7%** of the CVA on the fixture. Which is the identity and
+which the refinement is a design call reserved for Cowork by the tranche spec, and is raised as an
+`Ask:` rather than settled here.
+
 ## [0.32.0] - 2026-11-09
 
 Tranche 26b — **the `verify.py references` gate: the register, self-policed.** A standalone
