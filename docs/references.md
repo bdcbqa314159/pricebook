@@ -19,8 +19,12 @@ like grounding. So:
 - When an `in-hand` claim is checked against the source, that is noted; a figure that cannot be
   read to tolerance is marked as such (no code is fitted to it).
 
-*(A future `verify.py references` gate can assert every `source:` resolves to an `in-hand`/
-`worked-from` key here — proposed, not built, until the first drift makes it earn its place.)*
+**`verify.py references` enforces the three rules above** (built at tranche 26b, after five drifts
+earned it — see CLAUDE.md §7): every cited key resolves to a citable status; a key cited by any
+`src/` module is `worked-from`; a `worked-from` key has at least one citer. So a status here cannot
+silently diverge from what the tree actually cites. The gate reads these **header lines only** — keep
+the prose body consistent by hand; it is not parsed, and a gate that parsed it could not be
+falsified.
 
 Status vocabulary: `worked-from` (held and built/oracled against) · `in-hand` (held and read) ·
 `referenced-by:<key>` (named by a held source, NOT obtained — not citable) · `sought` (intend to
@@ -100,7 +104,7 @@ spec says "transcribe it."
 
 ---
 
-### `MCINERNEY-ZASTAWNIAK` — `in-hand`
+### `MCINERNEY-ZASTAWNIAK` — `worked-from`
 
 McInerney, D. and Zastawniak, T., *Stochastic Interest Rates*. Mastering Mathematical Finance,
 Cambridge University Press. 170 pp. Held locally at
@@ -139,8 +143,11 @@ cannot settle it. Two things do: reading it as `d₋ = d₊ − ν` makes the **
 algebraic identity in `d±` whatever their relation, so it is a check that cannot fail on this
 question.
 
-**Status is `in-hand`, not yet `worked-from`:** the relevant sections are read and the key formulas
-transcribed in both renderings, but nothing is built against it until T10 lands.
+**Status `worked-from`** since T10: the Hull-White cap/floor machinery was built against it, and it
+is now cited by **ten** modules (Hull-White, both market models, the swap-rate vol, the swaption and
+Bermudan engines, the cap calibration and the products). The earlier text said `in-hand` *"until T10
+lands"* and was never updated when it did — one of the five drifts that earned the `references` gate
+(tranche 26b).
 
 **Also covers, for later units:** §1.7 yield-curve construction (T8's territory), ch 4 HJM and
 Gaussian models, and **ch 5–6 the LIBOR and swap market models with their calibration** — which is
@@ -152,7 +159,7 @@ Black's caplet, §5.6 Brace–Gatarek–Musiela, §5.9 swap market model, §6 im
 
 ---
 
-### `ACKLAM-2000` — `in-hand`
+### `ACKLAM-2000` — `worked-from`
 
 Acklam, P. J., *An algorithm for computing the inverse normal cumulative distribution function*.
 Held as `_stock/NewDocuments/An algorithm for computing the inverse normal cumulative distribution
@@ -163,6 +170,9 @@ author's own page. Acquired by Bernardo 2026-11-05 to unblock tranche 20.
 neither (`[Ack00]` in its bibliography, the implementation *"included on the accompanying CD"* we do
 not have). Tranche 15 hit that wall and deliberately deferred the inversion; this is the acquisition
 that closes it. §7 forbids citing a key that is not in hand, so nothing could be transcribed until now.
+
+**Status `worked-from`** since T20a: `foundation/distributions.inverse_norm_cdf` transcribes the
+rational-approximation coefficients and refines them on our own `norm_cdf`.
 
 **What the capture actually contains — checked, not assumed, because a capture can be partial:**
 - the rational-approximation pseudo-code with **all 21 coefficients** (`a(1..6)`, `b(1..5)`,

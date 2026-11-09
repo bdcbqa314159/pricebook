@@ -145,6 +145,33 @@ def slow_tests() -> list[str]:
     return out
 
 
+
+def discover_test_dirs(max_layer: int | None) -> list[str]:
+    """The directories the `tests` gate runs — named surface, so a test can reach the discovery.
+
+    **`max_layer=None` discovers EVERY test dir, not only `L*`.** The `L*` glob alone repeated
+    `run_tests`'s own warning one level up: a non-layer directory ran under plain `pytest` but was
+    invisible here, so its tests were never held to the floor. Tranche 26b hit exactly that — its
+    `tests/tooling/` tests passed while the gate reported 902 against a floor of 911 — which is the
+    "filter with no floor" defect in the discovery itself. "Discovery cannot be forgotten" has to
+    include discovering the directories.
+
+    Layer dirs come first so the lowest layer fails fast; everything else follows in name order.
+    """
+    if max_layer is not None:
+        return [str(TESTS / f"L{n}") for n in range(max_layer + 1) if (TESTS / f"L{n}").is_dir()]
+    layered = sorted(
+        (d for d in TESTS.glob("L*") if d.is_dir()),
+        key=lambda d: int(str(d).rsplit("L", 1)[1]),
+    )
+    other = sorted(
+        d
+        for d in TESTS.iterdir()
+        if d.is_dir() and d not in layered and d.name != "__pycache__"
+    )
+    return [str(d) for d in (*layered, *other)]
+
+
 def run_tests(max_layer: int | None) -> int:
     """Run tests at layer <= max_layer. Directory-per-layer: tests/L0..LN.
 
@@ -154,13 +181,7 @@ def run_tests(max_layer: int | None) -> int:
     the number has to be remembered and never was. Discovery cannot be forgotten.
     `--layer N` is kept for the per-tier local run CLAUDE.md 7b describes.
     """
-    if max_layer is None:
-        dirs = sorted(
-            (str(d) for d in TESTS.glob("L*") if d.is_dir()),
-            key=lambda d: int(d.rsplit("L", 1)[1]),
-        )
-    else:
-        dirs = [str(TESTS / f"L{n}") for n in range(max_layer + 1) if (TESTS / f"L{n}").is_dir()]
+    dirs = discover_test_dirs(max_layer)
     if not dirs and max_layer is None and TESTS.is_dir():
         # No `L*` tiers yet — a flat `tests/` is the scaffold's shape, and the layer tiers appear
         # as the layers do. Falling back here rather than failing keeps the gate meaningful on an
@@ -267,7 +288,7 @@ STOCK = ROOT / "_stock"
 # The committed test floor (the floor rule, CLAUDE.md 6 second clause; ruling:
 # docs/handoffs/rulings_floor_rule.md). CI is RED below it. A slice that adds a test
 # tier raises this in the same commit. First value = the restart's measured 366.
-TEST_FLOOR = 902
+TEST_FLOOR = 914
 
 #: A `stock:` value naming no path — a module built fresh, with no stock ancestor. The
 #: common case under the new model, so it must be expressible rather than fudged.
@@ -322,6 +343,104 @@ def _crosscheck_presence() -> list[str]:
             )
     return errs
 
+
+
+# ── the references gate (tranche 26b) ──────────────────────────────────────────────────────────
+#: `### `KEY` — `status`` — the register's header line, the one mechanically parseable part of it.
+_REFERENCE_HEADER = re.compile(r"^###\s+`([^`]+)`\s+\u2014\s+`([^`]+)`", re.M)
+#: The `source:` field, bounded by the next provenance key so a multi-line citation is captured whole.
+_SOURCE_FIELD = re.compile(r"^\s*source:\s*(.*?)(?=^\s*(?:oracle|crosscheck|slice):)", re.M | re.S)
+#: A register key: uppercase segments joined by hyphens, every segment at least two characters.
+#: The two-character floor is what keeps prose out — `OTM-`, `FX-` and `OI-3` do not match, and an
+#: over-greedy pattern would invent keys and make the gate fail on its own false positives.
+_REFERENCE_KEY = re.compile(r"\b[A-Z][A-Z0-9]+(?:-[A-Z0-9]{2,})+\b")
+#: §7: a `source:` may cite only a held key. `referenced-by` is a work known through another source
+#: — citing it is reference by inference, which the charter forbids.
+_CITABLE_STATUSES = ("in-hand", "worked-from")
+
+
+def reference_statuses(text: str) -> dict[str, str]:
+    """`{key: status}` from `docs/references.md`'s headers.
+
+    Headers only, never the prose body — a gate that parsed narrative could not be falsified, and
+    the body is the author's to keep consistent. The header is what the gate guarantees matches
+    reality.
+    """
+    return {key: status for key, status in _REFERENCE_HEADER.findall(text)}
+
+
+def cited_reference_keys() -> dict[str, list[str]]:
+    """`{key: [citing module, ...]}` from every `src/` module's `source:` field.
+
+    Reuses `provenance`'s walk of the same headers: the citation set is already there, it was simply
+    never compared with the register.
+    """
+    citations: dict[str, list[str]] = {}
+    for mod in _src_modules():
+        field = _SOURCE_FIELD.search(_read(mod))
+        if field is None:
+            continue
+        for key in sorted(set(_REFERENCE_KEY.findall(field.group(1)))):
+            citations.setdefault(key, []).append(str(mod.relative_to(ROOT)))
+    return citations
+
+
+def check_reference_statuses(
+    statuses: dict[str, str], citations: dict[str, list[str]]
+) -> list[str]:
+    """The gate's pure core: the register's statuses against what `src/` actually cites.
+
+    Pure and injectable so the oracle can **seed each drift shape** without touching the tree — the
+    same reason §4 wants a buried procedure step extracted into named surface. A gate whose only
+    entry point reads the real repo can be asserted to pass today and never shown to fail.
+    """
+    errs: list[str] = []
+    for key, citers in sorted(citations.items()):
+        status = statuses.get(key)
+        where = f"{len(citers)} module(s), e.g. {citers[0]}"
+        if status is None:
+            errs.append(f"{key}: cited by {where} but absent from docs/references.md")
+        elif status not in _CITABLE_STATUSES:
+            errs.append(
+                f"{key}: cited by {where} but status is `{status}` — CLAUDE.md 7 allows a "
+                f"`source:` to cite only `in-hand`/`worked-from` (no reference by inference)"
+            )
+        elif status != "worked-from":
+            errs.append(
+                f"{key}: cited by {where} but still `in-hand` — a cited key is `worked-from` "
+                f"(the register's own vocabulary: held and built/oracled against)"
+            )
+    for key, status in sorted(statuses.items()):
+        if status == "worked-from" and not citations.get(key):
+            errs.append(
+                f"{key}: `worked-from` but no src/ module cites it — the status claims something "
+                f"was built against it"
+            )
+    return errs
+
+
+def references() -> list[str]:
+    """`docs/references.md`'s statuses cannot silently diverge from what `src/` cites.
+
+    **Built at tranche 26b, and CLAUDE.md 7 named the condition: the gate was "proposed, not built,
+    until the first drift makes it earn its place."** Five drifts earned it, none found by a person
+    reading carefully: two sources still `in-hand` after T25 built against them, `JAECKEL-2002`
+    self-contradictory with 18 citers, `MCINERNEY-ZASTAWNIAK` `in-hand` with 10 citers and a body
+    promising `worked-from` once T10 landed (it had, sixteen tranches earlier), and `ACKLAM-2000`
+    `in-hand` while its coefficients sit transcribed in `distributions.py`.
+
+    It is deliberately narrow (the spec's fence): status and citation CONSISTENCY only. It does not
+    check that a held PDF exists on disk — they are gitignored and absent in CI, so that check could
+    not fail there, which is this project's named defect class — nor fact-check prose, nor verify a
+    formula against its source. That last is 4's per-tranche job, and no gate can do it.
+    """
+    register = ROOT / "docs" / "references.md"
+    if not register.is_file():
+        return [f"{register.relative_to(ROOT)} is missing"]
+    statuses = reference_statuses(_read(register))
+    if not statuses:
+        return ["docs/references.md: no `### `KEY` \u2014 `status`` headers parsed"]
+    return check_reference_statuses(statuses, cited_reference_keys())
 
 def provenance() -> list[str]:
     """Every landed module carries the 4-line provenance header, AND every `stock:` path RESOLVES.
@@ -450,6 +569,7 @@ def main() -> int:
     sub.add_parser("layers")
     sub.add_parser("debt")
     sub.add_parser("provenance")
+    sub.add_parser("references")
     sub.add_parser("slow")
     sub.add_parser("version")
     sub.add_parser("all")
@@ -459,7 +579,8 @@ def main() -> int:
         return run_tests(args.layer)
     checks = {
         "acyclic": acyclic, "fields": fields, "layers": layers, "debt": debt,
-        "provenance": provenance, "version": version, "slow": slow_tests,
+        "provenance": provenance, "references": references, "version": version,
+        "slow": slow_tests,
     }
     if args.cmd == "all":
         # `slow` re-runs every file separately, so it is NOT in `all` — CI calls it once,

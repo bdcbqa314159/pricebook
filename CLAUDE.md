@@ -454,7 +454,12 @@ unconditionally only for the fraction.)*
 - **Max 5 arguments per function and 5 fields per dataclass** (`verify.py fields`, ruff `PLR0913`).
   Over the limit is **un-bundled vocabulary**, never a reason to raise it: group into a frozen
   value object (`Money`, `Term`, `HullWhiteParams`, …). **Never suppress** (`# noqa` / `# type:
-  ignore`) — fix the cause.
+  ignore`) — fix the cause. The limit and its `PLR0913` gate bind **`src/`**; **test helpers use
+  judgement** — a reference fixture's raw knobs need not be bundled, since a value object can hide the
+  very inputs a test exists to show, and CI does not run `PLR0913` over `tests/`. An unwieldy test
+  helper is still a smell; prefer an existing value object when the arguments genuinely *are* one.
+  *(T26b: a pre-existing 6-arg reference helper in `tests/L3/test_jarrow_yildirim.py` is left as-is —
+  a rule question Code raised, ruled src-only, not churned.)*
 - **Cross-module conventions** (shared day counts, the time measure, discounting dimension) live in
   `docs/conventions_register.md` with a three-state Guard column — **guarded** (a test compares the
   modules), **per-module** (each tested, nothing asserts they agree), **owed** (no oracle). A shared
@@ -462,7 +467,18 @@ unconditionally only for the fraction.)*
   recorded, never folklore.
 - **References.** Every provenance `source:` names a key in `docs/references.md`, and may cite only
   an `in-hand`/`worked-from` key. A work merely *referenced-by* a held source is not citable until
-  obtained — no reference by inference.
+  obtained — no reference by inference. **Gated by `verify.py references` (tranche 26b):** a cited
+  key must resolve to a citable status, a key cited by any module must be `worked-from` (the
+  register's own vocabulary — *held and built/oracled against*), and a `worked-from` key must have a
+  citer. The gate was floated here as *"proposed, not built, until the first drift makes it earn its
+  place"* and **five** drifts earned it, none found by careful reading: two sources left `in-hand`
+  after T25 built against them, `JAECKEL-2002` self-contradictory (header `in-hand`, body
+  `worked-from`, 18 citers), `MCINERNEY-ZASTAWNIAK` `in-hand` with 10 citers and a body promising
+  `worked-from` *"until T10 lands"* — sixteen tranches earlier — and `ACKLAM-2000` `in-hand` with its
+  coefficients transcribed in `distributions.py`. Three were corrected by hand at T26's handoff and
+  **the gate's first run caught the other two**, which is the argument for gating a discipline rather
+  than restating it. It keys on the header status and the citations, never the prose body: a gate
+  that parsed narrative could not be falsified.
 
 ---
 
@@ -498,14 +514,21 @@ unconditionally only for the fraction.)*
 
 ## 9. Gates, branches, flow
 
-- **`verify.py`**: `acyclic` · `layers` · `fields` · `debt` · `version` · `provenance` · `slow` ·
-  `tests` (floored). CI runs ubuntu + windows, Python 3.12. Tolerance-based oracles are a hard rule
+- **`verify.py`**: `acyclic` · `layers` · `fields` · `debt` · `version` · `provenance` ·
+  `references` · `slow` · `tests` (floored). CI runs ubuntu + windows, Python 3.12. Tolerance-based oracles are a hard rule
   (transcendental results differ 1–2 ULP across runtimes); the byte-identical statelessness check
   is same-process only. **A timing gate's reading is only valid when measured in isolation** — running
   `slow` concurrently with the full suite or a type-checker reports contention, not run time (T19: a
   backgrounded gate under load read 690s against a true 1.75s, a 400× artefact). And its headroom is
   not bankable: re-time a file after adding oracles rather than assume the margin (T19: six oracles
-  added to the Bermudan file without re-timing produced a real Windows `slow` failure).
+  added to the Bermudan file without re-timing produced a real Windows `slow` failure). **The floor
+  gate's own discovery must be total** — the `tests` floor counts only the directories it enumerates,
+  so a test directory it does not discover runs *unfloored* and escapes the floor silently; discovery
+  enumerates every test dir, not a fixed `tests/L*` set (layer dirs first, so the lowest layer still
+  fails fast). *(T26b: a new `tests/tooling/` ran green under plain pytest but outside the floor, which
+  read 902 against a floor of 911 while the suite was green — §4's "contain the failure in its domain"
+  applied to the gate that enforces every other gate's floor, and visible only because that tranche
+  added the first test there; a tranche adding none would have left the directory unfloored forever.)*
 - **Periodic whole-tree re-audit — every 11 tranches, and at each arc close.** The gates above run on
   every push and catch *structural* drift (layering, fields, debt balance, provenance), so the
   re-audit targets only what they cannot: **(1) oracle power** — a full-tree mutation sweep, because
