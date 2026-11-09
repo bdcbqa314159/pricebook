@@ -19,8 +19,12 @@ like grounding. So:
 - When an `in-hand` claim is checked against the source, that is noted; a figure that cannot be
   read to tolerance is marked as such (no code is fitted to it).
 
-*(A future `verify.py references` gate can assert every `source:` resolves to an `in-hand`/
-`worked-from` key here — proposed, not built, until the first drift makes it earn its place.)*
+**`verify.py references` enforces the three rules above** (built at tranche 26b, after five drifts
+earned it — see CLAUDE.md §7): every cited key resolves to a citable status; a key cited by any
+`src/` module is `worked-from`; a `worked-from` key has at least one citer. So a status here cannot
+silently diverge from what the tree actually cites. The gate reads these **header lines only** — keep
+the prose body consistent by hand; it is not parsed, and a gate that parsed it could not be
+falsified.
 
 Status vocabulary: `worked-from` (held and built/oracled against) · `in-hand` (held and read) ·
 `referenced-by:<key>` (named by a held source, NOT obtained — not citable) · `sought` (intend to

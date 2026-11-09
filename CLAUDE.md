@@ -462,7 +462,18 @@ unconditionally only for the fraction.)*
   recorded, never folklore.
 - **References.** Every provenance `source:` names a key in `docs/references.md`, and may cite only
   an `in-hand`/`worked-from` key. A work merely *referenced-by* a held source is not citable until
-  obtained — no reference by inference.
+  obtained — no reference by inference. **Gated by `verify.py references` (tranche 26b):** a cited
+  key must resolve to a citable status, a key cited by any module must be `worked-from` (the
+  register's own vocabulary — *held and built/oracled against*), and a `worked-from` key must have a
+  citer. The gate was floated here as *"proposed, not built, until the first drift makes it earn its
+  place"* and **five** drifts earned it, none found by careful reading: two sources left `in-hand`
+  after T25 built against them, `JAECKEL-2002` self-contradictory (header `in-hand`, body
+  `worked-from`, 18 citers), `MCINERNEY-ZASTAWNIAK` `in-hand` with 10 citers and a body promising
+  `worked-from` *"until T10 lands"* — sixteen tranches earlier — and `ACKLAM-2000` `in-hand` with its
+  coefficients transcribed in `distributions.py`. Three were corrected by hand at T26's handoff and
+  **the gate's first run caught the other two**, which is the argument for gating a discipline rather
+  than restating it. It keys on the header status and the citations, never the prose body: a gate
+  that parsed narrative could not be falsified.
 
 ---
 
@@ -498,8 +509,8 @@ unconditionally only for the fraction.)*
 
 ## 9. Gates, branches, flow
 
-- **`verify.py`**: `acyclic` · `layers` · `fields` · `debt` · `version` · `provenance` · `slow` ·
-  `tests` (floored). CI runs ubuntu + windows, Python 3.12. Tolerance-based oracles are a hard rule
+- **`verify.py`**: `acyclic` · `layers` · `fields` · `debt` · `version` · `provenance` ·
+  `references` · `slow` · `tests` (floored). CI runs ubuntu + windows, Python 3.12. Tolerance-based oracles are a hard rule
   (transcendental results differ 1–2 ULP across runtimes); the byte-identical statelessness check
   is same-process only. **A timing gate's reading is only valid when measured in isolation** — running
   `slow` concurrently with the full suite or a type-checker reports contention, not run time (T19: a
