@@ -145,6 +145,33 @@ def slow_tests() -> list[str]:
     return out
 
 
+
+def discover_test_dirs(max_layer: int | None) -> list[str]:
+    """The directories the `tests` gate runs — named surface, so a test can reach the discovery.
+
+    **`max_layer=None` discovers EVERY test dir, not only `L*`.** The `L*` glob alone repeated
+    `run_tests`'s own warning one level up: a non-layer directory ran under plain `pytest` but was
+    invisible here, so its tests were never held to the floor. Tranche 26b hit exactly that — its
+    `tests/tooling/` tests passed while the gate reported 902 against a floor of 911 — which is the
+    "filter with no floor" defect in the discovery itself. "Discovery cannot be forgotten" has to
+    include discovering the directories.
+
+    Layer dirs come first so the lowest layer fails fast; everything else follows in name order.
+    """
+    if max_layer is not None:
+        return [str(TESTS / f"L{n}") for n in range(max_layer + 1) if (TESTS / f"L{n}").is_dir()]
+    layered = sorted(
+        (d for d in TESTS.glob("L*") if d.is_dir()),
+        key=lambda d: int(str(d).rsplit("L", 1)[1]),
+    )
+    other = sorted(
+        d
+        for d in TESTS.iterdir()
+        if d.is_dir() and d not in layered and d.name != "__pycache__"
+    )
+    return [str(d) for d in (*layered, *other)]
+
+
 def run_tests(max_layer: int | None) -> int:
     """Run tests at layer <= max_layer. Directory-per-layer: tests/L0..LN.
 
@@ -154,13 +181,7 @@ def run_tests(max_layer: int | None) -> int:
     the number has to be remembered and never was. Discovery cannot be forgotten.
     `--layer N` is kept for the per-tier local run CLAUDE.md 7b describes.
     """
-    if max_layer is None:
-        dirs = sorted(
-            (str(d) for d in TESTS.glob("L*") if d.is_dir()),
-            key=lambda d: int(d.rsplit("L", 1)[1]),
-        )
-    else:
-        dirs = [str(TESTS / f"L{n}") for n in range(max_layer + 1) if (TESTS / f"L{n}").is_dir()]
+    dirs = discover_test_dirs(max_layer)
     if not dirs and max_layer is None and TESTS.is_dir():
         # No `L*` tiers yet — a flat `tests/` is the scaffold's shape, and the layer tiers appear
         # as the layers do. Falling back here rather than failing keeps the gate meaningful on an
@@ -267,7 +288,7 @@ STOCK = ROOT / "_stock"
 # The committed test floor (the floor rule, CLAUDE.md 6 second clause; ruling:
 # docs/handoffs/rulings_floor_rule.md). CI is RED below it. A slice that adds a test
 # tier raises this in the same commit. First value = the restart's measured 366.
-TEST_FLOOR = 902
+TEST_FLOOR = 914
 
 #: A `stock:` value naming no path — a module built fresh, with no stock ancestor. The
 #: common case under the new model, so it must be expressible rather than fudged.
