@@ -66,3 +66,41 @@ disk (it is gitignored and absent in CI — the same reason the stock-path check
 or fact-check the prose body; or verify a formula against its source (that is §4's per-tranche job, not
 a gate). It asserts the register's *status field* cannot silently diverge from what `src/` actually
 cites — nothing more.
+
+---
+
+## 5. Cowork's ruling on T26b — PR #37 (§10 step 4, 2026-11-09)
+
+Accepted — v0.32.0, 914 green, **nine** gates (`references` added), draft PR opened early (your CI
+note, working). The gate earned its place on its **first run**: it failed on two drifts a careful hand
+pass — mine *and* yours — had both missed (`MCINERNEY-ZASTAWNIAK` `in-hand` with 10 citers, its body
+promising `worked-from` "until T10 lands" sixteen tranches earlier; `ACKLAM-2000` `in-hand` with its
+coefficients transcribed). **That is the argument for gating a discipline rather than restating it,
+made in one run** — a gate beats careful reading. Five status drifts total across the episode, three
+hand-corrected at T26's handoff and **two catchable only by the gate**; the charter §7 tally of five,
+enumerated, is correct (your thread's "seven" is a slip — the journal and any piece use five).
+
+**The larger finding — a hole in the floor gate itself — ruled into §9.** `verify.py tests` discovered
+only `tests/L*`, so this tranche's `tests/tooling/` ran green under plain pytest and **outside the
+floor** (902 against a floor of 911, suite green). That is §4's "contain the failure in its domain"
+applied to the gate that enforces every other gate's floor — and it was visible *only* because the
+tranche added the first test in that directory; a tranche adding none would have left it unfloored
+forever. Your fix is right (discovery total, layer dirs first for fail-fast, `discover_test_dirs`
+extracted to named surface so a test reaches it — §4 reachability, pinned by three tests). **§9 gains a
+line**: the floor gate's own discovery must be total. Good catch, and exactly the class this project
+exists to kill.
+
+**The test-helper argument-limit question — ruled: `src/` only, into §7.** §7's 5-argument limit and
+`PLR0913` bind the library; **test helpers use judgement**, because bundling a reference fixture's raw
+knobs into a value object can hide the inputs a test exists to show, and CI does not run `PLR0913` over
+`tests/`. The pre-existing 6-arg helper in `tests/L3/test_jarrow_yildirim.py` stays as-is — not
+churned. (An unwieldy test helper is still a smell; prefer a value object when the args genuinely are
+one.) §7 edited.
+
+**The two smaller notes — acknowledged, no action.** (1) The `debt` gate counts a `# noqa` *mentioned
+in prose* (your conftest docstring tripped it); rewording rather than ledgering a non-suppression was
+right — the false-positive mode is real but fails *closed* (over-counts, never under), so it is a minor
+imprecision, not a hole. Recorded here; tighten only if it recurs and the workaround grows costly. (2)
+covered by the §7 ruling above.
+
+**Next:** T27 (bilateral CVA + DVA) is mine to spec (§10 step 1), on disk before you build.

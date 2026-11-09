@@ -454,7 +454,12 @@ unconditionally only for the fraction.)*
 - **Max 5 arguments per function and 5 fields per dataclass** (`verify.py fields`, ruff `PLR0913`).
   Over the limit is **un-bundled vocabulary**, never a reason to raise it: group into a frozen
   value object (`Money`, `Term`, `HullWhiteParams`, …). **Never suppress** (`# noqa` / `# type:
-  ignore`) — fix the cause.
+  ignore`) — fix the cause. The limit and its `PLR0913` gate bind **`src/`**; **test helpers use
+  judgement** — a reference fixture's raw knobs need not be bundled, since a value object can hide the
+  very inputs a test exists to show, and CI does not run `PLR0913` over `tests/`. An unwieldy test
+  helper is still a smell; prefer an existing value object when the arguments genuinely *are* one.
+  *(T26b: a pre-existing 6-arg reference helper in `tests/L3/test_jarrow_yildirim.py` is left as-is —
+  a rule question Code raised, ruled src-only, not churned.)*
 - **Cross-module conventions** (shared day counts, the time measure, discounting dimension) live in
   `docs/conventions_register.md` with a three-state Guard column — **guarded** (a test compares the
   modules), **per-module** (each tested, nothing asserts they agree), **owed** (no oracle). A shared
@@ -516,7 +521,14 @@ unconditionally only for the fraction.)*
   `slow` concurrently with the full suite or a type-checker reports contention, not run time (T19: a
   backgrounded gate under load read 690s against a true 1.75s, a 400× artefact). And its headroom is
   not bankable: re-time a file after adding oracles rather than assume the margin (T19: six oracles
-  added to the Bermudan file without re-timing produced a real Windows `slow` failure).
+  added to the Bermudan file without re-timing produced a real Windows `slow` failure). **The floor
+  gate's own discovery must be total** — the `tests` floor counts only the directories it enumerates,
+  so a test directory it does not discover runs *unfloored* and escapes the floor silently; discovery
+  enumerates every test dir, not a fixed `tests/L*` set (layer dirs first, so the lowest layer still
+  fails fast). *(T26b: a new `tests/tooling/` ran green under plain pytest but outside the floor, which
+  read 902 against a floor of 911 while the suite was green — §4's "contain the failure in its domain"
+  applied to the gate that enforces every other gate's floor, and visible only because that tranche
+  added the first test there; a tranche adding none would have left the directory unfloored forever.)*
 - **Periodic whole-tree re-audit — every 11 tranches, and at each arc close.** The gates above run on
   every push and catch *structural* drift (layering, fields, debt balance, provenance), so the
   re-audit targets only what they cannot: **(1) oracle power** — a full-tree mutation sweep, because
