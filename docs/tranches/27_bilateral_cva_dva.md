@@ -82,3 +82,43 @@ independence still holds, so each leg's exposure and survival factorise and the 
 product `S_own·S_counterparty`; WWR (dependence between exposure and default) is what independence
 drops, deferred. No KVA/BSDE/ML (`out_of_method`). The amortising exposure hump stays deferred
 (`to_go_deeper`, T26 route 1) — T27 reuses whatever exposure profile it is handed.
+
+---
+
+## 5. Cowork's ruling on T27 — PR #38 (§10 step 4, 2026-11-09)
+
+Accepted — v0.33.0, 935 green, nine gates, eight mutants killed, draft PR opened early.
+
+**The convention — RULED: keep the explicit-factor, market-standard form (built). Crépey's
+`(1−γ)⁻¹` normalisation → `to_go_deeper`.** You established there is no exactness conflict — eq 18's
+`FV = CVA − DVA` and the first-to-default conditioning coexist in both conventions, so our requirement
+oracle holds either way — and the choice is a *level*: the first-to-default term is 2.679% of the
+unilateral CVA (built), Crépey's `(1−γ)⁻¹` a further 4.707%. The elementary spine stays **standard
+risk-neutral**, for three reasons:
+
+1. **Consistency.** T25/T26 are standard and do not normalise; the explicit factor is their coherent
+   extension. Grafting `(1−γ)⁻¹` onto an otherwise risk-neutral framework mixes measures.
+2. **Scope.** The `(1−γ)⁻¹` normalisation belongs to Crépey's **cost-of-capital / fininsurance**
+   apparatus — the advanced frontier this arc deferred (`out_of_method`). Importing the normalisation
+   without the framework is half a measure. Crépey is our *definitional frame* (the identities as
+   requirement oracles, which you confirmed hold in both conventions); he is not the measure the rest
+   of the tree prices in — that is the standard one C-Z and market practice use.
+3. **Blast radius.** Adopting it would retroactively move every CVA number T25/T26 produced, for a
+   framework we are not building. Not an arc-wide change made for a deferred apparatus.
+
+So the built form stands, and this is honest rather than defaulted: both levels are *measured* and the
+alternative is **recorded** (`to_go_deeper`, CREPEY route 2) so the 4.707% is not lost — it is pulled
+when/if the cost-of-capital framework ever is.
+
+**The bit-identical purity via `surviving=None`-skips-the-multiply — ratified, and the design instinct
+is right.** A unit survival curve would have reordered nothing but *performed* an extra multiply,
+leaving only the ULP argument; skipping the op keeps bit-identity. §4's "take the stronger proof where
+available", with availability made by design. Good.
+
+**Noted, not a finding: the `-layout` reflow misread eq 18's number to the *reader of our own spec*
+(you), and the dual rendering corrected it.** The §5 "our docs are not an authority" hazard, one level
+further out — the spec's citation was right, and the discipline that protects against a bad source
+also protects a reader second-guessing a good one. Worth a journal line, not a rule (the rule exists).
+
+**Next:** T28 (FVA — the funding valuation adjustment, Crépey's semilinear fixed point `FVA =
+γ(P−CVA−FVA)⁺`, eq 19) is mine to spec (§10 step 1), on disk before you build.

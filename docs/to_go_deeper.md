@@ -156,3 +156,14 @@ Routes recorded as the arc runs; the full set lands at the checkpoint `CP_xva_sp
    the hump without weakening the anchor to an approximation. **Source:** `CREPEY-2026` (`worked-from`)
    + standard exposure mechanics. Oracle-able and exact, not pulled — pulled when a product wants the
    full profile.
+
+2. **Crépey's `(1−γ)⁻¹` survival-measure normalisation of the XVA adjustments.** T27 ruled the
+   elementary spine stays **standard risk-neutral** (explicit first-to-default factor, no
+   normalisation), because `(1−γ)⁻¹` belongs to Crépey's cost-of-capital / fininsurance measure — the
+   deferred frontier — and importing it alone would mix measures. **Measured worth: a further 4.707%
+   of CVA** on the T27 fixture (beside the 2.679% first-to-default term the spine *does* carry).
+   **Route:** apply the bank-survival-measure normalisation across CVA/DVA/FVA — a one-divide-by-`S_own`
+   change, but arc-wide (it moves every CVA number) — *only* as part of building the cost-of-capital
+   framework it belongs to (most of which is `out_of_method`: KVA, the anticipated BSDEs). **Source:**
+   `CREPEY-2026` Prop 1 eq (7), the bank survival measure (`worked-from`). Oracle-able (a closed-form
+   factor); deferred by convention, not by method.
