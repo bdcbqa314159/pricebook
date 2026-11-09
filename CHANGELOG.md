@@ -6,6 +6,72 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-09
+
+Tranche 26b — **the `verify.py references` gate: the register, self-policed.** A standalone
+governance tranche, run before T27. §7 floated this gate as *"proposed, not built, until the first
+drift makes it earn its place"* — **five** drifts earned it.
+
+### The finding that pulled it
+
+Committing T26, one word of a Cowork edit (`CREPEY-2026 (worked-from)`) did not match
+`docs/references.md`. Pulling that thread found five stale statuses, none caught by careful reading:
+`CREPEY-2026` and `CAPINSKI-ZASTAWNIAK` still `in-hand` though T25 had built against them;
+`JAECKEL-2002` **self-contradictory** (header `in-hand`, body `worked-from`, 18 citers);
+`MCINERNEY-ZASTAWNIAK` `in-hand` with **10** citers and a body promising `worked-from` *"until T10
+lands"* — sixteen tranches earlier; and `ACKLAM-2000` `in-hand` with its coefficients transcribed in
+`distributions.py`. This is §9's re-audit target (3), *register accuracy*, failing by accident
+between re-audits eleven tranches apart.
+
+### Added
+
+- **`verify.py references`** — three checks, keyed on the register's header status field and the
+  `source:` citations `provenance` already walks: (1) every cited key **resolves** to an
+  `in-hand`/`worked-from` status (never `referenced-by` — §7's no-reference-by-inference, never
+  absent); (2) every key cited by ≥1 module is **`worked-from`**, the register's own vocabulary for
+  *held and built/oracled against*; (3) every `worked-from` key has ≥1 **citer**.
+- `references` added to the §9 gate list; charter §7 and the register's own note record the gate as
+  built and name the five drifts.
+
+### Oracles — seeded drift, mutation applied to a gate
+
+- The pure core `check_reference_statuses(statuses, citations)` is **injectable**, and each real
+  drift shape is reconstructed and asserted to be **rejected**: a cited key left `in-hand`; a cited
+  key absent from the register; a cited key only `referenced-by`; an orphan `worked-from`.
+  Extracting the core was necessary rather than stylistic — a gate whose only entry point reads the
+  real repo can be asserted to pass today and never *shown to fail*.
+- Two **legitimate** states asserted to pass: a held-but-unbuilt source at `in-hand` with no citer
+  (exactly `CREPEY-2026`'s state between registration and T25), and a cited key at `worked-from`. A
+  gate that blocked honest work is the other way to be useless.
+- **The gate's first run on the then-current tree failed**, catching `MCINERNEY-ZASTAWNIAK` and
+  `ACKLAM-2000` — two drifts that had survived a hand-correction pass three commits earlier. That is
+  the argument for gating a discipline rather than restating it, and it is why this is not a gate
+  asserting what was already true.
+
+### Fixed
+
+- `MCINERNEY-ZASTAWNIAK` and `ACKLAM-2000` statuses corrected to `worked-from`, each with the
+  tranche and the built modules named (following the same correction to `JAECKEL-2002`,
+  `CREPEY-2026` and `CAPINSKI-ZASTAWNIAK` at v0.31.0).
+
+### Also fixed — the gate that floors the gates
+
+- **`verify.py`'s `tests` gate discovered only `tests/L*`**, so this tranche's own `tests/tooling/`
+  tests ran under plain `pytest` and passed while the gate counted 902 against a floor of 911 —
+  present, green, and **never floored**. That is the "filter with no floor" defect `run_tests`'s own
+  docstring warns about, occurring in its *discovery* rather than its `--layer` flag. Discovery is
+  now total (layer dirs first, so the lowest layer still fails fast), extracted into
+  `discover_test_dirs` so a test can reach it (§4's reachability rule), and pinned by three tests.
+  Found because the floor failed on a tranche that *added* tests — the one circumstance that makes
+  an unfloored directory visible.
+
+### Scope fence
+
+Status and citation **consistency** only. The gate does not check that a held PDF exists on disk
+(they are gitignored and absent in CI, so the check could not fail there — this project's named
+defect class), does not parse or fact-check the prose body, and does not verify a formula against
+its source. That last is §4's per-tranche job and no gate can do it.
+
 ## [0.31.0] - 2026-11-08
 
 Tranche 26 — **the Monte-Carlo exposure engine: CVA of a simulated netting set.** Second unit of the
