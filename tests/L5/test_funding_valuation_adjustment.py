@@ -181,3 +181,39 @@ class TestTheGuardsAreReachable:
     def test_a_NON_FINITE_mark_is_refused(self) -> None:
         with pytest.raises(ValueError, match="finite"):
             funding_valuation_adjustment(math.inf, CVA, SPREAD)
+
+
+class TestTheClosedFormIsSTRICTLYStrongerThanTheIteration:
+    """The spec reasoned the Picard map contracts at `gamma/(1+gamma) < 1`. Measured, it is `gamma`.
+
+    `gamma/(1+gamma)` is the *solution's* coefficient, not the map's Lipschitz constant: the error
+    satisfies `e_{n+1} = -gamma*e_n` exactly while the positive part stays open. So the iteration
+    converges only for `gamma < 1` — while the closed form keeps solving the fixed point for every
+    `gamma >= 0`. These tests pin that gap, because it is the reason to compute with the closed form
+    rather than a reason the iteration happens to work on realistic inputs.
+    """
+
+    @pytest.mark.parametrize("spread", [1.0, 2.0, 5.0])
+    def test_the_closed_form_still_satisfies_the_fixed_point_ABOVE_gamma_one(self, spread: float) -> None:
+        fva = funding_valuation_adjustment(CLEAN_MARK, CVA, spread)
+        residual = fva_fixed_point_residual(fva, CLEAN_MARK, CVA, spread)
+        assert abs(residual) <= 1e-12 * fva, f"gamma={spread}: residual {residual}"
+
+    @pytest.mark.parametrize("spread", [1.0, 5.0])
+    def test_the_ITERATION_fails_to_converge_there(self, spread: float) -> None:
+        closed = funding_valuation_adjustment(CLEAN_MARK, CVA, spread)
+        path = iterate_fva(CLEAN_MARK, CVA, spread, 40)
+        assert abs(path[-1] - closed) > 0.1 * closed, (
+            f"gamma={spread}: the iteration is expected NOT to converge, got {path[-1]} vs {closed}"
+        )
+
+    def test_the_measured_error_ratio_is_gamma_NOT_gamma_over_one_plus_gamma(self) -> None:
+        """The correction itself, asserted rather than left in a docstring."""
+        spread = 0.4
+        closed = funding_valuation_adjustment(CLEAN_MARK, CVA, spread)
+        errors = [abs(x - closed) for x in iterate_fva(CLEAN_MARK, CVA, spread, 8)]
+        ratios = [b / a for a, b in zip(errors, errors[1:]) if a > 0.0]
+        assert all(abs(r - spread) < 1e-9 for r in ratios), f"ratios {ratios}"
+        assert all(abs(r - spread / (1.0 + spread)) > 0.1 for r in ratios), (
+            "the rate must be distinguishable from the solution's coefficient"
+        )
