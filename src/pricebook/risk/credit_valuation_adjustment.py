@@ -127,35 +127,146 @@ def unilateral_cva_one_period(
     return loss_given_default * discount_factor * exposure * default_probability
 
 
+def credit_adjustment(
+    exposure: ExposureProfile,
+    defaulting: SurvivalCurve,
+    surviving: SurvivalCurve | None,
+    discount: CurveHandle,
+    loss_given_default: float,
+) -> float:
+    """`LGD * integral DF(t) exposure(t) S_surviving(t) lambda_def(t) S_def(t) dt`.
+
+    **The one integral both credit legs are.** CVA and DVA differ only in which *side* of the
+    exposure they weight and *whose* default triggers the loss - the shape is identical, so this is
+    where it lives. Rule-of-two: tranche 25 was the first consumer and DVA is the second, which is
+    when the charter says the generalisation gets decided (§6), not before.
+
+    * **CVA** - `exposure` is the EPE, `defaulting` the counterparty, `surviving` us.
+    * **DVA** - `exposure` is the ENE, `defaulting` us, `surviving` the counterparty.
+    * **The unilateral case (tranche 25)** - `surviving=None`: nobody else can default, so there is
+      no first-to-default conditioning to apply. `None` rather than a flat `S = 1` curve, because a
+      multiplication that is *skipped* is cheaper to prove unchanged than one performed against a
+      1.0: the operation order is then literally T25's, so the extraction is **bit-identical**
+      rather than identical-to-a-few-ULP - §4's stronger proof, taken where it is available.
+    """
+    if not 0.0 <= loss_given_default <= 1.0:
+        raise ValueError(f"loss given default must lie in [0, 1], got {loss_given_default}")
+    if len(exposure.times) < 2:
+        raise ValueError("integrating an exposure profile needs at least two grid points")
+    for curve in (defaulting, surviving):
+        if curve is not None and curve.time_measure != discount.time_measure:
+            # The profile's `t` is read on EVERY curve here. Different anchors or day counts mean
+            # the same `t` denotes different dates and the integral silently mixes them - C12, the
+            # C7/C8 shared-clock family, guarded rather than recorded and hoped for (§7).
+            raise ValueError(
+                "the survival and discount curves must share one time measure: "
+                f"{curve.time_measure} vs {discount.time_measure}"
+            )
+
+    integrand = []
+    for t, side in zip(exposure.times, exposure.epe):
+        term = discount.df_at(t) * side * defaulting.default_density(t)
+        if surviving is not None:
+            term *= surviving.survival(t)
+        integrand.append(term)
+    area = 0.0
+    for i in range(len(integrand) - 1):
+        area += 0.5 * (integrand[i] + integrand[i + 1]) * (exposure.times[i + 1] - exposure.times[i])
+    return loss_given_default * area
+
+
 def unilateral_cva(
     profile: ExposureProfile,
     survival: SurvivalCurve,
     discount: CurveHandle,
     loss_given_default: float,
 ) -> float:
-    """`LGD * integral DF(t) EPE(t) lambda(t) S(t) dt` over the profile's grid, by trapezoid.
+    """`LGD * integral DF(t) EPE(t) lambda(t) S(t) dt` - tranche 25's adjustment, now a thin caller.
 
-    The grid is the profile's own times: the exposure is the sampled quantity, so it sets the
-    resolution and the curves are read at those points.
+    Kept under its own name because "unilateral" names the *assumption* - that we cannot default -
+    which a bare `credit_adjustment(..., None, ...)` at a call site would state far less clearly.
     """
-    if not 0.0 <= loss_given_default <= 1.0:
-        raise ValueError(f"loss given default must lie in [0, 1], got {loss_given_default}")
-    if len(profile.times) < 2:
-        raise ValueError("integrating an exposure profile needs at least two grid points")
-    if survival.time_measure != discount.time_measure:
-        # The profile's `t` is read on BOTH curves. Different anchors or day counts mean the same
-        # `t` denotes two different dates, and the integral silently mixes them - the C7/C8 family
-        # of shared-clock conventions, guarded here rather than recorded and hoped for (§7).
-        raise ValueError(
-            "the survival and discount curves must share one time measure: "
-            f"{survival.time_measure} vs {discount.time_measure}"
-        )
+    return credit_adjustment(profile, survival, None, discount, loss_given_default)
 
-    integrand = [
-        discount.df_at(t) * epe * survival.default_density(t)
-        for t, epe in zip(profile.times, profile.epe)
-    ]
-    area = 0.0
-    for i in range(len(integrand) - 1):
-        area += 0.5 * (integrand[i] + integrand[i + 1]) * (profile.times[i + 1] - profile.times[i])
-    return loss_given_default * area
+
+@dataclass(frozen=True)
+class CreditParties:
+    """Both sides' credit: whose curve and whose loss-given-default.
+
+    Four cohesive fields rather than four loose arguments (§7's compelled bundling). It also removes
+    the commonest bilateral error at a call site, which is passing the two curves - or the two LGDs -
+    in the wrong order, since both orderings type-check and both produce a plausible number.
+    """
+
+    own: SurvivalCurve
+    counterparty: SurvivalCurve
+    own_lgd: float
+    counterparty_lgd: float
+
+    def __post_init__(self) -> None:
+        for name, lgd in (("own_lgd", self.own_lgd), ("counterparty_lgd", self.counterparty_lgd)):
+            if not 0.0 <= lgd <= 1.0:
+                raise ValueError(f"{name}: loss given default must lie in [0, 1], got {lgd}")
+        if self.own.time_measure != self.counterparty.time_measure:
+            raise ValueError(
+                "the two parties' survival curves must share one time measure: "
+                f"{self.own.time_measure} vs {self.counterparty.time_measure}"
+            )
+
+    def swapped(self) -> CreditParties:
+        """The same pair seen from the counterparty's side - our DVA is their CVA."""
+        return CreditParties(self.counterparty, self.own, self.counterparty_lgd, self.own_lgd)
+
+
+@dataclass(frozen=True)
+class BilateralAdjustment:
+    """Both legs, and the net - and both are reported, never only the net.
+
+    `BCVA` alone hides which side it came from: the same small net can be two large offsetting legs
+    or two negligible ones, and those are different risks. The net is a **property**, not a field, so
+    it cannot drift from its parts.
+    """
+
+    cva: float
+    dva: float
+
+    @property
+    def bcva(self) -> float:
+        """`CVA - DVA` - Crepey Prop 1 eq (18), third line: `FV = CVA - DVA = CA - CL`."""
+        return self.cva - self.dva
+
+
+def bilateral_credit_adjustment(
+    epe: ExposureProfile,
+    ene: ExposureProfile,
+    parties: CreditParties,
+    discount: CurveHandle,
+) -> BilateralAdjustment:
+    """CVA and DVA, each conditioned on the *other* party still being alive.
+
+    **The first-to-default conditioning is the whole difference from tranche 25**, and it has a
+    direction: we cannot lose on the counterparty's default if we defaulted first, so the `S_own`
+    factor in the CVA integrand can only *reduce* it. The unilateral spine dropped that term; here
+    it is present, and the oracle asserts its **magnitude**, not only its sign - a term checked for
+    presence and sign alone is §4's documented blind spot.
+
+    **One convention, stated because the source differs.** Crepey conditions through the *bank
+    survival measure* (`EY = (1-gamma)^-1 E*(Y')`, eq 7 p.37), so his conditioning carries a
+    `(1-gamma)^-1` **normalisation**. This is the market-standard explicit-factor form - the natural
+    extension of T25/T26, neither of which carries a normalisation. Both forms have the
+    first-to-default term present and both satisfy `BCVA = CVA - DVA`; they differ by that factor.
+    Raised as an `Ask:` for Cowork rather than ruled here.
+    """
+    if epe.times != ene.times:
+        raise ValueError(
+            "the positive and negative exposure must share the same time grid: "
+            f"{len(epe.times)} vs {len(ene.times)} points"
+        )
+    return BilateralAdjustment(
+        cva=credit_adjustment(
+            epe, parties.counterparty, parties.own, discount, parties.counterparty_lgd
+        ),
+        dva=credit_adjustment(
+            ene, parties.own, parties.counterparty, discount, parties.own_lgd
+        ),
+    )

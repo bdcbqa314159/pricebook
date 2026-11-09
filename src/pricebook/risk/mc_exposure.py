@@ -59,7 +59,7 @@ from pricebook.market.curve import CurveHandle
 from pricebook.market.survival_curve import SurvivalCurve
 from pricebook.models.libor_market_model import LmmTenor
 from pricebook.products.swaption import SwapSpan
-from pricebook.risk.credit_valuation_adjustment import ExposureProfile
+from pricebook.risk.credit_valuation_adjustment import CreditParties, ExposureProfile
 
 
 def live_exposure_times(
@@ -93,6 +93,15 @@ class ExposureEstimate:
     def profile(self) -> ExposureProfile:
         """T25's shape, so the closed-form CVA functional consumes this unchanged."""
         return ExposureProfile(self.times, tuple(e.mean for e in self.epe))
+
+    def negative_profile(self) -> ExposureProfile:
+        """The ENE in the same shape - what the DVA leg weights (tranche 27).
+
+        `ExposureProfile` is agnostic about which side it holds: it is a non-negative profile on a
+        time grid, and `E[V-]` is as non-negative as `E[V+]`. Reusing it keeps the bilateral
+        integral one function instead of two near-copies that would drift.
+        """
+        return ExposureProfile(self.times, tuple(e.mean for e in self.ene))
 
 
 @dataclass(frozen=True)
@@ -254,3 +263,52 @@ def swap_values_on_paths(
         return tuple(tuple(row) for row in np.column_stack(columns))
 
     return SwapValuesOnPaths(transpose(values), transpose(relatives))
+
+
+def mc_bilateral_adjustment(
+    exposure: SimulatedExposure,
+    parties: CreditParties,
+    discount: CurveHandle,
+    currency: Currency,
+) -> PricingResult:
+    """`BCVA = CVA - DVA` from a simulated exposure, estimated **pathwise** with its own error.
+
+    **Pathwise is required here, not merely convenient.** CVA weights `V(t)+` and DVA weights
+    `V(t)-` on the *same* paths, so the two legs are strongly (negatively) related and the error of
+    their difference is **not** the quadrature sum of their separate errors. Reconstructing the SE
+    from per-leg errors would assume an independence that does not hold; each path contributing its
+    own `CVA - DVA` scalar gets the covariance for free, and satisfies invariant 7's correctness
+    point - the error comes from the same paths as the number.
+
+    Each leg carries the *other* party's survival, which is the first-to-default conditioning: we
+    only lose on their default if we are still there to lose it.
+    """
+    for curve in (parties.own, parties.counterparty):
+        if curve.time_measure != discount.time_measure:
+            raise ValueError(
+                "the survival and discount curves must share one time measure: "
+                f"{curve.time_measure} vs {discount.time_measure}"
+            )
+    weights = _trapezoid_weights(exposure.times)
+    cva_weights = np.asarray(
+        [
+            w * discount.df_at(t) * parties.counterparty.default_density(t) * parties.own.survival(t)
+            for w, t in zip(weights, exposure.times)
+        ],
+        dtype=float,
+    )
+    dva_weights = np.asarray(
+        [
+            w * discount.df_at(t) * parties.own.default_density(t) * parties.counterparty.survival(t)
+            for w, t in zip(weights, exposure.times)
+        ],
+        dtype=float,
+    )
+    values = np.asarray(exposure.values, dtype=float)
+    cva_paths = np.maximum(values, 0.0) @ cva_weights * parties.counterparty_lgd
+    dva_paths = np.maximum(-values, 0.0) @ dva_weights * parties.own_lgd
+    sampled = estimate((cva_paths - dva_paths).tolist())
+    return PricingResult(
+        pv=Money(sampled.mean, currency),
+        standard_error=sampled.standard_error,
+    )
