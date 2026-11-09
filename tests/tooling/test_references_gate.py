@@ -20,21 +20,17 @@ header/body contradiction is caught because 18 citers force the header to `worke
 body already claimed.
 """
 
-import sys
 from pathlib import Path
 
-import pytest
-
-ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from verify import (  # noqa: E402
+from verify import (
     check_reference_statuses,
     cited_reference_keys,
     reference_statuses,
     references,
+    discover_test_dirs,
 )
+
+ROOT = Path(__file__).resolve().parents[2]
 
 REGISTER = ROOT / "docs" / "references.md"
 
@@ -93,3 +89,28 @@ class TestTheGatePassesOnTheCorrectedTree:
         """The end state the five corrections produce. Before them this failed — which is the
         gate's own first finding, and the reason it is not merely restating what was already true."""
         assert references() == []
+
+
+class TestTheTestsGateDiscoversEveryTestDir:
+    """Tranche 26b's own near-miss, pinned. Not about references — about the gate that floors them.
+
+    `run_tests` globbed `tests/L*` only, so this very directory ran under plain `pytest` while the
+    `tests` gate counted 902 against a floor of 911: the tests existed, passed, and were **not
+    floored**. That is the "filter with no floor" defect `run_tests`'s own docstring warns about,
+    occurring in its discovery rather than its `--layer` flag. Extracted into `discover_test_dirs` so this
+    can be asserted at all (§4's reachability rule).
+    """
+
+    def test_the_full_run_includes_THIS_non_layer_directory(self) -> None:
+        dirs = [Path(d).name for d in discover_test_dirs(None)]
+        assert "tooling" in dirs, f"a non-layer test dir would go unfloored: {dirs}"
+
+    def test_the_full_run_includes_every_layer_dir_LOWEST_FIRST(self) -> None:
+        names = [Path(d).name for d in discover_test_dirs(None)]
+        layers = [n for n in names if n.startswith("L")]
+        assert layers == sorted(layers, key=lambda n: int(n[1:]))
+        assert names[: len(layers)] == layers, "layer dirs must come first, to fail fast"
+
+    def test_an_explicit_layer_run_stays_a_LOCAL_TIER_filter(self) -> None:
+        """`--layer N` is deliberately narrow; only the un-truncated run is floored."""
+        assert [Path(d).name for d in discover_test_dirs(0)] == ["L0"]
