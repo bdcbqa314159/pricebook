@@ -249,7 +249,7 @@ text with proofs, so its formulas are genuine pointwise-transcription anchors:
 
 ---
 
-### `BROCKHAUS-2016` — `in-hand`
+### `BROCKHAUS-2016` — `worked-from`
 
 Brockhaus, O. *Equity Derivatives and Hybrids: Markets, Models and Methods.* Palgrave Macmillan
 (Applied Quantitative Finance), 2016. 304 pp. Held at `_stock/NewDocuments/Equity Derivatives and
@@ -271,8 +271,12 @@ affine/Fourier characteristic-function vanilla (ch 16) — each an oracle anchor
 cliquets/asians/autocallables ch 3, implied-vol dynamics ch 7, correlation/copulas ch 8–9, FX ch 15) is
 `to_go_deeper`, pulled by interest.
 
-**Used for:** the equity-and-hybrids arc (`docs/equity_hybrids_arc.md`). **Status `in-hand`, not
-`worked-from`** until the first equity tranche lands.
+**Used for:** the equity-and-hybrids arc (`docs/equity_hybrids_arc.md`). **Status `worked-from`**
+since T30 (v0.36.0): ch 5.1-5.3's dividend forward is built and oracled in `market/equity.py`, and
+the European equity option off that forward in `engine/equity_vanilla.py`. *(The status was flipped
+by the `references` gate catching it mid-tranche — cited by four modules while still `in-hand` —
+which is the gate built at T26b doing its job on its first real opportunity, in the tranche that
+created the drift rather than five tranches later.)*
 
 ---
 
