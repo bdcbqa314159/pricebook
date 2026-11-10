@@ -249,6 +249,33 @@ text with proofs, so its formulas are genuine pointwise-transcription anchors:
 
 ---
 
+### `BROCKHAUS-2016` — `in-hand`
+
+Brockhaus, O. *Equity Derivatives and Hybrids: Markets, Models and Methods.* Palgrave Macmillan
+(Applied Quantitative Finance), 2016. 304 pp. Held at `_stock/NewDocuments/Equity Derivatives and
+Hybrids. Markets, Models and Methods (Oliver Brockhaus) (z-lib.org).pdf` (gitignored — copyrighted;
+only this record is tracked).
+
+**Project four (2026-11-10, Bernardo), after the XVA arc.** The first *equity* vertical — and the book
+is almost a map of the tree we already hold, with equity on top: ch 10 (fixed income — Hull-White,
+CIR, HJM, Markov Functional) overlaps our rates; ch 12 (credit — reduced-form/structural) our survival
+curve; ch 14 (CVA, FVA, wrong-way risk) our just-built XVA spine; ch 17 (Monte Carlo — RNG, Brownian
+path construction, variance reduction, Greeks) the Jäckel arc; ch 18 ("Gauss" — Black-Scholes, barrier
+formulas, useful integrals) is a **closed-form appendix**, the oracle anchors. So the equity spine
+reuses the tree heavily, and the **hybrids** (ch 11 equity-rate, ch 13 defaultable equity, ch 14
+equity CVA) are where equity ties the whole library together.
+
+**Method-fit: strong** (unlike Crépey). Equity derivatives are rich in closed forms — Black-Scholes
+(ch 18.2), the variance-swap static replication (ch 5.8), Dupire local volatility (ch 6.1), the
+affine/Fourier characteristic-function vanilla (ch 16) — each an oracle anchor. The exotic zoo (barriers/
+cliquets/asians/autocallables ch 3, implied-vol dynamics ch 7, correlation/copulas ch 8–9, FX ch 15) is
+`to_go_deeper`, pulled by interest.
+
+**Used for:** the equity-and-hybrids arc (`docs/equity_hybrids_arc.md`). **Status `in-hand`, not
+`worked-from`** until the first equity tranche lands.
+
+---
+
 ## Named-but-not-in-hand — NOT citable as `source:` until obtained
 
 Transcribed verbatim from `BERHAN-2012`'s reference list (p. 49), so they are grounded in a held

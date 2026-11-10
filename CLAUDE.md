@@ -547,7 +547,15 @@ unconditionally only for the fraction.)*
   `ψ` invisible because every fixture was `τ=1`) lived in the *oldest* instrument and was found only
   when the sweep was extended past the recent arc it was first scoped to: the signature defect
   committed against the audit itself. The text already said "full-tree"; the first run under-applied
-  it, so this is the precedent, not a new rule. **(2) cross-tranche consistency
+  it, so this is the precedent, not a new rule. **The sweep also flags any load-bearing mutation killed
+  by a single test** — a *single-point-of-failure oracle*, where a later **test** deletion silently
+  reopens the hole with the suite still green (the signature defect one level down, in the test suite's
+  own domain). These are the re-audit's highest-value re-run targets, and an oracle guarding a
+  *previously-shipped* hole especially wants a second independent killer. The periodic re-audit is the
+  systemic backstop — a deleted killer resurfaces at the next sweep — so recording them is the floor;
+  hardening the thinnest is the ceiling. *(Re-audit #2: F-1.2's dropped-`ψ` dies only to T23's
+  non-unit-`ψ` test, T26's numéraire divisor only to Leg B; both recorded, and F-1.2 — an already-made
+  mistake — given a second independent killer.)* **(2) cross-tranche consistency
   and duplication** — "owed"/"per-module" conventions that never got their guard, duplicated value
   objects, a rule-of-two abstraction overdue at its second consumer; **(3) register accuracy** —
   `to_go_deeper`, `OPEN.md`, `references.md`, the arc plans still describing reality; **(4) charter
