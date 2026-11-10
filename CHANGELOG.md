@@ -6,6 +6,71 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-11-10
+
+Tranche 29 — **collateral / CSA: the collateralized exposure over the margin period of risk.** The
+last build of the XVA spine arc; `CP_xva_spine.md` and re-audit #2 follow.
+
+### Added
+
+- **`risk/collateral.py` (L5)** — `CollateralAgreement` (a zero-threshold, zero-MTA variation-margin
+  CSA: its margin period `δ` and the deterministic initial mark) and `collateralized_exposure`,
+  which returns `(V(t) − V(t−δ))⁺` path by path.
+
+**Collateral enters only through the exposure.** The gap is assembled into the same
+`SimulatedExposure` the uncollateralized engine produces, so T25/T27's `credit_adjustment` prices it
+**unchanged** — no collateralized CVA function, no second integral, no branch in the credit code. A
+CSA changes *what is exposed*, not how an adjustment is computed. The positive part lives here
+rather than downstream, because a negative gap means we are over-collateralized and an
+`ExposureProfile` is a non-negative object by construction.
+
+### Oracles
+
+- **Two exact reductions, each with its non-degenerate companion.** `δ = 0` gives exactly zero
+  (`V(t) − V(t) = 0`, by construction, not a limit); `agreement=None` returns the input **object**,
+  so the uncollateralized case is a structural special case and T26/T27's numbers provably cannot
+  move. Both reductions are *trivially* exact, which is stated plainly — the companion is what makes
+  the pair non-vacuous: a material `δ` on a volatile mark where the collateralized CVA is **less
+  than half** the uncollateralized value and strictly positive.
+- **A rate oracle, not just monotonicity.** The gap's standard deviation is `σ√δ`, so the adjustment
+  is proportional to `√δ`: halving `δ` must multiply the CVA by `1/√2 = 0.7071`. Measured 0.772,
+  0.710, 0.706 over successive halvings. A wrong power of `δ` passes a monotonicity check and fails
+  this one.
+- **A structural signature** separating the gap from the mark: the gap's law does not depend on `t`,
+  so its EPE is **flat** (2.4% across the horizon, sampling noise on a `t`-independent law) while
+  the mark's EPE grows (17.4%). Asserted as the *separation*, not as two fixture-tuned bounds.
+- The gap EPE against T25's `expected_positive_exposure` on the gap's own moments, at the MC rate.
+  **Derived, not transcribed** — there is no source equation for the gap construction, and §4 rates
+  a derivation above a transcription.
+- The process is **not** re-anchored: the gap is a functional of the very paths T26's Leg B validated
+  against the numéraire-relative martingale identity, so it inherits that validation. Inventing a
+  fresh anchor over the same paths would add ceremony, not evidence.
+- Requirement oracles: collateral can never *increase* the adjustment, and the adjustment is monotone
+  increasing in `δ`.
+
+### A real hole found by mutation, and the fixture that closes it
+
+Reversing the gap to `(V(t−δ) − V(t))⁺` — the **wrong** exposure — initially **survived all 986
+tests**. It is not an equivalent mutant. It survived because the fixture's mark was **driftless**,
+making `V(t) − V(t−δ) ~ N(0, σ²δ)` symmetric about zero: the reversed gap then has the *identical
+distribution*, and every mean-based oracle is structurally blind to the direction. Measured, the two
+EPEs agree to the last digit with no drift and differ by **87%** at a drift of 24/year (572% at 60).
+
+Closed with a **drifting-mark fixture** whose closed form carries the drift (`N(μδ, σ²δ)`), a premise
+asserting the drift is material against the gap's own standard deviation, and a companion asserting
+the band is tight enough to *reject* the reversed value — rather than assuming the new fixture would
+catch it. All six mutants now die.
+
+This is §4's degenerate-fixture rule in a form not yet recorded there: the degeneracy is a
+**distributional symmetry**, not a specific parameter value (`τ = 1`) nor a uniformity across a
+slice. The guard is therefore not "the values differ" but "the fixture breaks the symmetry the
+mutation exploits".
+
+### Scope fence
+
+Zero threshold and zero MTA, variation margin only. Thresholds/MTA, **initial margin** and its MVA,
+ColVA (the funding cost of collateral), and gap/wrong-way risk are each deferred, not approximated.
+
 ## [0.34.0] - 2026-11-09
 
 Tranche 28 — **FVA: the funding adjustment, a fixed point with a closed form.** Fourth and last
