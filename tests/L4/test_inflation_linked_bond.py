@@ -292,3 +292,43 @@ def test_an_unknown_schema_version_is_refused() -> None:
     bad["schema_version"] = 99
     with pytest.raises(ValueError, match="reads up to"):
         InflationLinkedBond.from_dict(bad)
+
+
+# ── a SECOND, independent killer for re-audit #1's F-1.2 (ruled at re-audit #2) ─────────────────
+def test_the_coupon_LEG_is_FREQUENCY_INVARIANT_at_a_ZERO_real_rate() -> None:
+    """Dropping `ψ` must fail a **requirement**, not only a transcription.
+
+    Re-audit #2 found that the dropped-`ψ` mutation — re-audit #1's own finding F-1.2 — dies to
+    **exactly one** test: `test_the_linker_coupon_ACCRUAL_is_pinned_on_a_NON_UNIT_schedule`. A
+    single-point-of-failure oracle is the signature defect one level down: delete or weaken that one
+    test in some later refactor and the hole silently reopens with the suite still green. §9 now says
+    to record such oracles, and to give a second independent killer to any that guards an
+    *already-shipped* mistake. This is that killer.
+
+    **Independent in kind, not just in fixture.** The existing oracle recomputes the engine's own
+    composition `Σ C·ψᵢ·df(payᵢ)` from the dates — so it shares the formula's shape, and a reader
+    who believed a wrong shape would write the same reference twice. This one asserts a property the
+    *finance* forces and the formula never mentions: **accrual is additive in time, so with no
+    discounting the coupon leg depends on the total time accrued and not on how it is sliced.**
+    A semi-annual and an annual schedule spanning the same three years have the same `Σψ = 3.0`, so
+    at a zero real rate they must price identically — while a `ψ`-less engine pays per *coupon* and
+    reports `6C` against `3C`, a factor of two apart. No transcription of the source is involved, so
+    the check survives a reading error that both renderings share.
+    """
+    annual_over_three = CouponSchedule(
+        tuple(VAL + timedelta(days=d) for d in (0, 365, 730, 1095)), DC
+    )
+    # Premises, asserted rather than assumed: the two schedules must disagree on the number of
+    # coupons (else a `ψ`-less engine agrees too, and the test is vacuous) and agree on the total
+    # accrued time (else they legitimately differ and the oracle is wrong, not the engine).
+    semi_periods = list(SEMI_ANNUAL.periods())
+    annual_periods = list(annual_over_three.periods())
+    assert len(semi_periods) == 2 * len(annual_periods), "the coupon COUNTS must differ"
+    semi_accrual = sum((pay - start).days for start, pay, *_ in semi_periods)
+    annual_accrual = sum((pay - start).days for start, pay, *_ in annual_periods)
+    assert semi_accrual == annual_accrual == 1095, (semi_accrual, annual_accrual)
+
+    flat = _market(real=0.0)
+    assert _pv(_bond(schedule=SEMI_ANNUAL), flat) == pytest.approx(
+        _pv(_bond(schedule=annual_over_three), flat), rel=1e-12
+    )
