@@ -285,7 +285,16 @@ not an oracle. Ruled principles:
   forces it (Jäckel 12.12 decays in the actual times `t_i`, not in index distance, which is the
   non-degenerate form). Sixth appearance, and the first where the degeneracy is *uniformity across a
   slice* rather than a specific value. *(T17: non-uniform accruals and a time-decaying ρ killed both
-  mutants.)* Mutation is also the
+  mutants.)* **A varying, non-special, non-uniform fixture can STILL be degenerate — if the fixture's
+  *distribution* has a symmetry the mutation respects.** Reversing an exposure gap
+  `V(t)−V(t−δ) → V(t−δ)−V(t)` — the wrong *sign* of the exposure — survived all 986 tests because the
+  fixture's mark was **driftless**, so the gap is symmetric about zero and the reversed gap has the
+  *identical distribution*; a mean-based oracle (an EPE is a distributional functional) is structurally
+  blind to the direction. The premise is neither "the values differ" nor "the block read differs from
+  the block a mutation reads" but **"the fixture breaks the symmetry the mutation exploits"** — here a
+  material drift, so `E[gap⁺] ≠ E[(−gap)⁺]` (0% apart driftless, 87% at drift 24/yr, 572% at 60/yr).
+  Seventh appearance, and the first where the degeneracy is a *distributional symmetry* rather than a
+  value or a slice. *(T29.)* Mutation is also the
   **mandatory recovery when pre-registration
   was missed** — the empirical proof of power that RED-first would otherwise have given, never a
   licence to skip RED-first. **A surviving mutant is a hole — unless it is an *equivalent mutant*,
