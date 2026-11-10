@@ -6,6 +6,58 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-09
+
+Tranche 28 — **FVA: the funding adjustment, a fixed point with a closed form.** Fourth and last
+**core** unit of the XVA spine arc: CVA · DVA · FVA complete. Collateral (T29) is optional after it,
+then the checkpoint closes the arc.
+
+### Added
+
+- **`risk/funding_valuation_adjustment.py` (L5)** — `funding_valuation_adjustment` (Crépey eq 17's
+  closed form `γ/(1+γ)·(P−CVA)⁺`), `fva_fixed_point_residual` (eq 19's defining equation as named
+  surface, because it is the tranche's correctness anchor and §4 says extract what an oracle must
+  reach), and `iterate_fva` (the Picard iteration, returning the whole sequence so a test can read
+  the *rate* and not only the limit).
+
+### Oracles
+
+- **The anchor is that the closed form satisfies its own defining equation** (§4: a formula and its
+  stated inverse must actually invert), asserted to machine precision across the spread range. It is
+  derived from the finance, so it survives a transcription error — and it is sharp against exactly
+  the mistake the source's typography invites.
+- **With the companion that proves the anchor has power:** the natural reflow misreading
+  `γ·(P−CVA)⁺` is asserted **not** to satisfy the fixed point. Without that, "the closed form
+  satisfies its fixed point" could be a property of a whole family of formulas rather than of this
+  one (§4, the Box-Muller pattern).
+- The `γ/(1+γ)` coefficient is printed as a **stacked fraction**, so a `-layout` reflow splits
+  numerator from denominator across lines — the same hazard that produced the eq-25 KVA error. Read
+  in `-raw` and `-layout` and reconciled, **and independently derived** from eq 19 (with the
+  positive part open, `FVA(1+γ) = γ(P−CVA)`), which §4 rates above a transcription.
+- An **independent root-find** on the defining equation (different code from its algebraic solution)
+  agrees across five spreads.
+- **Both regimes of the `⁺`**: a net payer with `P−CVA` materially positive (asserted, else the
+  formula is invisible) and a **net receiver**, whose FVA is *exactly* zero — the `⁺` binding is a
+  statement about the economics, not a rounding outcome.
+- **Seven mutants, all killed.** The reflow slip (dropping `1/(1+γ)`) dies to **18** tests.
+
+### Corrected — a spec claim, measured
+
+The tranche spec justified the Picard iteration as "a contraction, factor `γ/(1+γ) < 1`". Measured,
+the error ratio is **`γ`**: `γ/(1+γ)` is the *solution's* coefficient, not the map's Lipschitz
+constant, since `e_{n+1} = −γ·e_n` exactly while the positive part stays open. The consequence is not
+cosmetic — the iteration converges only for `γ < 1`, **oscillates at `γ = 1` and diverges above it**,
+while the closed form keeps satisfying the fixed point for every `γ ≥ 0`. Both facts are now pinned
+by tests rather than left in prose. This strengthens the ruling that the closed form is production: a
+"solve the fixed point numerically" instinct would have produced code that silently fails outside
+`γ < 1`.
+
+### Stated assumption
+
+`CA = CVA` holds because this spine is **uncollateralized with no initial margin**; in general
+`CA = CVA + FVA` (eq 11). MVA and the collateral terms that make `CA ≠ CVA` are deferred (T29 /
+`to_go_deeper`), so the assumption is named in the module rather than assumed silently.
+
 ## [0.33.0] - 2026-11-09
 
 Tranche 27 — **bilateral CVA + DVA: both parties can default.** Third unit of the XVA spine arc. The
