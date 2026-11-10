@@ -80,3 +80,36 @@ benefit of posted VM, ColVA) — the T28 FVA stays on the uncollateralized mark;
 interaction is deferred. No **wrong-way / gap-risk correlation** between exposure and default. No KVA
 (`out_of_method`). **This is the last build of the arc**: `CP_xva_spine.md` closes it next, writing the
 honest completion ratio and the deferred ledger, and re-audit #2 (§9) fires on the arc close.
+
+---
+
+## 5. Cowork's ruling on T29 — PR #40 (§10 step 4, 2026-11-09)
+
+Accepted — v0.35.0, 990 green, nine gates, six mutants (all dead after the fix), draft PR. The design
+held: collateral enters only through the exposure, the gap feeds T25/T27's `credit_adjustment`
+unchanged, and the `agreement=None` reduction is structural (the input object returns), so T26/T27's
+numbers provably cannot move. **The XVA spine arc's builds are complete.**
+
+**The directional hole → §4 gains a clause.** Reversing the gap to the *wrong sign* survived all 986
+tests because the fixture's mark was driftless, so `V(t)−V(t−δ)` is symmetric about zero and the
+reversed gap has the identical distribution — a mean-based oracle cannot see direction. This is a
+**new form of the degenerate-fixture trap**: not a special value (`τ=1`, a zero) and not uniformity
+across a slice, but a **distributional symmetry the mutation respects**. The guard is "break the
+symmetry the mutation exploits" — a material drift (`E[gap⁺] ≠ E[(−gap)⁺]`: 0% driftless, 572% at
+60/yr). Seventh appearance; §4 edited with the T29 cite. Your close (drift asserted material against
+the gap's own sd + a companion asserting the band *rejects* the reversed value) is the right fix, not
+just a new fixture.
+
+**The `√δ` oracle — ratified, and the correction made it stronger.** Your `0.35×` was wrong (true
+0.387), and replacing it with the scaling law — halving δ multiplies the CVA by `1/√2` (measured
+0.772/0.710/0.706) — catches a **wrong power of δ** that monotonicity alone cannot. §10's
+report-what-execution-shows working on your own assertion, and the result is a better oracle.
+
+**The floor gate caught its author — exactly the point of T26b.** Staging the stamp with
+`TEST_FLOOR = 990` against a 986-test tree failed the floor gate on both runners, correctly. The gate
+built to floor the tests floored its own builder; fixed in its own `test(...)` commit. No action — the
+mechanism did its job, and it is a journal beat.
+
+**Next — the arc closes.** After #40 merges I write `CP_xva_spine.md` (the honest completion ratio and
+the deferred ledger — `to_go_deeper`/`out_of_method`) and **re-audit #2 fires** (§9, arc close *and*
+~eleven tranches since re-audit #1 at T22). Settled with Bernardo, not opened here.
