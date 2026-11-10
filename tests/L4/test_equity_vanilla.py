@@ -57,6 +57,11 @@ NOTIONAL = Money(1.0, EUR)
 CASH = ((VAL + timedelta(days=180), 2.5), (VAL + timedelta(days=545), 2.5))
 PROPORTIONAL = ((VAL + timedelta(days=300), 0.015),)
 POST_EXPIRY = (VAL + timedelta(days=900), 9.0)
+#: The same boundary for the PROPORTIONAL branch. Needed because the `t_i <= T` restriction is a
+#: SEPARATE line of code per convention: with only a post-expiry *cash* dividend in the fixture, a
+#: mutant dropping the proportional restriction survived the whole suite. The trap this module's
+#: docstring names, half-applied by its own author and caught by the sweep.
+POST_EXPIRY_PROPORTIONAL = (VAL + timedelta(days=900), 0.08)
 
 
 def _curve(rate: float = RATE) -> DiscountCurve:
@@ -105,9 +110,11 @@ class TestTheFixtureIsNotDegenerate:
         schedule = _underlying().dividends
         assert schedule.cash and schedule.proportional and schedule.continuous_yield > 0.0
 
-    def test_the_fixture_carries_a_dividend_AFTER_expiry(self) -> None:
-        """The date boundary the `t_i <= T` sum must get right — see the module docstring."""
+    def test_the_fixture_carries_a_post_expiry_dividend_of_EVERY_discrete_kind(self) -> None:
+        """The boundary is enforced by a separate line per convention, so each needs its own
+        post-expiry entry. Guarding only the cash branch let the proportional mutant live."""
         assert POST_EXPIRY[0] > EXPIRY
+        assert POST_EXPIRY_PROPORTIONAL[0] > EXPIRY
 
 
 class TestTheDividendForwardIsTranscribedPointwise:
@@ -145,6 +152,23 @@ class TestTheDateBoundary:
         without = dividend_forward(_underlying(), EXPIRY, _curve())
         with_late = dividend_forward(_underlying(cash=CASH + (POST_EXPIRY,)), EXPIRY, _curve())
         assert with_late == without
+
+    def test_a_PROPORTIONAL_dividend_after_expiry_cannot_move_the_forward_either(self) -> None:
+        """The same boundary, the other branch — the one the sweep found unguarded."""
+        without = dividend_forward(_underlying(), EXPIRY, _curve())
+        with_late = dividend_forward(
+            _underlying(proportional=PROPORTIONAL + (POST_EXPIRY_PROPORTIONAL,)), EXPIRY, _curve()
+        )
+        assert with_late == without
+
+    def test_the_late_PROPORTIONAL_dividend_is_material_at_a_later_expiry(self) -> None:
+        """The companion: without it the test above would pass on a negligible dividend."""
+        later = POST_EXPIRY_PROPORTIONAL[0] + timedelta(days=30)
+        without = dividend_forward(_underlying(), later, _curve())
+        with_late = dividend_forward(
+            _underlying(proportional=PROPORTIONAL + (POST_EXPIRY_PROPORTIONAL,)), later, _curve()
+        )
+        assert with_late < 0.95 * without
 
     def test_but_it_DOES_move_a_LATER_expiry(self) -> None:
         """The companion: the post-expiry dividend is material, so the test above is not vacuous."""
