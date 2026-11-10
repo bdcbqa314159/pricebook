@@ -212,3 +212,73 @@ class TestTheGuardsAreReachable:
     def test_a_NON_FINITE_initial_mark_is_refused(self) -> None:
         with pytest.raises(ValueError, match="finite"):
             CollateralAgreement(0.25, math.inf)
+
+
+# ── the DRIFTING mark: what the driftless fixture could not see ─────────────────────────────────
+DRIFT = 24.0
+
+
+def _simulated_with_drift(delta: float, paths: int, seed: int = 29) -> SimulatedExposure:
+    """`V(t) = V0 + mu*t + sigma*W(t)` — a mark with a trend, so the gap is ASYMMETRIC."""
+    steps = int(round(HORIZON / delta))
+    times = tuple(delta * (k + 1) for k in range(steps))
+    rng = np.random.default_rng(seed)
+    increments = DRIFT * delta + rng.standard_normal((paths, steps)) * math.sqrt(delta) * SIGMA
+    values = INITIAL_MARK + np.cumsum(increments, axis=1)
+    return SimulatedExposure(times, tuple(tuple(row) for row in values))
+
+
+class TestTheGapsDIRECTIONIsPinnedWhichNeedsADriftingMark:
+    """**A hole the mutation sweep found, and the fixture that closes it.**
+
+    Reversing the gap to `(V(t-delta) - V(t))^+` survived all 986 tests. It is not an equivalent
+    mutant — it is the *wrong* exposure, and it survived because the original fixture's mark is
+    **driftless**: then `V(t) - V(t-delta) ~ N(0, sigma^2 delta)` is symmetric about zero, so the
+    reversed gap has the *identical distribution* and every mean-based oracle is structurally blind
+    to the direction. Measured: with no drift the two EPEs agree to the last digit; with a drift of
+    24/year they differ by **87%**.
+
+    This is §4's degenerate-fixture rule in a form the charter had not yet recorded: the degeneracy
+    is a **distributional symmetry**, not a specific parameter value (`tau = 1`) nor a uniformity
+    across a slice. The guard is therefore not "the values differ" but "the fixture breaks the
+    symmetry the mutation exploits".
+    """
+
+    def test_the_drifting_fixture_BREAKS_the_symmetry_the_mutant_hides_behind(self) -> None:
+        forward, sd = DRIFT * DELTA, SIGMA * math.sqrt(DELTA)
+        assert forward / sd > 0.2, f"the drift must be material against the gap's sd, got {forward / sd}"
+        up = expected_positive_exposure(forward, sd)
+        down = expected_positive_exposure(-forward, sd)
+        assert abs(up / down - 1.0) > 0.5, (
+            f"the fixture must distinguish the two directions: {up} vs {down}"
+        )
+
+    def test_the_gap_EPE_matches_the_DRIFTING_closed_form(self) -> None:
+        """`V(t) - V(t-delta) ~ N(mu*delta, sigma^2 delta)` — the reference carries the drift."""
+        exposure = collateralized_exposure(_simulated_with_drift(DELTA, 60_000), _agreement())
+        reference = expected_positive_exposure(DRIFT * DELTA, SIGMA * math.sqrt(DELTA))
+        estimate = exposure.estimate()
+        for t, epe in zip(estimate.times, estimate.epe):
+            assert abs(epe.mean - reference) <= 4.0 * epe.standard_error, (
+                f"t={t}: {epe.mean} vs {reference} +/- {epe.standard_error}"
+            )
+
+    def test_the_REVERSED_gap_is_rejected_by_that_same_oracle(self) -> None:
+        """The companion proving the oracle has power: the mutant's value must fail the band.
+
+        Asserted rather than assumed, because "the drifting fixture would catch it" is exactly the
+        kind of claim that goes untested and turns out false.
+        """
+        exposure = collateralized_exposure(_simulated_with_drift(DELTA, 60_000), _agreement())
+        reference = expected_positive_exposure(DRIFT * DELTA, SIGMA * math.sqrt(DELTA))
+        reversed_reference = expected_positive_exposure(-DRIFT * DELTA, SIGMA * math.sqrt(DELTA))
+        epe = exposure.estimate().epe[0]
+        assert abs(epe.mean - reference) <= 4.0 * epe.standard_error
+        assert abs(reversed_reference - reference) > 4.0 * epe.standard_error, (
+            "the band must be tight enough to separate the two directions"
+        )
+
+    def test_a_drifting_mark_still_obeys_the_requirement_oracles(self) -> None:
+        raw = _simulated_with_drift(DELTA, 20_000)
+        collateralized = _cva(collateralized_exposure(raw, _agreement()))
+        assert 0.0 < collateralized <= _cva(raw) + 1e-12
