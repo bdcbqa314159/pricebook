@@ -77,18 +77,23 @@ imposes an obligation on this tree, and no row below may be cited as a live conv
 
 ## Immediate reading
 
-**This tree has five live conventions (C7-C11), and the one to watch is C10.** It is the only row spanning
-five modules with *no shared atom* — each engine inlines `pay > valuation_date` — which is the exact
-standing the predecessor's discounting convention had the day before it broke. The difference is that
-C10's exposure is now **measured**, not guessed: of the five, three catch a boundary flip, and the two
-that do not were proved equivalent rather than left ambiguous. One of the five (`capfloor`) was a real
-41% mispricing away from a wrong comparison, and that gap is closed.
+**This tree has six live conventions (C7–C12), and they are in good standing.** The row that was once
+"the one to watch", C10 (invariant-6, historical flows → PV 0), is now **guarded — structurally**. When
+it spanned five engines each inlining `pay > valuation_date` with no shared atom, it had the exact
+standing the predecessor's discounting convention had the day before it broke — and re-deriving it by
+mutation rather than reading found a real **41% `capfloor` mispricing** a wrong boundary comparison would
+have caused (closed at T24; of the five engines, three caught a boundary flip and two were proved
+equivalent). T26 then extracted the `is_historical(pay, valuation_date)` atom when the exposure engine
+pulled it, so all five engines plus the exposure grid route through **one** definition and a divergence
+is no longer expressible — the upgrade earned by product-pull, not done for tidiness. C12 (a
+survival/discount `TimeMeasure` guard, T25) is likewise structural.
 
-**C11 and C9 are guarded *structurally*, which is the better outcome where it is reachable.** Neither
-rests on a comparison test; both rest on there being exactly one way to express the thing — one
-resolution function, one engine signature. A shared atom beats a comparison test, because a test can
-only detect a divergence after it exists. **C10's upgrade path is exactly this**: extract one
-`is_historical(pay, valuation_date)` and it joins them.
+**C9, C10, C11 and C12 are guarded *structurally*, which is the better outcome where it is reachable.**
+None rests on a comparison test; each rests on there being exactly one way to express the thing — one
+resolution function, one engine signature, one `is_historical` atom, one shared clock. A shared atom
+beats a comparison test, because a test can only detect a divergence after it exists. **C10 joined them
+at T26** by exactly this route — the atom extracted when the exposure engine first needed it, product-pull
+rather than a tranche built for the guard.
 
 **C7 and C8 remain OWED and remain *unviolable*.** The library still has one day count (`ACT/365F`),
 so the convention cannot yet be broken, and building a guard for it would be §6's imagined problem.

@@ -12,6 +12,22 @@ This file is the **counter**, so the trigger is mechanical, not remembered.
 |---|---|---|---|---|
 | — | — | — | — | mechanism established 2026-11-07 (cadence 11, Bernardo). |
 | #1 (**complete**) | v0.27.0 | T22 | **2 HOLES + 1 MED + 3 LOW** | first re-audit, Jäckel arc close, whole tree T1–T22; run independently of the builder from two fresh contexts (Code built all 22), findings → `docs/audit/reaudit_01_findings.md`, ruled by Cowork. See below. |
+| #2 (**complete**) | v0.35.0 | T29 | **CLEAN — 0 holes + 1 LOW (fixed)** | **XVA arc close** (arc-boundary trigger, not the cadence counter — eight tranches since #1). Whole tree **T1–T29**, independent. No oracle holes, no silent weakening from the XVA refactors, charter clean; one LOW (stale conventions-register summary) fixed in place. Findings + rulings → `docs/audit/reaudit_02_findings.md`. |
+
+## Re-audit #2 — result (2026-11-10, v0.35.0, T1–T29)
+
+A **clean bill**, cleaner than #1. Fired by the XVA arc close. Findings/rulings in
+`docs/audit/reaudit_02_findings.md`.
+
+- **Oracle power: CLEAN.** ~48 mutations, 0 holes; one proven-equivalent survivor. The signature-defect
+  checks — did generalizing T25 into `credit_adjustment` (T27), extending T26's engine with collateral
+  (T29), or the `is_historical` atom across five engines weaken an older oracle? — all held. F-1.2
+  confirmed closed; the new `references` gate itself powered.
+- **Duplication: CLEAN** (F-2.1 still one consumer short, correctly open).
+- **Register accuracy: 1 LOW.** F-3.1 — the conventions-register "Immediate reading" summary was T24
+  prose not updated under T26 (called C10 unguarded, counted five conventions). Rows were correct;
+  summary **fixed in place**, no fix-tranche.
+- **Charter staleness: CLEAN.**
 
 ## Re-audit #1 — result (2026-11-07, v0.27.0, T1–T22)
 
@@ -48,5 +64,5 @@ instead of by reading the code**. The register rebuild was scoped as a docs tran
 by-product of doing it honestly. Target 3 (register accuracy) and Target 1 (oracle power) are less
 separable than the §9 list suggests.
 
-**Next due:** whichever of {next arc close, 11 tranches since this one (T22)} comes first — so the
-counter re-arms at **≈ T33**, or the next arc boundary, whichever is first.
+**Next due (superseded — re-audit #2 ran at the T29 arc close; see its result above):** re-arms at
+whichever of {next arc close, 11 tranches since **re-audit #2** at T29 ≈ **T40**} comes first.
