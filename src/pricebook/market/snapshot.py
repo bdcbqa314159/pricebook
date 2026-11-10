@@ -23,6 +23,7 @@ from datetime import date
 
 from pricebook.foundation.inflation import InflationIndex
 from pricebook.market.curve_set import CurveSet
+from pricebook.market.equity import EquityAsset, EquityUnderlying
 from pricebook.market.fixing_series import FixingSeries
 
 
@@ -41,3 +42,7 @@ class MarketSnapshot:
     #: *Which* print a date resolves to is `market.fixing_series.reference_level`, defined once and
     #: composed by every pricer — never re-derived per engine.
     fixings: Mapping[InflationIndex, FixingSeries] = field(default_factory=dict)
+    #: The equity quote side per asset - spot, repo/borrow and dividends (tranche 30). Keyed like
+    #: `fixings`: the snapshot is a mapping of what the market said, and an engine reaches it only
+    #: through `model.market` (§3), so an equity option cannot be priced against another name's data.
+    equities: Mapping[EquityAsset, EquityUnderlying] = field(default_factory=dict)

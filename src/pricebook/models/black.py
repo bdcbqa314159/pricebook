@@ -40,6 +40,8 @@ Provenance:
 
 from __future__ import annotations
 
+from typing import Protocol
+
 import math
 
 from pricebook.foundation.distributions import norm_cdf
@@ -52,7 +54,22 @@ from pricebook.foundation.solvers import bracketed_root
 _MAX_VARIANCE = 1.0e6
 
 
-def black_price(forward: float, strike: float, total_variance: float, kind: CapFloorKind) -> float:
+
+class OptionDirection(Protocol):
+    """Anything carrying Black's `omega = +/-1`.
+
+    Black's formula needs the direction and nothing else about the product, so it depends on that
+    shape rather than on one product's enum. Two present consumers share it - tranche 5's
+    `CapFloorKind` and tranche 30's `EquityOptionKind` (and the swaption's `SwaptionKind` is a
+    third) - which is §6's rule-of-two met by a shared *shape*, not a shared word. Widening the hint
+    changes no operation: the body already read only `kind.omega`.
+    """
+
+    @property
+    def omega(self) -> float: ...
+
+
+def black_price(forward: float, strike: float, total_variance: float, kind: OptionDirection) -> float:
     """Black-76 per unit of notional and undiscounted — eq 2.6.5's bracket.
 
     `total_variance` is `V²`, not `σ`. Zero (or less) is the deterministic case and returns the
