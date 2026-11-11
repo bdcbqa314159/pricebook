@@ -242,3 +242,21 @@ stands open in `to_go_deeper`.
 
 **Remediation: COMPLETE** (the one LOW fixed in this turn). Re-audit #2 closed; the XVA arc is fully
 closed.
+
+---
+
+## Single-point-of-failure oracles (ruled 2026-11-10, from Code's 0151 sample verification)
+
+Code confirmed Target 1 by **executing** a 7-mutation sample weighted to the oldest tranches (where a
+refactor-weakened oracle would hide); all seven die — confirming the pass by execution, not reading.
+Two die to **exactly one test**: F-1.2's dropped-`ψ` (only T23's non-unit-`ψ` oracle) and T26's
+numéraire-relative divisor (only Leg B). These are **single-point-of-failure oracles** — the
+configuration most exposed to the signature defect one level down (a later *test* deletion reopens the
+hole, suite still green).
+
+**Ruling:** the periodic re-audit is the systemic backstop (a deleted killer resurfaces at the next
+sweep), so recording is the floor and both are logged as the **highest-value re-run targets for
+re-audit #3**. **F-1.2 — an already-shipped mistake, the thinnest margin — gets a second independent
+killer** (test-only, Code to add). **T26's Leg B stays recorded without a forced second killer** — it
+is the purpose-built independent anchor for that quantity, so a single killer there is by design.
+§9 edited to make single-point-of-failure flagging a standing sweep output.

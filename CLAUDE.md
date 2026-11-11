@@ -294,7 +294,16 @@ not an oracle. Ruled principles:
   the block a mutation reads" but **"the fixture breaks the symmetry the mutation exploits"** — here a
   material drift, so `E[gap⁺] ≠ E[(−gap)⁺]` (0% apart driftless, 87% at drift 24/yr, 572% at 60/yr).
   Seventh appearance, and the first where the degeneracy is a *distributional symmetry* rather than a
-  value or a slice. *(T29.)* Mutation is also the
+  value or a slice. *(T29.)* **And a fixture can be degenerate in its *coverage of a guard duplicated
+  across code paths*, not in any value** — when one condition appears N times (a `tᵢ ≤ T` dividend-date
+  filter written once per dividend convention), a fixture exercising the special case in **one** branch
+  leaves the other N−1 copies unguarded, and dropping the guard on an unexercised branch survives.
+  Count the **copies of a guard**, not just the values — and the robust fix is usually §6:
+  **consolidate the duplicated guard into one place** (one `dividends_before(T)`), so a single fixture
+  suffices, rather than multiply fixtures forever. Eighth appearance, and the first where the
+  degeneracy is a *coverage gap across duplicated code*, which is a duplication smell wearing a
+  fixture's clothes. *(T30: a post-expiry cash dividend covered the discrete branch while the
+  proportional branch's identical filter, dropped, survived all 1010 tests.)* Mutation is also the
   **mandatory recovery when pre-registration
   was missed** — the empirical proof of power that RED-first would otherwise have given, never a
   licence to skip RED-first. **A surviving mutant is a hole — unless it is an *equivalent mutant*,
@@ -547,7 +556,15 @@ unconditionally only for the fraction.)*
   `ψ` invisible because every fixture was `τ=1`) lived in the *oldest* instrument and was found only
   when the sweep was extended past the recent arc it was first scoped to: the signature defect
   committed against the audit itself. The text already said "full-tree"; the first run under-applied
-  it, so this is the precedent, not a new rule. **(2) cross-tranche consistency
+  it, so this is the precedent, not a new rule. **The sweep also flags any load-bearing mutation killed
+  by a single test** — a *single-point-of-failure oracle*, where a later **test** deletion silently
+  reopens the hole with the suite still green (the signature defect one level down, in the test suite's
+  own domain). These are the re-audit's highest-value re-run targets, and an oracle guarding a
+  *previously-shipped* hole especially wants a second independent killer. The periodic re-audit is the
+  systemic backstop — a deleted killer resurfaces at the next sweep — so recording them is the floor;
+  hardening the thinnest is the ceiling. *(Re-audit #2: F-1.2's dropped-`ψ` dies only to T23's
+  non-unit-`ψ` test, T26's numéraire divisor only to Leg B; both recorded, and F-1.2 — an already-made
+  mistake — given a second independent killer.)* **(2) cross-tranche consistency
   and duplication** — "owed"/"per-module" conventions that never got their guard, duplicated value
   objects, a rule-of-two abstraction overdue at its second consumer; **(3) register accuracy** —
   `to_go_deeper`, `OPEN.md`, `references.md`, the arc plans still describing reality; **(4) charter

@@ -6,6 +6,61 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-10
+
+Tranche 30 — **the equity underlying and the European equity option.** First unit of project four,
+the **equity & hybrids arc** (`BROCKHAUS-2016`) — and the first equity vertical in the tree.
+
+### Added
+
+- **`market/equity.py` (L1)** — `EquityAsset`, `DividendSchedule` (all three quoted conventions at
+  once: discrete cash, proportional, continuous yield), `EquityUnderlying` (spot, repo/borrow,
+  dividends) and `dividend_forward`. Quote-side equity data, the same status as a discount curve.
+- **`products/equity_option.py` (L2)** — `EuropeanEquityOption` and `EquityOptionKind`.
+- **`models/equity_black.py` (L3)** — `EquityBlackModel`: one flat vol, carrying its snapshot.
+- **`engine/equity_vanilla.py` (L4)** — the registered pricer: compute the forward, then **reuse**
+  `black_price`. The equity content of a vanilla is the *forward*, not the option formula.
+- **`MarketSnapshot.equities`** — the equity quote side per asset, reached only through
+  `model.market` (§3).
+- **`black_price`'s `kind` parameter now depends on the `omega` *shape*** (`OptionDirection`), not on
+  one product's enum. Rule-of-two met by a shared shape rather than a shared word: `CapFloorKind`
+  (T5) and `EquityOptionKind` (T30) are both present consumers. The body already read only
+  `kind.omega`, so no operation changed.
+
+### Oracles
+
+- **The anchor is the exact reduction to the verified core**: with no dividends and no repo the price
+  is **bit-identically** `black_price` on `S₀/df(T)`. Black has been verified since T5 and this
+  tranche must not perturb it. Companion: a material dividend stream moves the call by >15%.
+- The forward against an **independently composed** reference; the continuous-yield form against
+  `S₀·e^{(r−q)T}`; discrete cash proved **PV-discounted rather than raw-summed** (the commonest slip,
+  with the premise that discounting matters on the fixture asserted).
+- **A cross-form oracle**: a fine strip of small proportional dividends converges to the continuous
+  yield — two different formulas for one object, so a shared transcription error surfaces.
+- Put-call parity (model-free, so it survives a transcription error in the forward); the forward
+  monotone decreasing in every dividend and in the repo; the call monotone in vol and inside the
+  no-arbitrage bounds.
+
+### The degeneracy here is a DATE boundary, and it was found half-guarded
+
+A dividend after expiry cannot enter `F(T)`, and **every value-based oracle is blind to dropping the
+`tᵢ ≤ T` restriction if the fixture puts all dividends before expiry** — the same family as
+invariant 6's boundary, where the analogous slip was a 41% mispricing.
+
+The fixture carried a post-expiry **cash** dividend from the start. The mutation sweep then showed
+that dropping the restriction on the **proportional** branch survived all 1010 tests: the boundary is
+a *separate line of code per convention*, and only one had a post-expiry entry to exclude. The trap
+this module's own docstring names, half-applied by its author and caught by the sweep. Closed with a
+post-expiry proportional dividend plus its materiality companion; **all seven mutants now die**.
+
+### Also
+
+`BROCKHAUS-2016` flipped `in-hand` → `worked-from` — **caught mid-tranche by the `references` gate
+built at T26b**, which fired on its first real opportunity, in the tranche that created the drift
+rather than five tranches later. And the re-audit #2 ruling: a **second independent killer** for
+F-1.2 (the coupon leg is frequency-invariant at a zero real rate — a requirement, not another
+transcription), proven to kill the dropped-`ψ` mutant *alone* with the original oracle deselected.
+
 ## [0.35.0] - 2026-11-10
 
 Tranche 29 — **collateral / CSA: the collateralized exposure over the margin period of risk.** The
