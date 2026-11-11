@@ -24,6 +24,7 @@ from datetime import date
 from pricebook.foundation.inflation import InflationIndex
 from pricebook.market.curve_set import CurveSet
 from pricebook.market.equity import EquityAsset, EquityUnderlying
+from pricebook.market.equity_skew import ImpliedVolSkew
 from pricebook.market.fixing_series import FixingSeries
 
 
@@ -46,3 +47,7 @@ class MarketSnapshot:
     #: `fixings`: the snapshot is a mapping of what the market said, and an engine reaches it only
     #: through `model.market` (§3), so an equity option cannot be priced against another name's data.
     equities: Mapping[EquityAsset, EquityUnderlying] = field(default_factory=dict)
+    #: The implied-volatility skew per asset (tranche 31) - the price source a model-free
+    #: replication integrates across strikes. Market data, not a model: the variance swap's fair
+    #: variance assumes no dynamics, only quoted prices.
+    equity_skews: Mapping[EquityAsset, ImpliedVolSkew] = field(default_factory=dict)

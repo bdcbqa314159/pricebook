@@ -35,13 +35,13 @@ from scipy.integrate import quad
 from scipy.stats import norm
 
 from pricebook.engine import price
-from pricebook.engine.variance_replication import StrikeGrid, fair_variance
+from pricebook.engine.variance_replication import fair_variance
 from pricebook.foundation import Currency, Money, PricingResult
 from pricebook.foundation.day_count import DayCountConvention
 from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
 from pricebook.market.equity import DividendSchedule, EquityAsset, EquityUnderlying, dividend_forward
 from pricebook.market.equity_skew import ImpliedVolSkew
-from pricebook.models.variance_replication_model import VarianceReplicationModel
+from pricebook.models.variance_replication_model import StrikeGrid, VarianceReplicationModel
 from pricebook.products.variance_swap import VarianceSwap
 
 VAL = date(2026, 1, 1)
@@ -108,11 +108,18 @@ class TestTheExactReductionTheCrossProductAnchor:
         assert _k_var(_flat(vol)) == pytest.approx(vol * vol, rel=2e-4)
 
     def test_the_band_states_what_the_committed_grid_RESOLVES(self) -> None:
-        """Measured: the wide/fine grid reproduces `sigma^2` to ~1e-4 relative, so a green here
-        rules out any systematic defect above ~0.02% of the fair variance — roughly a 0.01 vol
-        point at this level. A looser band would absorb a real weight error."""
+        """**Measured, after the forward was put on the grid:** the committed grid reproduces
+        `sigma^2` to **2.0e-05 relative** (1.6e-06 absolute at `sigma^2 = 0.0784`). So a green here
+        rules out any systematic defect above ~0.004% of the fair variance — about 0.0003 of a vol
+        point at this level. The band is set at 2e-4, an order of magnitude above the measurement,
+        which is headroom for the skewed fixtures rather than slack: a looser band would start to
+        absorb a real `1/K^2` weight error, and the convergence-rate test below is what separates
+        residual discretisation from a wrong weight."""
         got = _k_var(_flat())
         assert abs(got / (ATM_VOL * ATM_VOL) - 1.0) < 2e-4
+        assert abs(got / (ATM_VOL * ATM_VOL) - 1.0) > 1e-7, (
+            "if this ever becomes exact, the grid is no longer the thing being characterised"
+        )
 
 
 class TestTheLogContractIdentity:
@@ -162,7 +169,11 @@ class TestTheStrikeGridsValidityRegime:
             abs(_k_var(_flat(), StrikeGrid(0.05, 5.0, n)) - target) for n in (201, 401, 801)
         ]
         ratios = [a / b for a, b in zip(errors, errors[1:])]
-        assert all(r > 2.5 for r in ratios), f"expected ~4x per refinement, got {ratios}"
+        # Measured 4.00, 4.02, 4.00, 4.00 once the forward sits ON the grid. Before that fix the
+        # put/call switch left a derivative kink inside an interval and the ratios were 0.85, 22.1,
+        # 0.61, 3.25 — no rate at all. Asserting the rate is what makes this an oracle rather than a
+        # hope, and it is why the kink was fixed instead of the assertion loosened.
+        assert all(3.5 < r < 4.5 for r in ratios), f"expected second order (~4x), got {ratios}"
 
 
 class TestTheSkewCompanionWhatTheReductionCannotSee:
