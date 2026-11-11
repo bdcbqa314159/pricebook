@@ -95,23 +95,49 @@ class TestTheLittleHestonTrap:
             assert math.isfinite(got.real) and math.isfinite(got.imag)
             assert abs(got) <= 1.0 + 1e-12, f"T={years}, u={u}: |phi|={abs(got)}"
 
-    def test_the_stable_branch_is_SMOOTH_in_maturity_where_the_naive_one_JUMPS(self) -> None:
-        """The discriminating property. Both branches agree at short maturity and diverge once the
-        naive one crosses a branch cut, so the jump — not the level — is what identifies the trap.
-        """
-        u = 4.0
+    def test_a_discontinuity_SURVIVES_grid_refinement_where_smooth_variation_does_not(self) -> None:
+        """**The structural discriminator, not a tuned threshold.**
 
-        def biggest_jump(fn) -> float:
-            grid = [0.5 + 0.25 * k for k in range(60)]
+        The first attempt asserted an absolute bound on the largest step-to-step change, and it was
+        wrong: on a coarse grid a *smooth* function also moves, so the bound was measuring the step
+        size rather than the branch. The property that actually separates them is what happens under
+        **refinement** — a genuine discontinuity keeps its full height however fine the grid, while
+        smooth variation shrinks with the step.
+
+        Measured over `T` in `[0.5, 20]` at `u = 1`:
+
+        | nodes | stable   | naive |
+        |-------|----------|-------|
+        | 80    | 6.97e-03 | 1.497 |
+        | 320   | 1.73e-03 | 1.494 |
+        | 1280  | 4.31e-04 | 1.493 |
+        | 5120  | 1.08e-04 | 1.493 |
+
+        The stable branch falls by 4x per 4x refinement — first order, exactly what a smooth
+        function does. The naive branch does not move: it is a jump of height ~1.49 that no grid
+        resolves away. Same idea as tranche 31's quadrature rate, used to identify a defect rather
+        than to measure one.
+        """
+        u = 1.0
+
+        def biggest_jump(fn, nodes: int) -> float:
+            grid = [0.5 + 19.5 * k / (nodes - 1) for k in range(nodes)]
             values = [fn(PARAMS, complex(u), t, CARRY) for t in grid]
             return max(abs(b - a) for a, b in zip(values, values[1:]))
 
-        stable = biggest_jump(heston_characteristic_function)
-        naive = biggest_jump(naive_characteristic_function)
-        assert stable < 0.05, f"the stable branch must not jump, got {stable}"
-        assert naive > 5.0 * stable, (
-            f"the fixture must actually trip the naive branch, else this proves nothing: "
-            f"stable={stable}, naive={naive}"
+        stable_coarse = biggest_jump(heston_characteristic_function, 80)
+        stable_fine = biggest_jump(heston_characteristic_function, 1280)
+        assert stable_coarse / stable_fine > 8.0, (
+            f"the stable branch must be SMOOTH (its largest step shrinks with the grid): "
+            f"{stable_coarse} -> {stable_fine}"
+        )
+
+        naive_coarse = biggest_jump(naive_characteristic_function, 80)
+        naive_fine = biggest_jump(naive_characteristic_function, 1280)
+        assert naive_fine > 0.5, f"the naive branch must JUMP, got {naive_fine}"
+        assert naive_fine / naive_coarse > 0.9, (
+            f"and the jump must SURVIVE refinement — else it is variation, not a branch cut: "
+            f"{naive_coarse} -> {naive_fine}"
         )
 
     def test_the_two_branches_AGREE_at_short_maturity(self) -> None:
