@@ -60,6 +60,13 @@ SKEW_SLOPE = -0.15
 #: Wide and fine: the regime where truncation is provably below the band (asserted below).
 WIDE = StrikeGrid(lower=0.05, upper=5.0, count=1601)
 
+#: A NON-UNIT horizon. The main fixture expires in exactly one year, which makes `T = 1.0` and the
+#: `2/T` factor arithmetically invisible: `2/T * area` and `2 * area` are the same number, and a
+#: mutant dropping the `/T` survived the whole suite. §4's very first recorded trap (`tau = 1`),
+#: reappearing in the time horizon rather than an accrual.
+LONG_EXPIRY = VAL + timedelta(days=913)
+LONG_YEARS = 913.0 / 365.0
+
 CURVE = DiscountCurve.flat(VAL, RATE, DC)
 UNDERLYING = EquityUnderlying(SPOT, 0.0, DividendSchedule())
 FORWARD = dividend_forward(UNDERLYING, EXPIRY, CURVE)
@@ -106,6 +113,25 @@ class TestTheExactReductionTheCrossProductAnchor:
     @pytest.mark.parametrize("vol", [0.1, 0.2, 0.28, 0.45])
     def test_a_FLAT_surface_replicates_to_the_variance_itself(self, vol: float) -> None:
         assert _k_var(_flat(vol)) == pytest.approx(vol * vol, rel=2e-4)
+
+    @pytest.mark.parametrize("vol", [0.12, 0.28, 0.4])
+    def test_the_reduction_also_holds_at_a_NON_UNIT_horizon(self, vol: float) -> None:
+        """The `2/T` factor is only visible when `T != 1`.
+
+        Fair *variance* is quoted per year, so it must come out as `sigma^2` at **any** expiry — and
+        that is exactly what pins the `/T`. At the one-year fixture `2/T*area` and `2*area` are the
+        same number, so a mutant dropping the division survived all 1038 tests until this test
+        existed. §4's `tau = 1` trap, in the horizon.
+        """
+        got = fair_variance(UNDERLYING, LONG_EXPIRY, CURVE, _flat(vol), WIDE)
+        # 5e-4, not the 2e-5 of the one-year ATM case: the committed grid's accuracy depends on
+        # `sigma*sqrt(T)` and this fixture spans 0.19 to 0.63. The dependence is characterised
+        # directly in `TestTheGridsAccuracyDependsOnSigmaRootT` below rather than hidden in a band.
+        assert got == pytest.approx(vol * vol, rel=5e-4)
+
+    def test_the_non_unit_horizon_fixture_is_genuinely_non_unit(self) -> None:
+        """The premise, asserted — a 365-day expiry would silently restore the degeneracy."""
+        assert abs(LONG_YEARS - 1.0) > 1.0, f"the horizon must be far from 1.0, got {LONG_YEARS}"
 
     def test_the_band_states_what_the_committed_grid_RESOLVES(self) -> None:
         """**Measured, after the forward was put on the grid:** the committed grid reproduces
@@ -174,6 +200,45 @@ class TestTheStrikeGridsValidityRegime:
         # 0.61, 3.25 — no rate at all. Asserting the rate is what makes this an oracle rather than a
         # hope, and it is why the kink was fixed instead of the assertion loosened.
         assert all(3.5 < r < 4.5 for r in ratios), f"expected second order (~4x), got {ratios}"
+
+
+class TestTheGridsAccuracyDependsOnSigmaRootT:
+    """**The grid's validity regime, measured — and it is two-sided, which a single band hides.**
+
+    One fixed grid cannot be uniformly accurate, because the two error sources pull opposite ways:
+
+    * **low `sigma*sqrt(T)`** — the integrand is sharply peaked just around `F`, so what matters is
+      *resolution near the money*. Widening the grid at a fixed node count makes the step coarser
+      there and the answer **worse**.
+    * **high `sigma*sqrt(T)`** — real value sits far out of the money, so what matters is *width*.
+      Truncation dominates and widening makes the answer **better**.
+
+    Measured on the committed grid (`0.05F..5F`, 1601 nodes): 1.1e-04 relative at
+    `sigma*sqrt(T) = 0.12`, 1.6e-06 at 0.44, 4.0e-04 at 0.63. So its sweet spot is roughly
+    `0.15 <= sigma*sqrt(T) <= 0.5`, and the committed band (5e-04) is set to the worst case across
+    the fixtures rather than the best. Stating this is the §4 obligation a reference carries: an
+    accuracy argument *in the regime where it is used*.
+    """
+
+    def test_WIDENING_hurts_at_LOW_sigma_root_T_because_resolution_is_what_binds(self) -> None:
+        tight = StrikeGrid(0.05, 5.0, 1601)
+        wider = StrikeGrid(0.01, 12.0, 1601)
+        low = _flat(0.12)
+        tight_error = abs(fair_variance(UNDERLYING, EXPIRY, CURVE, low, tight) / 0.12**2 - 1.0)
+        wide_error = abs(fair_variance(UNDERLYING, EXPIRY, CURVE, low, wider) / 0.12**2 - 1.0)
+        assert wide_error > tight_error, (
+            f"at low sigma*sqrt(T) a wider grid should be WORSE: {tight_error} -> {wide_error}"
+        )
+
+    def test_WIDENING_helps_at_HIGH_sigma_root_T_because_truncation_is_what_binds(self) -> None:
+        tight = StrikeGrid(0.05, 5.0, 2401)
+        wider = StrikeGrid(0.01, 12.0, 2401)
+        high = _flat(0.4)
+        tight_error = abs(fair_variance(UNDERLYING, LONG_EXPIRY, CURVE, high, tight) / 0.4**2 - 1.0)
+        wide_error = abs(fair_variance(UNDERLYING, LONG_EXPIRY, CURVE, high, wider) / 0.4**2 - 1.0)
+        assert wide_error < tight_error, (
+            f"at high sigma*sqrt(T) a wider grid should be BETTER: {tight_error} -> {wide_error}"
+        )
 
 
 class TestTheSkewCompanionWhatTheReductionCannotSee:
