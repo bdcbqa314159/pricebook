@@ -2,6 +2,7 @@
 
 from pricebook.products.cash import FixedCashflow
 from pricebook.products.equity_option import EquityOptionKind, EuropeanEquityOption
+from pricebook.products.variance_swap import VarianceSwap
 from pricebook.products.nominal_cap import NominalCap
 from pricebook.products.inflation import (
     InflationCapFloor,
@@ -11,6 +12,7 @@ from pricebook.products.inflation import (
 )
 
 __all__ = [
+    "VarianceSwap",
     "EquityOptionKind",
     "EuropeanEquityOption",
     "NominalCap",

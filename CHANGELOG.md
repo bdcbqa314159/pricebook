@@ -6,6 +6,66 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-11-11
+
+Tranche 31 — **the variance swap by static replication.** Second unit of the equity & hybrids arc,
+and the first **model-independent** price in the tree: no volatility dynamics enter it at all.
+
+### Added
+
+- **`market/equity_skew.py` (L1)** — `ImpliedVolSkew`, a two-parameter log-moneyness skew. Market
+  data, not a model: it is the *price source* a model-free replication reads across strikes. The
+  full surface and Dupire local vol are T32.
+- **`products/variance_swap.py` (L2)** — `VarianceSwap`, struck in **variance** rather than
+  volatility, because the payoff is linear in variance and converting at the boundary invites the
+  squaring to happen twice or not at all.
+- **`models/variance_replication_model.py` (L3)** — `StrikeGrid` and `VarianceReplicationModel`.
+  There is no pricing model: the object carries a snapshot (§3) and the **strike grid**, which is
+  numerical config and so is explicit rather than defaulted (§3.5). `StrikeGrid` lives at L3 because
+  an L3 model may not import L4.
+- **`engine/variance_replication.py` (L4)** — `fair_variance` (the `1/K²`-weighted strip of OTM
+  vanillas) and the registered `price_variance_swap`.
+- **`MarketSnapshot.equity_skews`**.
+
+### The forward sits ON the strike grid — a real quadrature fix, not a loosened assertion
+
+The strip switches from puts to calls at `K = F`. The integrand is *continuous* there (put-call
+parity makes the two prices equal) but its **derivative is not**, so an interval straddling `F`
+contains a kink and the trapezoid rule loses its second-order rate on it. Measured on a uniform grid
+that ignored `F`, successive refinements gave error ratios of **0.85, 22.1, 0.61, 3.25** — noise
+around no rate at all, because the error was dominated by how close `F` happened to fall to a node.
+
+`StrikeGrid.strikes` now puts the forward on the grid and integrates each side separately. The
+ratios become **4.00, 4.02, 4.00, 4.00** — clean second order. The convergence-rate oracle is what
+exposed this; a tolerance alone would have passed.
+
+### Oracles
+
+- **The anchor is a cross-product reduction**: under flat vol the strip integrates to exactly `σ²`,
+  with the strip integrator and `black_price` being *different code*. It fails under any error in the
+  `1/K²` weight, the `2/T` factor, the OTM put/call split, or the forward.
+- **The log-contract identity by a third route** — `−(2/T)E[log(S_T/F)]` computed by numerical
+  integration over the lognormal density, independent of both the strip and the `−½σ²T` algebra.
+- **The mandatory skew companion.** A flat surface satisfies the reduction *trivially*, so the
+  reduction alone is vacuous; a material skew must lift `K_var` off the ATM variance by the
+  convexity premium. Also pinned: **either sign** of skew raises it, since the premium comes from
+  curvature in the weighted strip — a test asserting only "negative skew raises it" would pass an
+  implementation that responded to `|slope|` in the wrong place.
+- **Eight mutants, all killed.**
+
+### Two degeneracies found by the sweep
+
+- **`T = 1` hid the `2/T` factor.** The fixture expired in exactly one year, so `2/T · area` and
+  `2 · area` are the same number and dropping the division survived all 1038 tests. §4's *first*
+  recorded trap (`τ = 1`), reappearing in the time axis rather than an accrual. Closed with a
+  2.5-year fixture and its non-unit premise asserted.
+- **The grid's accuracy is two-sided**, which a single band hides: at **low** `σ√T` the integrand is
+  peaked near the money and widening the grid at fixed node count makes it **worse** (discretisation);
+  at **high** `σ√T` truncation dominates and widening makes it **better**. Measured 1.1e-04 at
+  `σ√T = 0.12`, 1.6e-06 at 0.44, 4.0e-04 at 0.63 — so the committed grid's sweet spot is roughly
+  `0.15 ≤ σ√T ≤ 0.5`, and both directions are now asserted rather than left as one tolerance. §4's
+  "a reference needs its accuracy argument in the regime where it is used."
+
 ## [0.36.0] - 2026-11-10
 
 Tranche 30 — **the equity underlying and the European equity option.** First unit of project four,
