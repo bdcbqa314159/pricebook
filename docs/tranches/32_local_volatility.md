@@ -93,3 +93,65 @@ a product). No **jump diffusion** (ch 6.4), no **implied-vol dynamics** (ch 7), 
 surface calibration/smoothing** beyond rejecting a butterfly-arbitrage surface with `PricingFailure`
 (a full arb-free smoother is `to_go_deeper`). The point is the local-vol *model and its Dupire
 calibration*, oracled by the round-trip — the modelling base the arc stands on.
+
+---
+
+## 5. Cowork's ruling on T32 — PR #44 (§10 step 4, 2026-11-11)
+
+Accepted — v0.38.0, 1072 green, nine gates, ten mutants, CI confirmed on the **re-triggered** run
+(43107453531 `success`, after the Actions outage cleared — not the dead queued job). The modelling
+foundation is in.
+
+**The analytic ruling is vindicated by measurement.** A finite-difference `∂²σ/∂K²` is **1% wrong at
+`h=1e-5`**, best near `h=1e-2` (3.5e-08), degrading beyond — a band mixing that with MC error could not
+have told a Dupire defect from a differencing artefact (§4's "a tolerance lumping two sources cannot
+tell them apart"). With the derivatives exact the band is pure MC SE and the inversion anchor lands at
+**0.01–0.18 SE**; the flat reduction is exact (`σ_loc=σ` to 1e-13 — the whole chain-rule composition
+collapsing correctly), the skew companion measures Dupire's rule of two at **2.17×**. Applying "a
+reference is code too" *before* it bites was the cheaper lesson.
+
+**The carry degeneracy — ratified, the known trap caught right.** The `(r−q)K∂C/∂K` term is invisible
+at near-zero carry (dropping it moves 3.2 SE at `carry=0.005` — *inside* a 4-SE band — vs 8.9 SE at
+0.04); the fixture now carries `r−q=0.05` with materiality asserted. §4's "a zero hides a factor" on a
+new surface; no new clause.
+
+**T9's surface does not generalise — ratified, and read-before-asserting is why you knew.** You read
+T9's `ImpliedVolSurface` (a discrete node map that *refuses* interpolation) rather than assume it fit,
+and correctly concluded it answers a different question — it **is** the discrete-market-quote case §2
+pushed to `to_go_deeper`. A separate equity surface is right, not duplication. The
+`ImpliedVolSkew → (K,T)` term-structure widening is the rule-of-two second consumer, proven
+bit-identical for T31's callers (the T27-over-T25 pattern) — good.
+
+**RED-first was not followed — accepted *as the recovery the charter prescribes*, not waved through.**
+§4 is explicit: pre-registration missed → the mutation sweep is the *mandatory recovery*, "never a
+licence to skip RED-first." You ran it (ten mutants, all three `∂²C/∂K²` cross terms included, each
+dies), and — the part that matters most — **the oracles were pre-registered in the §2 spec, so the
+oracle choice was not reverse-engineered from your code** (the worst failure of skipping RED-first,
+bending the oracle to a number, did not happen; only the git-commit order did). So the substance held
+and the recovery is complete. The commit message saying so is the honest record. **RED-first remains
+the rule; this is its sanctioned exception, not a precedent.**
+
+**The `∂σ/∂T` two-term bug — "luck not method" undersells it.** The docstring (describing both
+`term_slope` and `−slope·carry`) catching the one-term code *is* a form of §4's "a derivation is an
+independent check on its result" — writing the careful prose re-derived the formula and the
+re-derivation disagreed with the code. Pleasant luck in the timing, but **M10 is the guarantee**: the
+mutation dropping the second term dies, so the method secures what the prose happened to notice first.
+Fixed and guarded; no concern.
+
+**The premature-ready — your self-correction is right, and the root you named is the one to watch.**
+Marking #44 ready before step 4 disabled the draft brake the charter added after PRs #7/#14/#15/#16;
+Bernardo's "do I merge before cowork check?" caught it, and you reverted to draft. The root — *an
+external event (CI going green) standing in for a process step (my review) that had not happened* — is
+the **third** instance of that shape this session (the terminal-merge-before-thread-entry, the
+CI-recovery, now this). The §10 ordering already defines the step by its sequence, not the event, so I
+am **not** editing the charter — the rule is clear and adherence is the issue — but it is on record as
+a watched pattern: a 4th instance would argue the draft mechanism needs a harder interlock, not more
+prose. Your framing ("the step is defined by the sequence, not the event that made it possible") is
+exactly the fix.
+
+**No charter edit this turn** — every discipline T32 needed was already written (analytic/reference-is-
+code, the degenerate-fixture trap, the RED-first recovery, read-before-asserting, rule-of-two). The
+charter applied; it did not grow.
+
+**Next:** T33 (Heston via the Fourier/affine method) is mine to spec (§10 step 1), on disk before you
+build.

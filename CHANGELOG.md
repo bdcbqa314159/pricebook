@@ -6,6 +6,65 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-11-11
+
+Tranche 32 — **the implied-vol surface and Dupire local volatility.** Third unit of the equity &
+hybrids arc, and the modelling foundation the rest of it stands on.
+
+### Added
+
+- **`ImpliedVolSkew` widened to `(K, T)`** — `σ(K,T) = atm + term_slope·T + slope·log(K/F(T))`, with
+  **exact derivatives** (`∂σ/∂K`, `∂²σ/∂K²`, `∂σ/∂T`). The term dimension arrived with its second
+  consumer, since Dupire differentiates in `T` and a flat-in-maturity surface has nothing to
+  differentiate. T31's numbers are unchanged (`term_slope` defaults to 0 and adding `0.0` is exact).
+- **`models/local_volatility.py` (L3)** — `ForwardState`, `black_partials`, `surface_partials` and
+  `dupire_local_variance`.
+- **`engine/local_vol_mc.py` (L4)** — the log-Euler local-volatility diffusion, re-evaluating
+  `σ_loc(S,t)` each step.
+
+### Analytic derivatives, ruled at spec time
+
+Dupire's `∂C/∂T`, `∂C/∂K`, `∂²C/∂K²` are taken **exactly by the chain rule**, not by finite
+differences. Measured on this very surface, a finite-difference `∂²σ/∂K²` is **1% wrong at
+`h = 1e-5`**, best near `h = 1e-2` (3.5e-08), and degrading again beyond — a noise-dominated
+reference with a step-size sweet spot that would need arguing in every regime it is used (§4's "a
+reference is code too", the T20a shape). With the derivatives exact, the inversion band is **pure
+Monte-Carlo standard error** and a Dupire defect has nowhere to hide in it.
+
+**The chain rule is the content**: `σ` depends on `K` and `T`, so `∂C/∂K` picks up `C_v·v_K` and
+`∂²C/∂K²` picks up three cross terms. All four are pinned — dropping any one of them is a mutant
+that dies.
+
+### Oracles
+
+- Every composed partial against the test's **own** finite differences, on its own grid, of its
+  **own** price function — with a premise asserting the chain-rule terms are not negligible, so the
+  comparison is not vacuous.
+- **The flat reduction is exact**: a flat surface gives `σ_loc = σ` to machine precision at every
+  strike, because every chain term vanishes and Black's partials compose back to `σ²`.
+- **The mandatory companion** — Dupire's *rule of two*: on the skewed surface the local skew is
+  measured at **2.17×** the implied skew, which the no-op `σ_loc = σ_impl` cannot produce.
+- **The inversion anchor**: `σ_loc` simulated by log-Euler reprices the parametrized surface within
+  4·SE (measured deviations 0.01–0.18 SE), with the **martingale identity** `E[S_T] = F(T)` pinning
+  the drift *first* so a drift error cannot be mistaken for a vol error.
+- **Ten mutants, all killed**, including all three `∂²C/∂K²` cross terms.
+
+### A degeneracy caught before the oracle was written
+
+The `(r−q)·K·∂C/∂K` drift term is invisible at a near-zero carry. Measured: dropping it moves the
+worst repricing by **3.2 SE at `carry = 0.005`** — *inside* a 4-SE band, so it would have survived —
+and **8.9 SE at `carry = 0.04`**. The fixture now carries `r − q = 0.05` with that materiality
+asserted as a premise. Found by running the mutation against a draft fixture rather than after
+committing one.
+
+### Also fixed, while writing its own docstring
+
+`∂σ/∂T` at fixed strike has **two** terms, not one: the explicit `term_slope`, **plus** the skew read
+against a forward that itself moves with `T` (`−slope·carry`). A surface skewed in log-moneyness is
+implicitly time-dependent even at `term_slope = 0`, so dropping that term is a silent error on any
+skewed surface with a non-zero carry. The first draft returned only `term_slope` while its docstring
+described both; the mutation that drops it now dies.
+
 ## [0.37.0] - 2026-11-11
 
 Tranche 31 — **the variance swap by static replication.** Second unit of the equity & hybrids arc,

@@ -75,7 +75,7 @@ def fair_variance(
     strikes = grid.strikes(forward)
     weighted = []
     for strike in strikes:
-        volatility = skew.volatility(strike, forward)
+        volatility = skew.volatility(strike, forward, years)
         kind = EquityOptionKind.PUT if strike < forward else EquityOptionKind.CALL
         undiscounted = black_price(forward, strike, volatility * volatility * years, kind)
         weighted.append(undiscounted / (strike * strike))

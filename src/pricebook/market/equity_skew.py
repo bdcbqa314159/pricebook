@@ -43,21 +43,75 @@ _VOLATILITY_FLOOR = 1e-6
 
 @dataclass(frozen=True)
 class ImpliedVolSkew:
-    """`sigma(K) = atm + slope*log(K/F)`, floored positive. `slope < 0` is the typical equity skew."""
+    """`sigma(K,T) = atm + term_slope*T + slope*log(K/F(T))`, floored positive.
+
+    `slope < 0` is the typical equity skew; `term_slope` is the term structure (ch 4.3), zero by
+    default because tranche 31's replication reads a single expiry and the term dimension arrived
+    with its second consumer - tranche 32's Dupire, which differentiates in `T` and would have
+    nothing to differentiate on a flat-in-maturity surface.
+
+    **It stays a closed form, and that is now load-bearing rather than merely tidy.** Dupire needs
+    `dC/dT`, `dC/dK` and `d2C/dK2`, and tranche 32 takes them **analytically** by the chain rule -
+    so this object must supply its own exact derivatives. A discrete node map could not (that is
+    exactly why tranche 9's `ImpliedVolSurface` does not generalise here: it refuses to interpolate,
+    so it has no derivatives to take).
+    """
 
     atm_volatility: float
     slope: float
+    term_slope: float = 0.0
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.atm_volatility) or self.atm_volatility < 0.0:
             raise ValueError(
                 f"the atm volatility must be finite and non-negative, got {self.atm_volatility}"
             )
-        if not math.isfinite(self.slope):
-            raise ValueError(f"the skew slope must be finite, got {self.slope}")
+        for name, value in (("skew slope", self.slope), ("term slope", self.term_slope)):
+            if not math.isfinite(value):
+                raise ValueError(f"the {name} must be finite, got {value}")
 
-    def volatility(self, strike: float, forward: float) -> float:
-        """The volatility at `strike`, read in log-moneyness against `forward`."""
+    def _raw(self, strike: float, forward: float, years: float) -> float:
+        return self.atm_volatility + self.term_slope * years + self.slope * math.log(strike / forward)
+
+    def volatility(self, strike: float, forward: float, years: float = 0.0) -> float:
+        """The volatility at `(strike, years)`, read in log-moneyness against `forward`."""
         if strike <= 0.0 or forward <= 0.0:
             raise ValueError(f"strike and forward must be positive, got {strike}, {forward}")
-        return max(self.atm_volatility + self.slope * math.log(strike / forward), _VOLATILITY_FLOOR)
+        return max(self._raw(strike, forward, years), _VOLATILITY_FLOOR)
+
+    def is_floored(self, strike: float, forward: float, years: float) -> bool:
+        """Whether the floor is binding here - where the exact derivatives below stop applying.
+
+        The floor makes `sigma` piecewise, so its derivatives are zero in the floored region and the
+        parametrization's elsewhere. A caller taking analytic derivatives has to know which side it
+        is on rather than differentiate through a `max`, which is the kind of silent kink tranche 31
+        measured the cost of.
+        """
+        return self._raw(strike, forward, years) < _VOLATILITY_FLOOR
+
+    def d_volatility_d_strike(self, strike: float, forward: float, years: float) -> float:
+        """`dsigma/dK = slope / K` - exact."""
+        return 0.0 if self.is_floored(strike, forward, years) else self.slope / strike
+
+    def d2_volatility_d_strike2(self, strike: float, forward: float, years: float) -> float:
+        """`d2sigma/dK2 = -slope / K^2` - exact."""
+        return 0.0 if self.is_floored(strike, forward, years) else -self.slope / (strike * strike)
+
+    def d_volatility_d_time(
+        self, strike: float, forward: float, years: float, carry: float
+    ) -> float:
+        """`dsigma/dT` at **fixed strike** - two terms, not one.
+
+        The explicit `term_slope`, **plus** the skew read against a forward that itself moves with
+        `T`: `log(K/F(T))` with `dlog F/dT = carry = r - q` contributes `-slope * carry`. So a
+        surface skewed in log-moneyness is *implicitly* time-dependent even when `term_slope = 0`,
+        and dropping that second term is a silent error on any skewed surface with a non-zero carry.
+
+        The caller passes `carry` rather than this object assuming zero, because the forward's drift
+        belongs to the underlying (dividends, repo, rates) and not to the vol parametrization - the
+        surface cannot know it, and guessing it would be the kind of hidden assumption §4 keeps
+        finding on the wrong side of an oracle.
+        """
+        if self.is_floored(strike, forward, years):
+            return 0.0
+        return self.term_slope - self.slope * carry
