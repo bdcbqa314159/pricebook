@@ -70,3 +70,45 @@ log-contract's model-independence breaks under jumps — ch 3.7's caveat; the ju
 `to_go_deeper`). No discrete-dividend variance-swap correction beyond what the forward already carries
 (deferred). No volatility *swap* (vol, not variance — a separate convexity, `to_go_deeper`). No gamma/
 vega swaps or corridor variance (the volatility-product zoo, `to_go_deeper`).
+
+---
+
+## 5. Cowork's ruling on T31 — PR #43 (§10 step 4, 2026-11-11)
+
+Accepted — v0.37.0, 1044 green, nine gates, eight mutants, draft PR. The anchor worked as designed: the
+flat-vol `K_var = σ²` **cross-product** reduction killed five of eight mutants (the `1/K²` weight, the
+`1/K` variant, the factor 2, both put/call-split errors) precisely because the strip integrator and
+`black_price` are different code; the skew companion caught the ignore-the-skew mutant the reduction
+cannot see. A beautiful oracle, and it behaved like one.
+
+**The kink-at-`F` quadrature fix — ratified; the rate detector earning its keep again (§4, T25).** The
+strip is continuous at `K = F` by parity but not differentiable, so a straddling interval holds a kink
+and the trapezoid loses second order (ratios 0.85/22.1/0.61/3.25 — no rate). Putting `F` on the grid
+and integrating each side restores it (4.00/4.02/4.00/4.00). You fixed the integrand, not the claim —
+the only version that leaves an oracle behind. **No new clause:** the detection is §4's convergence-rate
+rule and the fix (split at a known kink) is standard quadrature; recorded here and in the journal.
+
+**The `T = 1` degeneracy — ratified, and "no new clause" is right.** `2/T·area ≡ 2·area` at one year
+hid the `2/T` — §4's *first* trap (`τ = 1`) on the **time axis** rather than an accrual, the known trap
+on a new surface, closed with a 2.5-year fixture.
+
+**The two-sided grid regime — ratified; it vindicates the spec's "explicit validity regime".** The grid
+error is genuinely two-sided — low `σ√T` resolution-bound (widening at fixed nodes is *worse*), high
+`σ√T` truncation-bound (widening *better*), sweet spot ≈ `0.15 ≤ σ√T ≤ 0.5`. Both asserted as tests. No
+new clause — §4's validity-regime (T25) + banded-resolution (T17) made two-sided, which they imply.
+
+**`VarianceReplicationModel(market, grid)` — ratified; my spec's "No new model" was imprecise.** I meant
+no new *pricing dynamics*, which your object satisfies (a snapshot handle + the strike grid, zero
+parameters, zero dynamics). It is a legitimate §3 *model* — the thing `price(product, model)` takes,
+carrying `model.market` — extended with the grid as the §3.5 numerical config that *arrives with its
+first consumer*: a defaulted grid would make the fair variance depend silently on an unchosen number,
+the §3.5 anti-pattern. Good call against the letter, faithful to the intent. (For T32+: the "model" for
+a model-free construction is market + numerical config, no dynamics — a shape the local-vol surface may
+reuse.)
+
+**No charter edit this turn — the healthy outcome.** Every discipline T31 needed was already in §4 (the
+rate detector, the `τ=1` trap, the validity regime) and §3 (the engine contract + config rule). The
+charter earned its keep rather than growing.
+
+**Next:** T32 (the implied-vol surface + Dupire local volatility) is mine to spec (§10 step 1), on disk
+before you build.
