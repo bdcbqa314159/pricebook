@@ -30,18 +30,30 @@ stochastic-vol (T33) and hybrid (T34–T36) tranches generalise.
   **state-dependent** vol `σ_loc(S,t)` in the Euler step — reusing the RNG, the bridge, antithetic. The
   independent repricer the consistency anchor needs. Carries its SE (invariant 7).
 
-## 2. The oracle (RULED) — the consistency anchor must not telescope
-"Local vol reprices the vanillas it was calibrated to" is the defining property, but a naïve round-trip
-(surface → Dupire → reprice → surface) **telescopes** if the repricer and the Dupire derivatives share
-a convention (§4). The anchor is a **synthetic truth**, so both directions are independent:
+## 2. The oracle (RULED) — analytic derivatives, and an inversion that does not telescope
+**Derivative ruling (2026-11-11, on Code's 0161 flag): Dupire's derivatives are ANALYTIC, not finite
+difference.** Our surface is a **closed-form parametrization** (ch 4) and the call price is closed-form
+(Black on the dividend forward, T30), so `∂C/∂T`, `∂C/∂K`, `∂²C/∂K²` are differentiated *exactly* by the
+chain rule — no FD noise, no step-size regime (this **moots question (b)**). This is §4's "a reference
+is code too" applied *before* it bites: a finite-difference `∂²C/∂K²` differences near-equal numbers and
+would be the noise-dominated weak side (the T20a shape), and there is no reason to accept that noise
+when the surface is closed-form. *(The discrete-market-quote case — interpolate noisy quotes, difference
+numerically, smooth for arbitrage — is the genuinely harder problem and is `to_go_deeper`, not the
+parametrized surface this arc builds.)*
 
-- **The synthetic-truth round-trip — the correctness anchor (§4, reduction/known-truth).** Pick a
-  **known analytic** local vol `σ_loc(S,t)` (a simple deterministic form — e.g. `σ₀·(1 + β·log(S/S₀))`
-  floored positive); price a grid of vanillas under it with the **local-vol MC** (forward map);
-  implied-vol them into a synthetic surface; apply **Dupire** (backward map, different code) and assert
-  it **recovers the known `σ_loc(K,T)`** within a band (the MC SE + the FD-derivative error, measured —
-  the T17 split, not one flat percentage). Forward MC vs backward formula are independent, so a Dupire
-  transcription error cannot survive, and a no-op `σ_loc = σ_impl` fails on the skewed truth.
+"Local vol reprices the vanillas it was calibrated to" is the defining property, and with analytic
+Dupire it is **not** a telescoping check: a *wrong* Dupire produces a `σ_loc` the repricer will **not**
+reproduce the surface with (§4's "a formula and its stated inverse must actually invert"), provided the
+repricer is independent code and the surface is skewed.
+
+- **The inversion anchor (§4, formula-and-inverse-invert — the correctness check).** The analytic
+  `σ_loc(S,t)` from Dupire, simulated by the **independent local-vol MC**, must reprice the parametrized
+  surface's vanillas within SE. Different code each side (the analytic Dupire formula vs the MC
+  diffusion), so a Dupire transcription error — a dropped `(r−q)K∂C/∂K` drift term, a wrong power of `K`
+  — yields a `σ_loc` whose MC prices **miss** the surface, on a **skewed** surface where that term
+  bites. The band is now **pure MC SE** (no FD noise to disentangle), which is the point of the analytic
+  ruling. Pin the martingale identity (`E[S_T]=F(T)`, T19/T26) so the MC *drift* is checked
+  independently of `σ_loc`.
 - **Dupire pointwise transcription (§4), two renderings.** The formula read in `-raw` and `-layout` and
   reconciled; the `∂C/∂T`, `∂C/∂K`, `∂²C/∂K²` finite differences the test computes **its own** way (its
   own grid), never reading back the model's.
@@ -50,9 +62,12 @@ a convention (§4). The anchor is a **synthetic truth**, so both directions are 
   satisfies it, so it is vacuous alone. The companion is a **skewed, term-structured** surface where
   `σ_loc` is visibly *steeper* than the implied skew (Dupire's "rule of two" — local skew ≈ twice
   implied skew near the money); assert that non-degeneracy, or the whole formula is untested.
-- **Repricing consistency (self-consistency guard, telescopes — keep it, not the anchor).** The
-  local-vol MC on the *real* input surface reprices its own vanillas within SE. Useful as a guard; it
-  shares the surface with the construction, so it is not the correctness check — the synthetic truth is.
+- **Optional stronger check — the known-`σ_loc` round-trip, only if the differentiation stays analytic.**
+  Start from a known analytic `σ_loc`, generate a synthetic surface by MC, recover `σ_loc` by Dupire. A
+  known truth is stronger, but the synthetic surface is *discrete* (MC-priced), so its derivatives are
+  numerical again — worth it only if a parametrization is first fitted to the synthetic surface so the
+  derivatives stay analytic. A bonus, not required: the inversion anchor above is the workhorse, and the
+  analytic ruling is why it suffices.
 - **Requirement oracles + mutation (§4).** `σ_loc² ≥ 0` (a surface violating `∂²C/∂K² > 0` — a
   butterfly arbitrage — must `PricingFailure`, not return a negative variance, §3.4); monotonicities;
   the local-vol MC's martingale check (`E[S_T]/S₀ = F(T)/S₀`, the T19/T26 free identity) pins the
