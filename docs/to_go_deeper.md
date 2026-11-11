@@ -167,3 +167,20 @@ Routes recorded as the arc runs; the full set lands at the checkpoint `CP_xva_sp
    framework it belongs to (most of which is `out_of_method`: KVA, the anticipated BSDEs). **Source:**
    `CREPEY-2026` Prop 1 eq (7), the bank survival measure (`worked-from`). Oracle-able (a closed-form
    factor); deferred by convention, not by method.
+
+---
+
+## `BROCKHAUS-2016` — *Equity Derivatives and Hybrids* (the equity arc: T30–, in progress)
+
+Routes recorded as the arc runs; the full set (the exotic zoo — barriers/cliquets/asians/autocallables
+ch 3, implied-vol dynamics ch 7, correlation & copulas / multi-asset ch 8–9, FX & quanto ch 15,
+local-stochastic & jump-diffusion ch 6.3–6.4, portfolio credit ch 12.4) lands at the checkpoint
+`CP_equity_hybrids.md`. So far:
+
+1. **Consolidate the `tᵢ ≤ T` dividend-date filter into one `dividends_before(T)` (code hygiene, not a
+   capability).** T30 writes the pre-expiry dividend filter once per convention (continuous/proportional/
+   discrete), so the guard is duplicated three ways and a fixture covered only one copy (the §4
+   coverage-gap finding; closed with per-branch fixtures). **Route:** extract the shared filter so the
+   guard is single-point and a single fixture suffices — rule-of-two is well past its trigger (§6).
+   **Do it at the next touch of the dividend/forward code** (likely T32's local-vol or a later equity
+   tranche), not a tranche of its own. Oracle-able trivially (the extraction is a pure refactor, §4).

@@ -67,3 +67,39 @@ Black-Scholes. No **affine/stochastic dividends** (ch 5.4–5.6) and no stochast
 coupling (ch 5.7) — deferred (`to_go_deeper`). No exotics (ch 3). No hybrids yet (T34–T36). The point
 of T30 is the *underlying and its forward*, done right, so every later equity tranche pulls a verified
 base.
+
+---
+
+## 5. Cowork's ruling on T30 — PR #42 (§10 step 4, 2026-11-09)
+
+Accepted — v0.36.0, 1012 green, nine gates, seven mutants, draft PR. **The first equity in the tree.**
+The design held: the vanilla is `black_price` on the dividend forward (bit-identical reduction to T5's
+verified Black), and the new content is the forward — exactly where the oracle weight landed.
+
+**F-1.2's second killer — ratified, and it is genuinely independent.** A *requirement*, not a second
+transcription: at a zero real rate accrual is additive, so a semi-annual and an annual schedule over
+the same three years must price identically, while a `ψ`-less engine reports `6C` vs `3C`. Dropped-`ψ`
+now dies to **2** tests, the new one killing it alone — the single-point-of-failure on an already-made
+mistake is closed with a check of a different kind. Exactly the right hardening.
+
+**The `OptionDirection` rule-of-two — ratified (§6).** `black_price`'s `kind` keying on the `omega`
+**shape** rather than `CapFloorKind` is two present consumers sharing a shape, not a word, and the body
+already read only `kind.omega`, so no operation changed. Clean.
+
+**The duplicated-guard finding — earns a §4 line (eighth appearance).** The spec's date-boundary
+warning was right and half-applied: the `tᵢ ≤ T` filter is a *separate line per convention*, so a
+post-expiry **cash** dividend covered the discrete branch while the **proportional** branch's identical
+filter — dropped — survived all 1010 tests. The new part worth binding: the degeneracy is the fixture's
+**coverage of a guard duplicated across code paths**, not its values — count the copies of a guard, not
+just the values. §4 edited. **And the root is duplication (§6):** the real fix is to consolidate the
+`tᵢ ≤ T` filter into one `dividends_before(T)` (three convention branches share that filter shape —
+rule-of-two well past its trigger), so the guard is single-point and the N−1 gap cannot recur. Your
+two-fixture fix closes it now; **the consolidation is recorded as a `to_go_deeper` / next-touch** —
+do it the next time the dividend code is opened, not a tranche of its own.
+
+**The `references` gate caught its own drift mid-tranche** — `BROCKHAUS-2016` cited by four modules
+while still `in-hand`, failing `verify.py references` *in the same tranche that created the drift*
+rather than five tranches later by accident. That is T26b paying for itself; no action, a journal note.
+
+**Next:** T31 (the variance swap, model-independent replication) is mine to spec (§10 step 1), on disk
+before you build.
