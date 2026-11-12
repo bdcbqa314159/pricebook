@@ -17,6 +17,24 @@ argument — so widening the key records something already true rather than addi
 overwrite becomes **loud**: registering the same pair twice raises, because a pricer silently
 replaced is debt incurred without a ledger entry (§8).
 
+**The model key may be a CONCRETE type or a PROTOCOL, because both are real.** Widening the key to
+concrete types alone looked like a mechanical pass and was not: two of the eight engines — the
+inflation cap/floor and the year-on-year swap — are typed against the `IndexRatioModel`
+**protocol** and are polymorphic over every model satisfying it (Jarrow-Yildirim, both market
+models, and a test's own stub). That polymorphism is the point of the protocol, not an accident of
+the old key, so the registry records whichever of the two a pricer actually means:
+
+* a pricer written for one model registers under that **concrete type**;
+* a pricer written against a capability registers **once** under the **protocol**.
+
+**Dispatch resolves exact first, then the unique protocol match.** An exact `(product, type(model))`
+hit wins, because a pricer naming a concrete model is making a more specific claim than one naming a
+capability. Otherwise the registry looks for protocol entries the model satisfies — and **two
+matches is an error, not a coin flip**: a silent arbitrary choice between two pricers is the same
+defect this tranche exists to remove, one level along. A model satisfying a registered protocol
+needs no registration of its own, which is why a stub defined in `tests/` dispatches without `src/`
+knowing it exists.
+
 Provenance:
   stock:  _stock/src/pricebook/engine/registry.py (purified as-is, except that the
           `CalibratedModel` protocol it typed the model against is NOT carried: that protocol
@@ -45,6 +63,16 @@ from pricebook.foundation import PricingFailure, PricingResult
 # declare it structurally rather than naming a concrete model type.
 Pricer = Callable[..., "PricingResult | PricingFailure"]
 _PRICERS: dict[tuple[type, type], Pricer] = {}
+
+
+class AmbiguousRegistration(RuntimeError):
+    """Raised when a model satisfies two registered protocols for one product.
+
+    The registry could pick either, and picking arbitrarily is exactly the silent-wrong-pricer
+    failure the `(product, model)` key was introduced to stop. Failing loudly keeps the ambiguity
+    a design question for whoever registered the second protocol, rather than a number nobody
+    questions.
+    """
 
 
 class DuplicateRegistration(RuntimeError):
@@ -102,9 +130,45 @@ def dispatch(instrument: object, model: object) -> PricingResult | PricingFailur
     value *lands with the first engine that reads it*. When a pricer integrates, samples or steps
     a grid, it arrives then — with a consumer and a test — rather than sitting here as plumbing
     for a pricer that does not exist."""
-    pricer = _PRICERS.get((type(instrument), type(model)))
+    pricer = _resolve(type(instrument), model)
     if pricer is None:
         return PricingFailure(
             f"no pricer registered for {type(instrument).__name__} with {type(model).__name__}"
         )
     return pricer(instrument, model)
+
+
+def _resolve(product_type: type, model: object) -> Pricer | None:
+    """The exact-beats-protocol lookup. Returns `None` when nothing is registered.
+
+    Separated from `dispatch` so the resolution rule is one readable thing and so a test can reach
+    it; `dispatch` stays the §3 contract boundary that turns a miss into a `PricingFailure`.
+    """
+    exact = _PRICERS.get((product_type, type(model)))
+    if exact is not None:
+        return exact
+
+    matches = [
+        (key, pricer)
+        for key, pricer in _PRICERS.items()
+        if key[0] is product_type and _is_protocol(key[1]) and isinstance(model, key[1])
+    ]
+    if len(matches) > 1:
+        names = ", ".join(sorted(key[1].__name__ for key, _ in matches))
+        raise AmbiguousRegistration(
+            f"{type(model).__name__} matches {len(matches)} registered protocols for "
+            f"{product_type.__name__} ({names}); register it concretely to disambiguate"
+        )
+    return matches[0][1] if matches else None
+
+
+def _is_protocol(candidate: type) -> bool:
+    """Whether a model key is a runtime-checkable protocol rather than a concrete type.
+
+    `isinstance` against a non-runtime-checkable protocol raises, so this is a guard and not a
+    tidiness check: without it, registering a plain `Protocol` would make every dispatch for that
+    product explode instead of simply not matching.
+    """
+    return getattr(candidate, "_is_protocol", False) and getattr(
+        candidate, "_is_runtime_protocol", False
+    )
