@@ -256,12 +256,16 @@ class TestTheRefactorDisturbsNothing:
             "ZeroCouponInflationSwap",
         }
         assert expected <= set(products), f"missing: {expected - set(products)}"
-        # Every product keeps exactly one pricer **except the equity vanilla**, which now has two —
-        # Black and Heston — and that exception is the capability this tranche exists to add. Before
-        # the key widened, the second registration would have *removed* the first.
+        # Every product keeps exactly one pricer **except the equity vanilla**, which carries one per
+        # model — the capability this tranche exists to add. Asserted as "more than one, each under a
+        # distinct model" rather than a hard count: the count is expected to grow with the arc (Black
+        # at T30, Heston at T33, Hull-White at T34, and further hybrids after), and a test that has
+        # to be edited on every addition is a test that will eventually be edited without thought.
         for name in expected - {"EuropeanEquityOption"}:
             assert products.count(name) == 1, f"{name} is registered {products.count(name)} times"
-        assert products.count("EuropeanEquityOption") == 2, "Black and Heston must coexist"
+        equity_models = [key[1] for key in registered_pricers() if key[0].__name__ == "EuropeanEquityOption"]
+        assert len(equity_models) > 1, "several models must coexist on the equity vanilla"
+        assert len(set(equity_models)) == len(equity_models), f"duplicate model keys: {equity_models}"
 
     def test_the_equity_vanilla_resolves_to_a_DIFFERENT_pricer_per_model(self) -> None:
         """The production instance of coexistence, not a synthetic one."""
