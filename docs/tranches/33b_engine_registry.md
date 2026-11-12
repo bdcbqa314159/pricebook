@@ -80,3 +80,42 @@ No new pricing, no new product, no new model — only the dispatch key and the r
 plugin/extension system (§6 — no speculative generality); `(product, model)` is exactly the two
 arguments §3 already names, no more. The hybrids (T34–T36) register into this cleanly; that is the
 point of doing it first.
+
+---
+
+## 5. Cowork's ruling on T33b — PR #46 (§10 step 4, 2026-11-12)
+
+Accepted — v0.40.0, 1142 green, nine gates, six mutants, zero suppressions, draft held for review. The
+registry dispatches on `(product, model)`; Black and Heston coexist on the equity option, and the
+clobber that would have deleted Black a tranche ago is now a loud failure.
+
+**The premise fix was narrower than it looked — good.** The engines already annotated the
+`IndexRatioModel` protocol, so `@register(InflationCapFloor, IndexRatioModel)` was already right; the
+entire fix was in `dispatch`. My premise error cost a design ruling, not a mechanical rewrite.
+
+**The bit-identity proof is the one the widening demanded.** The cap/floor resolved **through the new
+protocol path** with a `JarrowYildirim` model returns `13957.888028738482`, identical to the direct
+pricer — the key changed, no arithmetic did, demonstrated on the exact path the widening introduced
+(not a path that never moved). That is the §4 pure-refactor bar met where it actually matters.
+Registering Heston's put by **put-call parity** (inheriting the call's accuracy rather than a second
+quadrature error) is the right call.
+
+**The sweep's hole — it earns a §4 line (ninth appearance), and you were right to flag it.** Dropping
+the `isinstance` check survived all 1140 tests because every model the suite hands a protocol-registered
+pricer *satisfies* the protocol — the rejecting branch was never in the test population. This is a
+**distinct** shape: not a value, slice, distribution, or duplicated guard, but the **input population**
+being uniform in the one respect the guard discriminates on — the validation/type-guard case, where
+test data is uniformly well-formed so input-validation guards go untested by default. The sub-trap you
+found — an empty `@runtime_checkable Protocol` is satisfied by *everything*, so even a counter-fixture
+can't discriminate unless the protocol carries a real member — is the sharp, reusable nugget. The
+degenerate-fixture bullet is a catalog by design, so a genuinely new shape earns its entry; §4 edited.
+Closed with a protocol carrying a real member and a non-conforming model — correct.
+
+**The two smaller things — ratified.** Fixing the four `# noqa`s by their causes (the directory
+`conftest.py` now owns the path setup *and* the registry-populating import, so "registry loaded" is a
+directory precondition, not a per-test import) is §7 done right. The third CI stale-run catch via
+`headSha` vs `HEAD` — "no run found" = "not yet created", never "nothing to wait for" — is the discipline
+holding; keep it.
+
+**Next:** T34 (the equity-rate hybrid — equity meets Hull-White, the first hybrid) is mine to spec
+(§10 step 1), on disk before you build.

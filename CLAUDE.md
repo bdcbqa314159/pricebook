@@ -303,7 +303,17 @@ not an oracle. Ruled principles:
   suffices, rather than multiply fixtures forever. Eighth appearance, and the first where the
   degeneracy is a *coverage gap across duplicated code*, which is a duplication smell wearing a
   fixture's clothes. *(T30: a post-expiry cash dividend covered the discrete branch while the
-  proportional branch's identical filter, dropped, survived all 1010 tests.)* Mutation is also the
+  proportional branch's identical filter, dropped, survived all 1010 tests.)* **And the fixture can be
+  degenerate in the *population* of inputs the suite supplies — uniform in the one respect a guard
+  discriminates on, so the guard's negative branch is never exercised.** Dropping an `isinstance` check
+  in a protocol-dispatch survived all 1140 tests because every model the suite hands a protocol-registered
+  pricer *satisfies* that protocol — the rejecting branch was never in the test population. This is the
+  **validation/type-guard** case: test data is uniformly well-formed, so input-validation guards go
+  untested by default; assert the non-degeneracy by **supplying an input the guard rejects**. The
+  sub-trap: a `@runtime_checkable Protocol` **with no members is satisfied by everything**, so even a
+  deliberate counter-fixture cannot discriminate unless the protocol carries a real member. Ninth
+  appearance, and the first where the degeneracy is in the *input population* rather than a value, slice,
+  distribution, or duplicated guard. *(T33b.)* Mutation is also the
   **mandatory recovery when pre-registration
   was missed** — the empirical proof of power that RED-first would otherwise have given, never a
   licence to skip RED-first. **A surviving mutant is a hole — unless it is an *equivalent mutant*,
