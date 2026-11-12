@@ -30,7 +30,10 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from typing import Protocol, runtime_checkable  # noqa: E402
+
 from pricebook.engine.registry import (  # noqa: E402
+    AmbiguousRegistration,
     DuplicateRegistration,
     dispatch,
     register,
@@ -121,6 +124,92 @@ class TestTheFailuresAreLoud:
         out = dispatch(_Unpriced(), _ModelTwo())
         assert isinstance(out, PricingFailure)
         assert "_Unpriced" in out.reason and "_ModelTwo" in out.reason, out.reason
+
+
+class TestProtocolPolymorphismIsPreserved:
+    """A pricer typed against a protocol serves every model satisfying it — deliberately.
+
+    This is what the product-only key *hid* and what a naive concrete-type key would have
+    destroyed: `IndexRatioModel` is a `@runtime_checkable` protocol, and the inflation cap/floor
+    and year-on-year pricers are polymorphic over it on purpose. Keying them to one concrete model
+    would have broken 63 tests and, worse, would have encoded a falsehood about what those pricers
+    are for.
+    """
+
+    def test_ONE_protocol_registration_serves_EVERY_model_satisfying_it(self) -> None:
+        import pricebook.engine  # noqa: F401
+        from pricebook.foundation.results import PricingResult
+        from pricebook.models.index_ratio import IndexRatioModel
+        from pricebook.products.inflation import InflationCapFloor
+
+        keys = [k for k in registered_pricers() if k[0] is InflationCapFloor]
+        assert keys == [(InflationCapFloor, IndexRatioModel)], (
+            f"the cap/floor must be registered ONCE, under the protocol: {keys}"
+        )
+
+    def test_a_model_satisfying_the_protocol_needs_NO_registration_of_its_own(self) -> None:
+        """Which is why a test's own stub model dispatches without `src/` knowing it exists."""
+
+        class _Satisfies:
+            pass
+
+        class _Proto(Protocol):
+            pass
+
+        runtime = runtime_checkable(_Proto)
+
+        @register(_ProductA, runtime)
+        def _by_protocol(product: object, model: object) -> str:
+            return "protocol"
+
+        assert dispatch(_ProductA(), _Satisfies()) == "protocol"
+
+
+class TestExactBeatsProtocol:
+    """A concrete registration wins over a protocol one that would also match."""
+
+    def test_the_CONCRETE_pricer_is_chosen_when_both_could_serve(self) -> None:
+        class _Both:
+            pass
+
+        class _AnyModel(Protocol):
+            pass
+
+        loose = runtime_checkable(_AnyModel)
+
+        @register(_Both, loose)
+        def _loose(product: object, model: object) -> str:
+            return "protocol"
+
+        @register(_Both, _ModelOne)
+        def _exact(product: object, model: object) -> str:
+            return "exact"
+
+        assert dispatch(_Both(), _ModelOne()) == "exact", "exact must beat protocol"
+        assert dispatch(_Both(), _ModelTwo()) == "protocol", "and the protocol still serves others"
+
+    def test_TWO_matching_protocols_are_a_LOUD_ambiguity_not_a_coin_flip(self) -> None:
+        class _Ambiguous:
+            pass
+
+        class _ProtoA(Protocol):
+            pass
+
+        class _ProtoB(Protocol):
+            pass
+
+        first, second = runtime_checkable(_ProtoA), runtime_checkable(_ProtoB)
+
+        @register(_Ambiguous, first)
+        def _a(product: object, model: object) -> str:
+            return "a"
+
+        @register(_Ambiguous, second)
+        def _b(product: object, model: object) -> str:
+            return "b"
+
+        with pytest.raises(AmbiguousRegistration, match="matches"):
+            dispatch(_Ambiguous(), _ModelOne())
 
 
 class TestTheRefactorDisturbsNothing:
