@@ -191,8 +191,52 @@ class TestThePowerFixtureForTheVarianceAssembly:
         assert abs(wrong - simulated.mean) > 10.0 * simulated.standard_error
 
 
+class TestTheCashBondIntegratorIsObservableInTheVariance:
+    """The integrator is invisible in the price and visible in `Var[integral r du]`.
+
+    The deflator is normalised to `P(t)` from the sample, which absorbs a first-order discretisation
+    bias in its **mean** — so the price cannot see the integration rule, and a mutation swapping the
+    trapezoid for a left-endpoint rule **survived the whole suite**. The variance is where it shows:
+    0.1% against the closed form with the trapezoid, 4.6% with the left-endpoint rule. §4's rule —
+    pin a quantity where it is directly observable rather than through a price that barely depends
+    on it, the same move tranche 17 made for a correlation.
+
+    It is also a genuine cross-method check on `integrated_bond_variance` itself: the closed form
+    derived from `beta(s,t)` against the realised variance of a simulated path integral.
+    """
+
+    def test_the_simulated_rate_integral_variance_matches_the_CLOSED_FORM(self) -> None:
+        from pricebook.engine.equity_rate_hybrid import integrated_bond_variance
+        from pricebook.engine.hybrid_mc import realised_rate_integral_variance
+
+        expected = integrated_bond_variance(KAPPA, SIGMA_R, YEARS)
+        got = realised_rate_integral_variance(_paths())
+        assert got == pytest.approx(expected, rel=0.015), (
+            f"realised {got} vs closed form {expected} — 1.5% admits the trapezoid's measured 0.1% "
+            f"and sampling noise, and rejects a left-endpoint rule's 4.6%"
+        )
+
+
 class TestWhatThisAnchorCannotResolve:
     """Stated explicitly, because a green is evidence only about what the oracle can see (§4)."""
+
+    def test_the_shift_IS_pinned_by_its_defining_identity_even_though_no_price_sees_it(self) -> None:
+        """`shift = rho_BS * sigma_B * sqrt(t)` — the (11.1)/(11.3) relationship, asserted directly.
+
+        Needed because dropping the shift entirely **survived the whole suite**: no price oracle can
+        see it (next test), and `hybrid_correlation` computes `rho_BS` by its own route, so nothing
+        tied the two together. This closes that by asserting the engine's shift *is* the correlation
+        it claims to be — the §4 move of pinning a term where it is observable when a price is not
+        the place.
+        """
+        from pricebook.engine.equity_rate_hybrid import hybrid_correlation, integrated_bond_variance
+
+        model = _model()
+        inputs = hybrid_black_inputs(model, UNDERLYING, EXPIRY, CURVE)
+        bond_vol = math.sqrt(integrated_bond_variance(KAPPA, SIGMA_R, YEARS) / YEARS)
+        rho_bs = hybrid_correlation(model, UNDERLYING, EXPIRY, CURVE)
+        assert inputs.d_shift == pytest.approx(rho_bs * bond_vol * math.sqrt(YEARS), rel=1e-13)
+        assert abs(inputs.d_shift) > 1e-4, "and the shift must be non-zero, or the test is vacuous"
 
     def test_the_d_shift_has_EXACTLY_ZERO_first_order_price_impact(self) -> None:
         """So no path count resolves it, and the shift rests on the transcription and (11.3).
