@@ -136,6 +136,49 @@ class TestTheQuadraturesValidityRegime:
         assert all(b < a for a, b in zip(errors, errors[1:])), f"must converge: {errors}"
         assert errors[-1] < 1e-8
 
+    def test_the_LOWER_cutoff_bias_is_LINEAR_and_the_committed_value_is_negligible(self) -> None:
+        """**The error source the reduction found, pinned as a relationship rather than a bound.**
+
+        `1/(iu)` is undefined at `u = 0`, so the quadrature starts at `_LOWER` and omits the sliver
+        below it. That omission is a one-directional bias **linear in the cutoff**, and it is
+        grid-independent — which is how it was identified: the `sigma_v = 0` reduction's error sat
+        at 1.16e-08 across three different grids (200/4001, 400/16001, 1000/40001) and moved only
+        when the cutoff did. Measured against Black at `K/F = 1.25`:
+
+        | `_LOWER` | relative error |
+        |----------|----------------|
+        | 1e-06    | 1.16e-06 |
+        | 1e-08    | 1.16e-08 |
+        | 1e-10    | 1.16e-10 |
+        | 1e-12    | 1.16e-12 |
+        | 1e-14    | 1.43e-14 (floating-point floor) |
+
+        Asserting the *linearity* rather than a bound is what makes this diagnostic: if the ratio
+        ever stops tracking the cutoff, the error has a second source and the table above no longer
+        describes it.
+        """
+        import pricebook.engine.heston_fourier as module
+
+        params = HestonParams(kappa=1.5, theta=0.04, sigma_v=0.0, rho=0.0, v0=0.05)
+        strike = 1.25 * FORWARD
+        reference = DF * black_price(
+            FORWARD, strike, params.integrated_variance(YEARS), EquityOptionKind.CALL
+        )
+        original = module._LOWER
+        try:
+            errors = []
+            for cutoff in (1e-6, 1e-8, 1e-10):
+                module._LOWER = cutoff
+                got = module.heston_call_price(
+                    params, UNDERLYING, strike, EXPIRY, (CURVE, FourierGrid(200.0, 4001))
+                )
+                errors.append(abs(got / reference - 1.0))
+        finally:
+            module._LOWER = original
+        for coarse, fine in zip(errors, errors[1:]):
+            assert 50.0 < coarse / fine < 200.0, f"the bias must be LINEAR in the cutoff: {errors}"
+        assert original <= 1e-12, "the committed cutoff must put the bias below every oracle here"
+
     def test_TRUNCATING_too_early_is_visible_rather_than_silent(self) -> None:
         """A too-low upper limit must measurably move the price — the premise that the committed
         limit is past where the integrand has decayed."""
