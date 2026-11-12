@@ -54,6 +54,14 @@ class _ModelTwo:
     pass
 
 
+@runtime_checkable
+class _RatioLike(Protocol):
+    """A protocol with a REAL member — an empty one is satisfied by everything, which would make
+    the "does not satisfy" test below unable to fail."""
+
+    def ratio(self) -> float: ...
+
+
 class TestCoexistenceTheThingThatWasImpossibleBefore:
     """Two models, one product — the case that silently clobbered on the product-only registry."""
 
@@ -148,21 +156,48 @@ class TestProtocolPolymorphismIsPreserved:
         )
 
     def test_a_model_satisfying_the_protocol_needs_NO_registration_of_its_own(self) -> None:
-        """Which is why a test's own stub model dispatches without `src/` knowing it exists."""
+        """Which is why a test's own stub model dispatches without `src/` knowing it exists.
+
+        The protocol carries a **real member**, deliberately. An empty `Protocol` is satisfied by
+        every object, so a fixture using one would also pass against a dispatcher that never
+        checked `isinstance` at all — the companion test below proves that check is load-bearing,
+        and it can only do so if satisfying the protocol is a real condition.
+        """
 
         class _Satisfies:
-            pass
+            def ratio(self) -> float:
+                return 1.0
 
-        class _Proto(Protocol):
-            pass
-
-        runtime = runtime_checkable(_Proto)
-
-        @register(_ProductA, runtime)
+        @register(_ProductA, _RatioLike)
         def _by_protocol(product: object, model: object) -> str:
             return "protocol"
 
         assert dispatch(_ProductA(), _Satisfies()) == "protocol"
+
+    def test_a_model_NOT_satisfying_the_protocol_does_NOT_dispatch_to_it(self) -> None:
+        """The `isinstance` check is load-bearing, and the mutation sweep found it unguarded.
+
+        Dropping it survived all 1140 tests, because every model the suite hands to a
+        protocol-registered pricer happens to satisfy that protocol. Without the check, a model
+        that does **not** satisfy it would be handed to the pricer anyway and fail somewhere deep
+        inside — an `AttributeError` from the middle of a valuation instead of a clean
+        `PricingFailure` at the boundary (§3.4). The degenerate fixture here is the *population of
+        models the suite uses*, not any one value.
+        """
+
+        class _Unrelated:
+            pass
+
+        class _OtherProduct:
+            pass
+
+        @register(_OtherProduct, _RatioLike)
+        def _needs_ratio(product: object, model: object) -> str:
+            return "protocol"
+
+        out = dispatch(_OtherProduct(), _Unrelated())
+        assert isinstance(out, PricingFailure), f"expected a clean failure, got {out!r}"
+        assert "_Unrelated" in out.reason
 
 
 class TestExactBeatsProtocol:
