@@ -86,7 +86,7 @@ def fair_variance(
     return 2.0 / years * area
 
 
-@register(VarianceSwap)
+@register(VarianceSwap, VarianceReplicationModel)
 def price_variance_swap(
     product: VarianceSwap, model: VarianceReplicationModel
 ) -> PricingResult | PricingFailure:

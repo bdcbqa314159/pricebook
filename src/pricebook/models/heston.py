@@ -46,6 +46,8 @@ import cmath
 import math
 from dataclasses import dataclass
 
+from pricebook.market.snapshot import MarketSnapshot
+
 
 @dataclass(frozen=True)
 class HestonParams:
@@ -161,3 +163,18 @@ def naive_characteristic_function(
         * (numerator * years - 2.0 * cmath.log((1.0 - g * grow) / (1.0 - g)))
     )
     return cmath.exp(c_term + d_term * params.v0 + 1j * u * carry * years)
+
+
+@dataclass(frozen=True)
+class HestonModel:
+    """The Heston parameters bound to the snapshot they were quoted against (§3).
+
+    Separate from `HestonParams` for the reason §3 gives: the *parameters* are a number bundle that
+    a calibration produces and a test can write down, while a **model** is those parameters plus the
+    market they belong to - and an engine reaches market data only through `model.market`, so the
+    pairing cannot be expressed wrongly. The same split tranche 31 used for the variance
+    replication: market plus config, no dynamics smuggled into the model object.
+    """
+
+    market: MarketSnapshot
+    params: HestonParams

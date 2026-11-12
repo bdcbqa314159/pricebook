@@ -1,9 +1,10 @@
+"""L3 — models, each bound to the market snapshot it was calibrated or built against."""
+
 from pricebook.models.libor_market_model import LiborMarketModel, LmmTenor
 from pricebook.models.black_mc import MonteCarloConfig, black_mc_price
 from pricebook.models.market_model_ii import MarketModelII, MMIICorrelations, MMIIParams
 from pricebook.models.market_model_i import MarketModelI, MMICorrelations, MMIParams
 from pricebook.models.black import black_implied_vol, black_price
-"""L3 — models, each bound to the market snapshot it was calibrated or built against."""
 
 from pricebook.models.discounting_model import DiscountingModel
 from pricebook.models.jarrow_yildirim import (

@@ -41,9 +41,14 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
+from pricebook.engine.registry import register
+from pricebook.foundation.money import Money
+from pricebook.foundation.results import PricingFailure, PricingResult
+from pricebook.foundation.time_measure import is_historical
 from pricebook.market.curve import CurveHandle
 from pricebook.market.equity import EquityUnderlying, dividend_forward
-from pricebook.models.heston import HestonParams, heston_characteristic_function
+from pricebook.models.heston import HestonModel, HestonParams, heston_characteristic_function
+from pricebook.products.equity_option import EquityOptionKind, EuropeanEquityOption
 
 #: Where the quadrature starts, since `1/(iu)` is undefined at 0 while the integrand's limit there
 #: is finite. **The omitted sliver `[0, _LOWER]` is a bias, and it is LINEAR in this constant** -
@@ -137,3 +142,44 @@ def heston_call_price(
     first, second = heston_probabilities(params, underlying, strike, expiry, quadrature)
     forward = dividend_forward(underlying, expiry, discount)
     return discount.df(expiry) * (forward * first - strike * second)
+
+
+#: The inversion grid the registered pricer uses. Numerical config with a *default* here rather than
+#: on the function, because `dispatch` passes only `(product, model)`: the grid is part of how this
+#: engine computes, and tranche 31's `(market, grid)` model shape is the alternative if a caller
+#: ever needs to vary it. Wide and fine enough that truncation sits far below the oracles' bands.
+_DEFAULT_GRID = FourierGrid(upper=200.0, count=4001)
+
+
+@register(EuropeanEquityOption, HestonModel)
+def price_european_equity_option_heston(
+    product: EuropeanEquityOption, model: HestonModel
+) -> PricingResult | PricingFailure:
+    """The equity vanilla under Heston - **the registration that was impossible before T33b.**
+
+    On the product-only registry this decorator would have *replaced* tranche 30's Black pricer,
+    silently repricing every equity vanilla in the tree. The `(product, model)` key is what lets the
+    two coexist, each reached by the model it was written for.
+    """
+    market = model.market
+    currency = product.notional.currency
+    if is_historical(product.expiry, market.valuation_date):
+        return PricingResult(pv=Money(0.0, currency))
+
+    underlying = market.equities.get(product.asset)
+    if underlying is None:
+        return PricingFailure(f"no equity data for {product.asset.ticker} in the snapshot")
+    try:
+        discount = market.curves.discount(currency)
+    except KeyError as exc:
+        return PricingFailure(f"cannot price the equity option under Heston: {exc}")
+
+    call = heston_call_price(
+        model.params, underlying, product.strike, product.expiry, (discount, _DEFAULT_GRID)
+    )
+    if product.kind is EquityOptionKind.PUT:
+        # Put-call parity rather than a second inversion: the identity is exact and model-free, so
+        # the put inherits the call's accuracy instead of acquiring its own quadrature error.
+        forward = dividend_forward(underlying, product.expiry, discount)
+        call -= discount.df(product.expiry) * (forward - product.strike)
+    return PricingResult(pv=Money(product.notional.amount * call, currency))

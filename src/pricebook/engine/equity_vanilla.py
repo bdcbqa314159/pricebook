@@ -32,7 +32,7 @@ from pricebook.models.equity_black import EquityBlackModel
 from pricebook.products.equity_option import EuropeanEquityOption
 
 
-@register(EuropeanEquityOption)
+@register(EuropeanEquityOption, EquityBlackModel)
 def price_european_equity_option(
     product: EuropeanEquityOption, model: EquityBlackModel
 ) -> PricingResult | PricingFailure:
