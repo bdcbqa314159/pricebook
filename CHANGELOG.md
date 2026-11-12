@@ -6,6 +6,72 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-11-12
+
+Tranche 33b — **the `(product, model)` engine registry.** Infrastructure, pulled by tranche 33: one
+product now legitimately has several models, and the registry was the one place that did not know it.
+
+### The footgun this removes
+
+`_PRICERS` was keyed on the **product type alone**, so a second `@register(SomeProduct)` *replaced*
+the first silently. Tranche 33 proved it empirically: registering the Heston pricer for
+`EuropeanEquityOption` would have removed tranche 30's Black pricer from the table and repriced every
+equity vanilla in the tree **without a single test failing**, because the two signatures are
+identical.
+
+### Added
+
+- **`_PRICERS` keyed on `(product_type, model_key)`**, where the model key is a **concrete type OR a
+  `@runtime_checkable` protocol**.
+- **`DuplicateRegistration`** — registering the same pair twice now *raises*. A pricer silently
+  replaced is debt incurred without a ledger entry (§8).
+- **`AmbiguousRegistration`** — a model satisfying two registered protocols for one product is a
+  loud error, not an arbitrary pick.
+- **`registered_pricers()`** — a *copy* of the table, so a test can see the registry without being
+  able to mutate it through the back door.
+- **`HestonModel`** (params + snapshot, §3) and **`price_european_equity_option_heston`**, registered
+  under `(EuropeanEquityOption, HestonModel)` — **the registration that was impossible before.** The
+  put uses put-call parity rather than a second inversion, so it inherits the call's accuracy.
+
+### The spec's premise was wrong, and execution said so
+
+The spec read *"each current engine has one model type — a mechanical pass."* It is false for **two
+of the eight**: `IndexRatioModel` is a `@runtime_checkable` **Protocol**, and the inflation cap/floor
+and year-on-year pricers are polymorphic over it, serving `JarrowYildirim`, `MarketModelI`,
+`MarketModelII` and a stub defined in `tests/`. Keying them concretely broke **63 tests** and would
+have encoded a falsehood about what those pricers are for. Reported rather than coded around (§10);
+Cowork corrected the spec to the concrete-OR-protocol key.
+
+**Dispatch resolves exact first, then the unique protocol match.** A pricer naming a concrete model
+makes a more specific claim than one naming a capability. A model satisfying a registered protocol
+needs no registration of its own — which is why a stub defined in `tests/` dispatches without `src/`
+knowing it exists.
+
+### Oracles
+
+- **Pure refactor, proved bit-identical**: the inflation cap/floor resolved through the *protocol*
+  path with a `JarrowYildirim` model returns `13957.888028738482`, identical to calling the
+  registered pricer directly. The lookup key changed; no arithmetic did.
+- Coexistence, loud duplicate failure, loud ambiguity, exact-beats-protocol, protocol-polymorphism
+  across all four models, and every production registration surviving the widening.
+- **Six mutants, all killed.**
+
+### A hole the sweep found
+
+Dropping the `isinstance` check in the protocol match **survived all 1140 tests** — every model the
+suite hands to a protocol-registered pricer happens to satisfy that protocol, so the check was
+unexercised. Without it, a model that does *not* satisfy the protocol would be handed to the pricer
+anyway and fail deep inside a valuation instead of returning a clean `PricingFailure` at the
+boundary (§3.4). The degenerate fixture was the **population of models the suite uses**, not any one
+value. Closed with a protocol carrying a real member (an empty `Protocol` is satisfied by
+everything, so it could not have discriminated).
+
+### Also
+
+`models/__init__.py`'s docstring sat below five imports, so the module had none; it is now first.
+Four `# noqa` suppressions introduced while writing the tests were removed by fixing their causes
+(§7) — the directory's `conftest.py` owns both the path setup and the registry-populating import.
+
 ## [0.39.0] - 2026-11-12
 
 Tranche 33 — **Heston by Fourier inversion.** Fourth unit of the equity & hybrids arc, and the first

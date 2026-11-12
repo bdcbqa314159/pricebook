@@ -21,25 +21,18 @@ And one that must not change: **every existing product prices bit-identically**,
 widens a dictionary key and touches no arithmetic.
 """
 
-import sys
-from pathlib import Path
+from typing import Protocol, runtime_checkable
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from typing import Protocol, runtime_checkable  # noqa: E402
-
-from pricebook.engine.registry import (  # noqa: E402
+from pricebook.engine.registry import (
     AmbiguousRegistration,
     DuplicateRegistration,
     dispatch,
     register,
     registered_pricers,
 )
-from pricebook.foundation.results import PricingFailure  # noqa: E402
+from pricebook.foundation.results import PricingFailure
 
 
 class _ProductA:
@@ -145,7 +138,6 @@ class TestProtocolPolymorphismIsPreserved:
     """
 
     def test_ONE_protocol_registration_serves_EVERY_model_satisfying_it(self) -> None:
-        import pricebook.engine  # noqa: F401
         from pricebook.foundation.results import PricingResult
         from pricebook.models.index_ratio import IndexRatioModel
         from pricebook.products.inflation import InflationCapFloor
@@ -251,7 +243,6 @@ class TestTheRefactorDisturbsNothing:
     def test_every_PRODUCTION_pricer_is_still_registered_exactly_once(self) -> None:
         """The eight registrations the tree had before this tranche, each still present and each
         now carrying its model type."""
-        import pricebook.engine  # noqa: F401  (importing runs every @register)
 
         products = [key[0].__name__ for key in registered_pricers()]
         expected = {
@@ -265,11 +256,28 @@ class TestTheRefactorDisturbsNothing:
             "ZeroCouponInflationSwap",
         }
         assert expected <= set(products), f"missing: {expected - set(products)}"
-        for name in expected:
+        # Every product keeps exactly one pricer **except the equity vanilla**, which now has two —
+        # Black and Heston — and that exception is the capability this tranche exists to add. Before
+        # the key widened, the second registration would have *removed* the first.
+        for name in expected - {"EuropeanEquityOption"}:
             assert products.count(name) == 1, f"{name} is registered {products.count(name)} times"
+        assert products.count("EuropeanEquityOption") == 2, "Black and Heston must coexist"
+
+    def test_the_equity_vanilla_resolves_to_a_DIFFERENT_pricer_per_model(self) -> None:
+        """The production instance of coexistence, not a synthetic one."""
+        from pricebook.engine.registry import _resolve
+        from pricebook.models.equity_black import EquityBlackModel
+        from pricebook.models.heston import HestonModel
+        from pricebook.products.equity_option import EuropeanEquityOption
+
+        table = registered_pricers()
+        black = table[(EuropeanEquityOption, EquityBlackModel)]
+        heston = table[(EuropeanEquityOption, HestonModel)]
+        assert black is not heston
+        assert black.__name__ == "price_european_equity_option"
+        assert heston.__name__ == "price_european_equity_option_heston"
 
     def test_every_key_is_a_PRODUCT_MODEL_pair(self) -> None:
-        import pricebook.engine  # noqa: F401
 
         for key in registered_pricers():
             assert isinstance(key, tuple) and len(key) == 2, f"{key} is not a (product, model) pair"

@@ -288,7 +288,7 @@ STOCK = ROOT / "_stock"
 # The committed test floor (the floor rule, CLAUDE.md 6 second clause; ruling:
 # docs/handoffs/rulings_floor_rule.md). CI is RED below it. A slice that adds a test
 # tier raises this in the same commit. First value = the restart's measured 366.
-TEST_FLOOR = 1130
+TEST_FLOOR = 1142
 
 #: A `stock:` value naming no path — a module built fresh, with no stock ancestor. The
 #: common case under the new model, so it must be expressible rather than fudged.

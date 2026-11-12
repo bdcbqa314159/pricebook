@@ -13,3 +13,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+# Importing the engine package runs every `@register`, so the registry is populated before any test
+# in this directory looks at it. Done once here rather than inside each test: "the registry is
+# loaded" is a precondition of the whole directory, and a per-test `import` for its side effect
+# needs a lint suppression, which §7 forbids — so the cause is removed instead of silenced.
+import pricebook.engine as _engine
+
+assert _engine is not None
