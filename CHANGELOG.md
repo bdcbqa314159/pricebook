@@ -6,6 +6,78 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-11-12
+
+Tranche 33 — **Heston by Fourier inversion.** Fourth unit of the equity & hybrids arc, and the first
+model in the tree whose skew comes from *dynamics* rather than from a fitted surface.
+
+### Added
+
+- **`models/heston.py` (L3)** — `HestonParams` (the five parameters as one bundle), the
+  characteristic function on its **stable branch**, and `naive_characteristic_function` — kept
+  deliberately as the oracle's wrong-variant companion, not as a fallback.
+- **`engine/heston_fourier.py` (L4)** — `FourierGrid` (truncation and node count as explicit
+  numerical config, §3.5) plus `heston_probabilities` and `heston_call_price` by Gil-Pelaez
+  inversion. `P1` is the *same* characteristic function tilted into the share measure, not a second
+  transcription — so an error moves both probabilities together and surfaces in put-call parity.
+- **`engine/heston_mc.py` (L4)** — the independent correlated log-Euler simulation with a
+  **full-truncation** CIR variance.
+
+### RED-first, restored
+
+All three oracle files were **committed before their implementations existed** — the fix agreed
+after tranche 32's lapse (thread 0169): the oracles that need no implementation to state get written
+first and sit red while the derivation happens. `φ(0)=1`, `φ(−i)=F(T)/S₀`, Hermitian symmetry,
+`|φ|≤1`, put-call parity, `P1,P2 ∈ [0,1]` and the no-arbitrage bounds are all properties of *any*
+valid characteristic function or price, so none could be reverse-engineered from the code they test.
+
+### The Little Heston Trap, oracled by grid refinement
+
+The naïve complex branch returns a *plausible* number and is simply wrong at long maturity, so a
+value oracle at one maturity sees nothing. The discriminator is **structural**: a genuine
+discontinuity keeps its height under refinement while smooth variation shrinks with the step.
+Measured over `T ∈ [0.5, 20]` at `u = 1`:
+
+| nodes | stable | naïve |
+|---|---|---|
+| 80 | 6.97e-03 | 1.497 |
+| 320 | 1.73e-03 | 1.494 |
+| 1280 | 4.31e-04 | **1.493** |
+| 5120 | 1.08e-04 | **1.493** |
+
+The stable branch falls 4× per 4× refinement; the naïve branch does not move. A first attempt
+asserted an absolute bound on the largest step and was wrong — on a coarse grid a smooth function
+also moves, so the bound measured the step size rather than the branch.
+
+### A bias found by the reduction, and pinned as a relationship
+
+`1/(iu)` is undefined at `u = 0`, so the quadrature starts at `_LOWER` and omits the sliver below.
+That omission is **one-directional and linear in the cutoff**, and **grid-independent** — which is
+how it was identified: the `σ_v → 0` reduction's error sat at 1.16e-08 across three different grids
+and moved only when the cutoff did. Measured at `K/F = 1.25`: 1.16e-06 at `1e-6`, 1.16e-08 at
+`1e-8`, 1.16e-10 at `1e-10`, 1.16e-12 at `1e-12`, reaching the floating-point floor by `1e-14`.
+Committed at `1e-12`, and the test asserts the **linearity** rather than a bound — so if the ratio
+ever stops tracking the cutoff, the error has a second source.
+
+### Oracles
+
+- The `σ_v → 0` reduction to verified Black on the integrated variance — with a premise asserting
+  the stochastic price is materially different, so the reduction is **proved vacuous alone**.
+- **The non-degenerate anchor**: Fourier against the independent MC within 4·SE, on a fixture whose
+  **Feller condition is deliberately violated** (`2κθ = 0.12 < 0.36 = σ_v²`) so the variance
+  genuinely reaches zero and full truncation is exercised rather than assumed away.
+- The martingale identity `E[S_T] = F(T)` pinning the drift **first**, so a drift error cannot be
+  read as a volatility error.
+- The band's power asserted: a flipped `ρ` lands outside it.
+- **Twelve mutants, all killed** — including reflection-instead-of-truncation on the variance.
+
+### Raised, not decided
+
+The spec asked for a `@register`ed Fourier pricer. **Dispatch is keyed on product type alone**
+(`_PRICERS[product_type]`), so registering Heston for `EuropeanEquityOption` **silently replaces**
+tranche 30's Black pricer — verified empirically. The Heston pricer is therefore a named function,
+every oracle reaches it directly, and the two-models-one-product question is an `Ask:` for Cowork.
+
 ## [0.38.0] - 2026-11-11
 
 Tranche 32 — **the implied-vol surface and Dupire local volatility.** Third unit of the equity &
