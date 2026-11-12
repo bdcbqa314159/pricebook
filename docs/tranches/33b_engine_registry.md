@@ -18,9 +18,23 @@ model — `price(product, model)` — so the model belongs in dispatch.
 - **`_PRICERS` keys on `(product_type, model_type)`.** `@register` declares (or derives from the
   signature) the model type it prices; dispatch in `price(product, model)` looks up
   `(type(product), type(model))`.
-- **Every existing registration carries its model type** — a mechanical pass; each current engine has
-  exactly one model (`HullWhite`, the LMM, the JY/MM models, the survival/XVA ones), so each becomes
-  `(its product, its model)` with **no behaviour change**.
+- **The key is `(product_type, model_key)`, where `model_key` is a concrete model type OR a
+  `@runtime_checkable` protocol.** *(Corrected 2026-11-12 on Code's 0175 — my original "each engine has
+  one model" premise was WRONG: two of eight pricers are typed against the `IndexRatioModel` **protocol**
+  and serve four concrete models (JY, MM-I, MM-II, a test stub). Keying those on a concrete type loses
+  the deliberate polymorphism §3 and the protocol docstring intend, failing 63 tests. My premise error —
+  read-before-asserting on our own tree (§10/§5), a one-line grep of the registrations would have caught
+  it; the T22 instance on the Cowork side.)* So:
+  - a **concrete-model** pricer (Black-equity, Heston-equity) registers under `(product, concrete type)`;
+  - a **protocol-polymorphic** pricer (the inflation cap/floor and YoY engines over `IndexRatioModel`)
+    registers **once** under `(product, protocol)` and keeps serving every model satisfying it.
+- **Dispatch resolves exact-concrete first, then protocol.** `price(product, model)` looks up
+  `(type(product), type(model))`; if absent, the **unique** `(type(product), P)` whose protocol `model`
+  satisfies (`isinstance`, `@runtime_checkable`); else `PricingFailure`/a clear error. Exact beats
+  protocol, so a concrete pricer never shadows the polymorphic one by accident; **two protocol matches
+  for one product is a loud ambiguity error** (as a duplicate concrete registration is). This makes the
+  test stub (`_StubRatioModel`, in `tests/L3/`) dispatch via the protocol with **no src-side
+  registration** — your option (c), resolved.
 - **`heston_call_price` and the Black equity pricer register distinctly** under
   `(EuropeanEquityOption, HestonModel)` and `(EuropeanEquityOption, <flat-vol/Black model>)` — the two
   that collided, now coexisting.
@@ -37,10 +51,18 @@ model — `price(product, model)` — so the model belongs in dispatch.
   for `EuropeanEquityOption` under **different** models (Black and Heston) and assert **both resolve to
   their own pricer** — the exact thing that silently clobbered before now works. Pre-register it red
   (it cannot pass on the product-only registry).
-- **The loud-failure requirement.** Registering the *same* `(product, model)` twice **raises** (asserted);
-  an unregistered `(product, model)` pair returns `PricingFailure`/raises a clear error, never a silent
-  wrong pricer. **Mutation:** revert the key to product-only (→ the coexistence test fails — the
-  clobber returns); drop the double-registration guard (→ the loud-failure test fails). Each must die.
+- **Protocol polymorphism preserved (the premise fix's own oracle).** The inflation cap/floor and YoY
+  engines must still price under **all** of JY, MM-I, MM-II **and** the test stub — each resolving to
+  the one protocol-keyed pricer by `isinstance`, bit-identically to before. This is where the 63
+  failures live; it is the RED that proves the protocol path works. Assert **exact beats protocol**: if
+  a product ever has both a concrete `(product, M)` and a protocol `(product, P)` pricer with `M`
+  satisfying `P`, the concrete one wins (a dedicated test with a throwaway product).
+- **The loud-failure requirement.** Registering the *same* `(product, model_key)` twice **raises**
+  (asserted); an unresolved `(product, model)` returns `PricingFailure`/a clear error, never a silent
+  wrong pricer; **two matching protocols** for one product raise ambiguity. **Mutation:** revert the key
+  to product-only (→ coexistence fails, the clobber returns); drop the double-registration guard (→
+  loud-failure fails); resolve protocol **before** exact (→ the exact-beats-protocol test fails). Each
+  must die.
 - **No degenerate-fixture risk to assert beyond the above** — the dispatch is exercised by every
   existing tranche's tests, which now all route through the two-tuple key; a failure there would show at
   once.
