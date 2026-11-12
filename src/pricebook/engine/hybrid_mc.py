@@ -63,6 +63,12 @@ class HybridPaths:
 
     deflated_spots: np.ndarray
     deflators: np.ndarray
+    #: `integral_0^t r du` per path - kept because it is the ONE place the cash-bond integrator is
+    #: directly observable. The deflator is normalised to `P(t)`, which absorbs a first-order
+    #: discretisation bias in its *mean*, so the price cannot see the integrator at all; the
+    #: *variance* of this can, and the oracle checks it against the closed form (§4 - pin a quantity
+    #: where it is observable rather than through a price that barely depends on it).
+    rate_integrals: np.ndarray
     rate_increments: np.ndarray
     equity_increments: np.ndarray
 
@@ -128,6 +134,7 @@ def simulate_hybrid(
     # here. The hybrid effect survives entirely in the *correlation* between this and the deflator.
     deflated_spot = forward * discount.df(expiry) * np.exp(log_relative)
     return HybridPaths(
+        rate_integrals=accumulated,
         deflated_spots=deflated_spot,
         deflators=deflator,
         rate_increments=np.column_stack(rate_steps),
@@ -160,3 +167,14 @@ def realised_increment_covariance(paths: HybridPaths) -> float:
     rate = paths.rate_increments
     equity = paths.equity_increments
     return float(np.mean((rate - rate.mean(axis=0)) * (equity - equity.mean(axis=0))))
+
+
+def realised_rate_integral_variance(paths: HybridPaths) -> float:
+    """`Var[integral r du]` from the simulated paths - the cash-bond integrator, made observable.
+
+    Must reproduce `integrated_bond_variance`. This is the only oracle in the tranche that can see
+    the integration rule: measured, a trapezoid rule reproduces the closed form to **0.1%** while a
+    left-endpoint rule is **4.6%** low, and neither moves the price by as much as a tenth of its
+    standard error once the deflator is normalised.
+    """
+    return float(np.var(paths.rate_integrals, ddof=1))

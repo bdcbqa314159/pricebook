@@ -6,6 +6,78 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-11-12
+
+Tranche 34 — **the equity-rate hybrid under Hull-White.** The arc's first hybrid, and the first
+tranche to price equity against the rates machinery the tree already had.
+
+### Added
+
+- **`models/equity_hull_white.py` (L3)** — `EquityHullWhiteModel`: the snapshot, the **reused**
+  `HullWhiteParams`, the equity vol and the equity-rate correlation. One Hull-White convention in
+  the library, not a second spelling of `kappa, sigma`.
+- **`engine/equity_rate_hybrid.py` (L4)** — eq (11.1): Black on the forward with the **total**
+  log-spot volatility and both `d±` shifted. Registered under
+  `(EuropeanEquityOption, EquityHullWhiteModel)` — the **third** pricer for the equity vanilla,
+  coexisting with Black (T30) and Heston (T33) only because T33b keyed the registry on the model.
+- **`engine/hybrid_mc.py` (L4)** — the correlated two-factor simulation, written in **deflated
+  form**: `E[(B⁻¹S − K·B⁻¹)⁺]`, so the spot is never reconstructed by dividing one noisy quantity
+  by another.
+
+### Two findings in the source, both of which changed the code
+
+1. **The printed §11.1.2 bond integrand cannot be read naively.** It gives
+   `(σ^B_t)²t = ∫₀ᵗ(v_s(T) − v_s(t))²ds`, and for a European option the payoff date *is* `t` — so a
+   naive `T = t` makes it **identically zero**, collapsing the formula to Black while still passing
+   its own reduction oracle. §11.1.1 settles it: `B` is the **cash bond** (`E[B_t⁻¹] = P(t)`), so
+   `σ_B` is the volatility of `log B_t`, which for Hull-White is `σ_r²∫₀ᵗβ(s,t)²ds`.
+2. **Eq (11.3)'s numerator is not `σ_B + ρσ_{S/B}`.** Read that way it contradicts the book's **own
+   derivation three lines above**, which gives `ρ_{B,S}σ_Bσ_S = σ_B² + cross`. They differ because
+   `ρ_{B,S/B}` is a *time-averaged* correlation. The derivation step is the authority (§4 rates an
+   earlier step above the final line). The corrected form is also the numerically sound one: what
+   (11.1) needs is the **product** `ρ_{B,S}σ_B = (σ_B² + cross)/σ_S`, with no division by `σ_B`.
+
+Both were found by **deriving before implementing**, and both corrected my own pre-registered tests.
+
+### Oracles
+
+- The **`σ_r → 0` reduction is bit-identical** to T30's Black — which is also what identifies the
+  cumulative-normal glyph `pdftotext` drops in *both* renderings of (11.1).
+- **(11.2) and (11.3) as derivation-step identities** over many parameter sets, plus `|ρ_{B,S}| ≤ 1`.
+- The integrated variances against the test's own quadrature.
+- **The independent anchor**: the hybrid MC agrees at **0.00 / 0.05 / 0.11 SE** across the money,
+  with the martingale identity pinning the drift first and `ρ` pinned by the **realised covariance
+  of the increments** (0.10%) rather than through a price — T17's instrument, because `ρ` is in the
+  diffusion.
+- **Eight mutants, all killed.**
+
+### What the anchor can and cannot resolve, measured
+
+- A wrong **total vol** moves the main fixture by only 2.7 SE (3.9 SE even at 200k paths), because
+  the two vols differ by 2% there. Resolved by a **power fixture with a larger rate vol**, where it
+  lands at **18.9 SE**. More paths were the wrong lever; a fixture where the term is *large* was the
+  right one.
+- The **`d±` shift cannot be resolved by any price at any path count**, and the reason is exact:
+  `d(price)/d(shift) = df·[F·n(d₊) − K·n(d₋)]`, which Black's identity makes **exactly zero**
+  (verified to machine precision at every strike). It is pinned instead by its defining identity
+  `shift = ρ_{B,S}σ_B√t`, and the suite says so rather than letting the MC appear to cover it.
+
+### Two sweep survivors, both closed by relocating the check
+
+- **Dropping the shift** survived — no price sees it. Closed by the identity above.
+- **A left-endpoint cash-bond integrator** survived, because the deflator is normalised to `P(t)`
+  from the sample and that absorbs a first-order bias in its *mean*. The **variance** is where it
+  shows: `Var[∫r du]` is 0.1% from the closed form with a trapezoid and **4.6%** with a
+  left-endpoint rule. That oracle doubles as an independent cross-method check on
+  `integrated_bond_variance` itself.
+
+### Also
+
+A single-seed convergence assertion failed for T21's reason — one seed made 2,500 paths look better
+than 40,000 — and is now averaged over seeds with a 50× path ratio. The registry test that counted
+equity pricers was generalised to assert *shape* rather than a hard number, since the count grows
+with every hybrid.
+
 ## [0.40.0] - 2026-11-12
 
 Tranche 33b — **the `(product, model)` engine registry.** Infrastructure, pulled by tranche 33: one
