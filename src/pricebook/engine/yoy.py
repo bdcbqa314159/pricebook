@@ -156,7 +156,7 @@ def yoy_par_rate(swap: YearOnYearInflationSwap, model: IndexRatioModel) -> float
     return yoy_inflation_leg_value(swap, model) / annuity
 
 
-@register(YearOnYearInflationSwap)
+@register(YearOnYearInflationSwap, IndexRatioModel)
 def price_yoy_inflation_swap(
     swap: YearOnYearInflationSwap, model: IndexRatioModel
 ) -> PricingResult | PricingFailure:

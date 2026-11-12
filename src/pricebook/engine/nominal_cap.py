@@ -55,7 +55,7 @@ def nominal_caplet_value(
     return cap.notional.amount * hw_caplet(unit, cap.strike, variance, cap.kind)
 
 
-@register(NominalCap)
+@register(NominalCap, HullWhiteModel)
 def price_nominal_cap(
     cap: NominalCap, model: HullWhiteModel
 ) -> PricingResult | PricingFailure:

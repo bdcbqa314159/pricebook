@@ -70,7 +70,7 @@ def caplet_value(
     )
 
 
-@register(InflationCapFloor)
+@register(InflationCapFloor, IndexRatioModel)
 def price_inflation_capfloor(
     product: InflationCapFloor, model: IndexRatioModel
 ) -> PricingResult | PricingFailure:

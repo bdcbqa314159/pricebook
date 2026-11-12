@@ -27,7 +27,7 @@ from pricebook.models.discounting_model import DiscountingModel
 from pricebook.products.cash import FixedCashflow
 
 
-@register(FixedCashflow)
+@register(FixedCashflow, DiscountingModel)
 def price_fixed_cashflow(
     product: FixedCashflow, model: DiscountingModel
 ) -> PricingResult | PricingFailure:

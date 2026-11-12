@@ -66,18 +66,26 @@ class TestCoexistenceTheThingThatWasImpossibleBefore:
         assert dispatch(_ProductA(), _ModelOne()) == "one"
         assert dispatch(_ProductA(), _ModelTwo()) == "two"
 
-    def test_registering_the_second_does_not_REMOVE_the_first(self) -> None:
-        """The precise failure tranche 33 proved empirically, now impossible."""
+    def test_registering_a_NEW_pair_disturbs_no_existing_one(self) -> None:
+        """The precise failure tranche 33 proved empirically, now impossible.
+
+        A fresh model type, because re-registering `(_ProductA, _ModelOne)` would now correctly
+        **raise** — which is the other half of this tranche and is asserted in its own test below.
+        """
+
+        class _ModelThree:
+            pass
+
         before = dict(registered_pricers())
 
-        @register(_ProductA, _ModelOne)
+        @register(_ProductA, _ModelThree)
         def _late(product: object, model: object) -> str:
             return "late"
 
         after = registered_pricers()
+        assert set(after) - set(before) == {(_ProductA, _ModelThree)}, "exactly one key added"
         for key, pricer in before.items():
-            if key != (_ProductA, _ModelOne):
-                assert after[key] is pricer, f"{key} was disturbed by an unrelated registration"
+            assert after[key] is pricer, f"{key} was disturbed by an unrelated registration"
 
 
 class TestTheFailuresAreLoud:

@@ -69,7 +69,7 @@ def inflation_leg_value(swap: ZeroCouponInflationSwap, market: MarketSnapshot) -
     return swap.notional.amount * (ratio * real.df(maturity) - nominal.df(maturity))
 
 
-@register(ZeroCouponInflationSwap)
+@register(ZeroCouponInflationSwap, DiscountingModel)
 def price_zc_inflation_swap(
     swap: ZeroCouponInflationSwap, model: DiscountingModel
 ) -> PricingResult | PricingFailure:
@@ -97,7 +97,7 @@ def price_zc_inflation_swap(
     return PricingResult(pv=Money(inflation - fixed, currency))
 
 
-@register(InflationLinkedBond)
+@register(InflationLinkedBond, DiscountingModel)
 def price_inflation_linked_bond(
     bond: InflationLinkedBond, model: DiscountingModel
 ) -> PricingResult | PricingFailure:
