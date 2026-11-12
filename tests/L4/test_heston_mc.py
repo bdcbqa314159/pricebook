@@ -52,8 +52,23 @@ GRID = FourierGrid(upper=200.0, count=4001)
 SAMPLING = (MonteCarloConfig(paths=30_000, seed=20261112), 60)
 
 
+#: The simulation is **deterministic** (seeded config), so every test below is reading the same
+#: 30,000 paths. Computing them once is not a caching optimisation bolted on — it is the honest
+#: shape: these tests examine *one* sample, and re-running it per test would also let two tests
+#: silently disagree about which sample they were asserting on.
+#:
+#: It is also what keeps this file inside the `slow` ceiling. The first version called
+#: `simulate_heston_spots` in every test and measured 2.8s locally — comfortably under the 10s
+#: ceiling, and **10.0s on the Windows CI runner**, which failed the gate. The T19 lesson: local
+#: headroom is not bankable, because the multiplier is the runner's, not ours.
+_SPOTS = None
+
+
 def _spots():
-    return simulate_heston_spots(PARAMS, UNDERLYING, EXPIRY, CURVE, SAMPLING)
+    global _SPOTS
+    if _SPOTS is None:
+        _SPOTS = simulate_heston_spots(PARAMS, UNDERLYING, EXPIRY, CURVE, SAMPLING)
+    return _SPOTS
 
 
 class TestTheFixtureExercisesTheDelicateCase:
