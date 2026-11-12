@@ -114,7 +114,7 @@ class TestTheFixtureIsNotDegenerate:
     def test_the_BOND_volatility_is_a_material_fraction_of_the_equity_volatility(self) -> None:
         """Else the hybrid correction is lost in the noise of the equity vol and the companion
         cannot discriminate."""
-        sigma_b = math.sqrt(integrated_bond_variance(KAPPA, SIGMA_R, YEARS, YEARS) / YEARS)
+        sigma_b = math.sqrt(integrated_bond_variance(KAPPA, SIGMA_R, YEARS) / YEARS)
         assert sigma_b / EQUITY_VOL > 0.02, f"bond vol {sigma_b} vs equity {EQUITY_VOL}"
 
 
@@ -128,8 +128,8 @@ class TestTheDerivationStepIdentities:
     ) -> None:
         """`σ_S² = σ_B² + σ_{S/B}² + 2ρσ_Bσ_{S/B}` — eq 11.2, recomputed here from the pieces."""
         inputs = hybrid_black_inputs(_model(sigma_r, rho), UNDERLYING, EXPIRY, CURVE)
-        bond_var = integrated_bond_variance(KAPPA, sigma_r, YEARS, YEARS) / YEARS
-        cross = integrated_cross_covariance(KAPPA, sigma_r, EQUITY_VOL, rho, YEARS, YEARS) / YEARS
+        bond_var = integrated_bond_variance(KAPPA, sigma_r, YEARS) / YEARS
+        cross = integrated_cross_covariance(KAPPA, sigma_r, EQUITY_VOL, rho, YEARS) / YEARS
         expected = bond_var + EQUITY_VOL * EQUITY_VOL + 2.0 * cross
         assert inputs.total_vol**2 == pytest.approx(expected, rel=1e-13)
 
@@ -137,8 +137,15 @@ class TestTheDerivationStepIdentities:
     def test_the_log_spot_log_bond_CORRELATION_matches_eq_11_3(self, rho: float) -> None:
         """`ρ_{B,S} = (σ_B + ρ_{B,S/B}σ_{S/B}) / σ_S`, computed independently here."""
         inputs = hybrid_black_inputs(_model(rho=rho), UNDERLYING, EXPIRY, CURVE)
-        sigma_b = math.sqrt(integrated_bond_variance(KAPPA, SIGMA_R, YEARS, YEARS) / YEARS)
-        expected = (sigma_b + rho * EQUITY_VOL) / inputs.total_vol
+        sigma_b = math.sqrt(integrated_bond_variance(KAPPA, SIGMA_R, YEARS) / YEARS)
+        cross = integrated_cross_covariance(KAPPA, SIGMA_R, EQUITY_VOL, rho, YEARS) / YEARS
+        # The book derives it as `rho_BS*sigma_B*sigma_S*t = E[sigma_B W^B * sigma_S W^S]
+        # = sigma_B^2 t + rho_{B,S/B} sigma_B sigma_{S/B} t`, so the numerator is `sigma_B^2 + cross`
+        # — NOT `sigma_B + rho*sigma_{S/B}`, which is what the printed (11.3) reads as once the
+        # `rho_{B,S/B}` in it is mistaken for the model's instantaneous `rho`. They differ because
+        # `rho_{B,S/B}` is a time-AVERAGED correlation: `rho_{B,S/B} sigma_B sigma_{S/B} = rho*sigma*X`
+        # with `X` the mean bond vol, and `X != sigma_B` unless the bond vol is constant in time.
+        expected = (sigma_b * sigma_b + cross) / (sigma_b * inputs.total_vol)
         assert hybrid_correlation(_model(rho=rho), UNDERLYING, EXPIRY, CURVE) == pytest.approx(
             expected, rel=1e-13
         )
@@ -204,41 +211,34 @@ class TestTheIntegratedVarianceClosedForms:
     """The HW pieces (§11.1.2) against the test's own numerical integration of the same integrands."""
 
     @pytest.mark.parametrize("kappa,sigma_r", [(0.08, 0.012), (0.3, 0.02), (0.02, 0.005)])
-    def test_the_bond_variance_matches_a_numerical_integral(self, kappa: float, sigma_r: float) -> None:
-        """`(σ_B)²t = ∫₀ᵗ (v_s(T) − v_s(t))² ds`, integrated here by the test on its own grid."""
-        steps = 20_000
-        total = 0.0
-        for i in range(steps):
-            s = YEARS * (i + 0.5) / steps
-            gap = sigma_r * (hw_beta(kappa, s, YEARS) - hw_beta(kappa, s, YEARS))
-            total += gap * gap * YEARS / steps
-        # v_s(T) - v_s(t) with T == t is identically zero; the real check uses a longer bond.
-        assert total == pytest.approx(0.0, abs=1e-15)
-
-    @pytest.mark.parametrize("kappa,sigma_r", [(0.08, 0.012), (0.3, 0.02)])
-    def test_the_bond_variance_to_a_LATER_maturity_matches_a_numerical_integral(
+    def test_the_cash_bond_variance_matches_the_tests_OWN_numerical_integral(
         self, kappa: float, sigma_r: float
     ) -> None:
-        bond_maturity = YEARS + 2.0
+        """`Var[log B_t] = σ_r²∫₀ᵗ β(s,t)² ds` — the cash bond's own variance.
+
+        **Which integrand this is was a finding, not a transcription** (see the engine docstring):
+        the printed §11.1.2 form reads `∫₀ᵗ(v_s(T) − v_s(t))² ds`, and for a European option — where
+        the payoff date *is* `t` — a naive `T = t` makes that **identically zero**, killing every
+        hybrid term. `B` is the **cash bond** (`E[B_t⁻¹] = P(t)`, §11.1.1), so its log-variance is
+        the quantity above, which is what this asserts against its own quadrature.
+        """
         steps = 20_000
         total = 0.0
         for i in range(steps):
             s = YEARS * (i + 0.5) / steps
-            gap = sigma_r * (hw_beta(kappa, s, bond_maturity) - hw_beta(kappa, s, YEARS))
-            total += gap * gap * YEARS / steps
-        got = integrated_bond_variance(kappa, sigma_r, YEARS, bond_maturity)
-        assert got == pytest.approx(total, rel=1e-6)
+            v = sigma_r * hw_beta(kappa, s, YEARS)
+            total += v * v * YEARS / steps
+        assert integrated_bond_variance(kappa, sigma_r, YEARS) == pytest.approx(total, rel=1e-6)
 
     @pytest.mark.parametrize("rho", [-0.6, 0.4])
-    def test_the_cross_covariance_matches_a_numerical_integral(self, rho: float) -> None:
-        bond_maturity = YEARS + 2.0
+    def test_the_cross_covariance_matches_the_tests_OWN_numerical_integral(self, rho: float) -> None:
+        """`∫₀ᵗ ρσ·v_s(t) ds` — §11.1.2's third line, with the same `v_s(t)` as above."""
         steps = 20_000
         total = 0.0
         for i in range(steps):
             s = YEARS * (i + 0.5) / steps
-            gap = SIGMA_R * (hw_beta(KAPPA, s, bond_maturity) - hw_beta(KAPPA, s, YEARS))
-            total += rho * EQUITY_VOL * gap * YEARS / steps
-        got = integrated_cross_covariance(KAPPA, SIGMA_R, EQUITY_VOL, rho, YEARS, bond_maturity)
+            total += rho * EQUITY_VOL * SIGMA_R * hw_beta(KAPPA, s, YEARS) * YEARS / steps
+        got = integrated_cross_covariance(KAPPA, SIGMA_R, EQUITY_VOL, rho, YEARS)
         assert got == pytest.approx(total, rel=1e-6)
 
 
