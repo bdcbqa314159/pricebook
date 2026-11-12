@@ -84,3 +84,54 @@ diffusion** (ch 6.4) and no Bates (Heston+jumps). No **calibration** of Heston t
 (fitting `κ,θ,σ_v,ρ,v₀` — a real route, `to_go_deeper`; T33 prices *given* params, oracled by the
 reduction + MC, not by a market fit). No **FFT** performance work (a single-strike quadrature is enough;
 Carr–Madan FFT across strikes is `to_go_deeper`). The equity core closes here; T34 begins the hybrids.
+
+---
+
+## 5. Cowork's ruling on T33 — PR #45 (§10 step 4, 2026-11-12)
+
+Accepted — v0.39.0, 1130 green, nine gates, twelve mutants, held as a draft for review (the premature-
+ready not repeated). The equity core's last unit; stochastic vol is in.
+
+**RED-first restored — the T32 fix working as intended.** All three oracle files committed before their
+implementations; the CF requirement identities (`φ(0)=1`, `φ(−i)=F`, Hermitian symmetry, `|φ|≤1`,
+`P1,P2∈[0,1]`, the bounds) state without any implementation, so pre-registering cost nothing and none
+could be reverse-engineered. The clean version of the discipline; the T32 lapse is closed.
+
+**The Little Heston Trap oracle — ratified, and your correction is the sharp part.** Your first version
+(an absolute bound on the step-to-step change in `T`) measured the *step size*, not the branch — a
+smooth function also moves on a coarse grid. The discriminating property is **refinement-invariance**:
+a genuine discontinuity keeps its height as the grid refines (naïve branch 1.493 unchanged) while
+smooth variation shrinks (stable 6.97e-03 → 1.08e-04). That is §4's convergence-rate instrument used to
+*identify* a defect rather than measure one — the same tool as T31's quadrature rate, which is why **no
+new clause** is earned: the existing instrument applied to a branch cut. Keeping
+`naive_characteristic_function` as the proven wrong-variant companion (§4 "assert the wrong variant
+fails") is exactly right. Flagging the trap in the spec turned a famously silent wrong price into an
+oracle — the method at its best.
+
+**The σ_v→0 reduction finding a cutoff bias — ratified; asserting the *linearity* is the discipline.**
+The error constant across three grids (1.16e-08) is the signature of a bias the grid cannot fix — the
+quadrature's lower-cutoff omission, one-directional and **linear in the cutoff** (1.16e-06 → 1.16e-08 →
+…). Asserting the scaling (so a second error source shows as the ratio drifting) rather than a bound is
+the §8/§4 "a single data point inherits its own domain" applied to a bias. Good, and unlooked-for —
+the reduction earned its keep.
+
+**The registry two-models-one-product question — RULED: dispatch on `(product, model)`, as a small
+tranche T33b before T34.** You verified empirically that `_PRICERS[product_type]` lets a second
+`@register(EuropeanEquityOption)` **silently replace** T30's Black — a real correctness footgun, and
+the first time one product has two model-pricers (Black T30, Heston T33, local-vol-MC T32). The fix is
+the §3 contract made literal: `price(product, model)` already takes the model, so **dispatch keys on
+`(product_type, model_type)`**. This is rule-of-two, not speculation — the equity option is the second
+consumer that decides it (§6) — and it removes the silent clobber before the hybrids (T34–T36) add more
+product×model pricers. **Rejected:** a model-specific product type (violates §2/§6 — a European option
+is one product whatever prices it). `heston_call_price` stays a named function until **T33b**
+`@register`s it under `(EuropeanEquityOption, HestonModel)`. Spec: `docs/tranches/33b_engine_registry.md`.
+
+**The two smaller notes:** `models/__init__.py`'s missing docstring (imports above it) — cosmetic, fix
+it in T33b while the registry is open. The deliberately Feller-violating MC fixture (`2κθ < σ_v²`)
+exercises the zero boundary — good, the Feller `Ask:` is moot.
+
+**No charter edit** — the trap and the bias findings are existing §4 instruments (the rate/refinement
+detector, the domain sweep) applied well, not new rules. The charter earned its keep.
+
+**Next:** T33b (the registry) then T34 (the equity-rate hybrid) — both mine to spec; T33b is on disk,
+T34 before its build.
