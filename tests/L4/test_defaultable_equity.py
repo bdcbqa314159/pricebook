@@ -170,15 +170,42 @@ class TestTheExactReductionToDefaultFreeEquity:
             _option(EquityOptionKind.PUT), EquityBlackModel(MARKET, VOL)
         )
 
-    def test_THE_COMPANION_a_live_hazard_moves_BOTH_sides_in_the_right_DIRECTION(self) -> None:
-        """A call on a stock that can become worthless is worth **less**; the put is worth **more**
-        (it collects `K` on default). Magnitudes asserted, not just signs."""
+    def test_THE_COMPANION_a_live_hazard_raises_BOTH_sides_a_mean_preserving_spread(self) -> None:
+        """**Both** options get dearer, and the reason is the model's own constraint, not intuition.
+
+        The first draft of this test asserted the call falls and the put rises — "a call on a stock
+        that can become worthless is worth less". That is wrong *here*, and the formula says so:
+        `E[S_t] = F(t)` is held **fixed** (eq 13.3 is what forces it), so raising the hazard does
+        not lower the stock's expectation — it redistributes it. Mass moves to zero (probability
+        `1−p`) while the surviving process is worth `F/p`, which *rises*. That is a textbook
+        mean-preserving spread, and it makes **every** convex payoff dearer: the call gains from the
+        fatter upside, the put from the lump at zero.
+
+        Confirmed independently before this test was rewritten: a direct simulation of
+        `S̃·1{U<p}` reproduces the closed form at every hazard (31.19/17.86 at `h=0`,
+        58.55/45.22 at `h=0.15`, 89.16/75.83 at `h=0.4`), so the formula was right and the
+        intuition was the thing to fix.
+
+        The *observed* effect of worsening credit — a falling stock — is a change in **spot**, which
+        this comparison deliberately holds fixed. The book's own motivation for correlated default
+        (a chapter this tranche does not build) is exactly that gap.
+        """
         plain_call = _pv(_option(), EquityBlackModel(MARKET, VOL))
         plain_put = _pv(_option(EquityOptionKind.PUT), EquityBlackModel(MARKET, VOL))
         risky_call = _pv(_option(), _model())
         risky_put = _pv(_option(EquityOptionKind.PUT), _model())
-        assert risky_call < plain_call and abs(risky_call / plain_call - 1.0) > 0.05
+        assert risky_call > plain_call and abs(risky_call / plain_call - 1.0) > 0.05
         assert risky_put > plain_put and abs(risky_put / plain_put - 1.0) > 0.05
+
+    def test_the_forward_is_what_is_HELD_FIXED_which_is_why_both_rise(self) -> None:
+        """The premise the test above rests on, asserted rather than left in prose: the pricer's
+        forward does not move with the hazard, so the comparison really is at fixed `E[S_t]`."""
+        from pricebook.market.equity import dividend_forward
+
+        assert dividend_forward(UNDERLYING, EXPIRY, CURVE) == FORWARD
+        assert SURVIVAL_PROB * surviving_forward(FORWARD, SURVIVAL_PROB) == pytest.approx(
+            FORWARD, rel=1e-14
+        )
 
 
 class TestTheModelFreeRequirements:
@@ -192,10 +219,13 @@ class TestTheModelFreeRequirements:
             put = _pv(_option(EquityOptionKind.PUT, strike=strike), _model())
             assert call - put == pytest.approx(DF * (FORWARD - strike), rel=1e-12)
 
-    def test_the_call_FALLS_and_the_put_RISES_as_the_hazard_grows(self) -> None:
-        calls = [_pv(_option(), _model(_flat(h))) for h in (0.0, 0.05, 0.15, 0.4)]
-        puts = [_pv(_option(EquityOptionKind.PUT), _model(_flat(h))) for h in (0.0, 0.05, 0.15, 0.4)]
-        assert all(b < a for a, b in zip(calls, calls[1:])), calls
+    def test_BOTH_sides_rise_MONOTONICALLY_with_the_hazard(self) -> None:
+        """Monotone in the hazard, both sides — the mean-preserving-spread ordering, and a check
+        that the survival probability enters as a probability and not with a stray sign."""
+        hazards = (0.0, 0.05, 0.15, 0.4)
+        calls = [_pv(_option(), _model(_flat(h))) for h in hazards]
+        puts = [_pv(_option(EquityOptionKind.PUT), _model(_flat(h))) for h in hazards]
+        assert all(b > a for a, b in zip(calls, calls[1:])), calls
         assert all(b > a for a, b in zip(puts, puts[1:])), puts
 
     def test_the_call_respects_the_NO_ARBITRAGE_bounds(self) -> None:
@@ -203,10 +233,17 @@ class TestTheModelFreeRequirements:
             call = _pv(_option(strike=strike), _model())
             assert 0.0 <= call <= DF * FORWARD + 1e-12
 
-    def test_a_CERTAIN_default_makes_the_call_worthless_and_the_put_worth_the_strike(self) -> None:
-        """`p → 0`: nothing survives, so the call is zero and the put is the discounted strike."""
+    def test_a_CERTAIN_default_sends_the_call_to_the_FORWARD_and_the_put_to_the_STRIKE(self) -> None:
+        """The `p → 0` limit, and the call's limit is the **forward**, not zero.
+
+        A second place my intuition was wrong and the algebra was not: `BSCall(F, pK) → BSCall(F, 0)
+        = F` as `p → 0`, because the strike scales away while `F = E[S_t]` is held. Economically the
+        stock almost surely dies, but in the vanishing surviving branch it is worth `F/p → ∞`, and
+        the two balance to exactly `F`. The put goes to `K`: the default lump `(1−p)K → K` and the
+        scaled-strike put vanishes.
+        """
         doomed = SurvivalCurve(TM, (0.0,), (50.0,))   # p(4y) ~ 1e-87
-        assert _pv(_option(), _model(doomed)) == pytest.approx(0.0, abs=1e-9)
+        assert _pv(_option(), _model(doomed)) == pytest.approx(DF * FORWARD, rel=1e-9)
         assert _pv(_option(EquityOptionKind.PUT), _model(doomed)) == pytest.approx(
             DF * STRIKE, rel=1e-9
         )
