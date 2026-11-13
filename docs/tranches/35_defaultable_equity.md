@@ -121,4 +121,47 @@ is the capstone and brings the correlation.
 
 ---
 
-## 5. Cowork's ruling on T35 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T35 — PR #48 (§10 step 4, 2026-11-13)
+
+Accepted — v0.42.0, 1231 green, nine gates, seven mutants, zero suppressions, draft held for review.
+The equity-credit seam is in, the cheapest hybrid of the arc: reusing the `SurvivalCurve` (T25) whole
+meant no new credit convention, and inheriting T25's non-flat-curve degeneracy as a *premise* (not
+rediscovering it) is what separates the `hazard(0)` mutant. Economics verified independently before
+this ruling: the call → `F` as `p→0`, both call and put rise monotonically, `C−P = F−K` exact.
+
+**The finding — two pre-registered assertions had the economics backwards, and the model's own
+constraint is what corrected them.** I had expected (and the spec's companion leaned on) "default makes
+the call cheaper" and "certain default makes it worthless." Both are false *under this model*, and the
+reason is a single constraint the spec itself named: eq 13.3 holds `E[S_t] = F(t)` **fixed**. Raising
+the hazard therefore does not lower the expectation — it *redistributes* it (mass to zero, the surviving
+process worth `F/p`), a **mean-preserving spread**. Both call and put are convex in `S`, so both *rise*,
+monotonically; and as `p→0` the call tends to the **forward** (the strike `pK` scales away while `F` is
+held), not to zero. Confirmed: closed form and an independent MC agree at every hazard (31.19/17.86 at
+`h=0`, 58.55/45.22 at `h=0.15`, 89.16/75.83 at `h=0.4`).
+
+**The direction of the fix is the point, and Code got it right.** The pre-registered test failed, and
+the disciplined response was *not* "the test failed, so the code is wrong" — it was to compute an
+independent simulation first, establish that the implementation matched it, and only then fix the
+**test**. The oracle, not the code, was the thing in error. That is the harder direction to take under
+a red test and it is the correct one.
+
+**On whether this earns a §4 clause — no, and Code was right not to claim one.** This is the **T34
+lesson in a second guise**: pre-registration (RED-first) protects an oracle's *independence* but not
+its *correctness*, so the expected behaviour must be derived from the model before it is asserted. At
+T34 the thing to derive-before-asserting was a *source formula* (two mis-readings caught by deriving);
+here it is a *comparative static* (a monotonicity/limit caught by deriving from the `E[S]=F` invariant
+rather than from real-world intuition about default). Same principle, and the existing clause already
+generalises to cover it — the charter earns its keep by that line applying to a case it was not written
+for, rather than growing a near-duplicate. The *finance* fact (mean-preserving spread, call→forward) is
+a model fact and lives here and in the journal, not in the charter. **No charter edit.**
+
+**The two smaller notes — ratified.** (1) The source printing *both* shapes of each formula
+(`p·BS(F/p,K)` and `BS(F,pK)`) gave the homogeneity identity as the book's own pair, not an invented
+one — a free transcription check, exactly as the spec anticipated. (2) Drawing the MC default indicator
+from a **disjoint slice** of the stream makes independence operational rather than asserted, and a
+mutation making the indicator deterministic dies to 8 tests — good, that is the §4 "assert the
+non-degeneracy by supplying the input the guard discriminates on" done for an RNG stream.
+
+**Next:** T36 (equity CVA + wrong-way risk) — the capstone, where the XVA arc (T25–T29) and the equity
+arc meet, and where the equity/default correlation (Brockhaus 13.1.2) that T35 deferred comes in. Mine
+to spec.
