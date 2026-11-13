@@ -66,6 +66,44 @@ class TestTheInputsArePinnedBeforeAnyPrice:
         assert realised_correlation(_paths(rho)) == pytest.approx(rho, abs=0.01)
 
 
+class TestTheTruncationIsAPROVEDEquivalentNotAnUntestedOne:
+    """The sweep found `max(H,0) → H` surviving. §4 forbids calling that equivalent without proof.
+
+    It **is** equivalent, and the proof is exact rather than statistical: where the raw `H` is
+    negative, `e^{−H} > 1 > U` so the path survives; the truncated `H = 0` gives `e^0 = 1 > U`, so
+    it survives too. The indicators are bit-identical. Verified here rather than argued, because
+    "the mutation looks harmless" is precisely how a real survivor gets waved through.
+
+    It depends on one thing worth pinning: `UniformSource` draws from the **open** interval, so `U`
+    is never exactly 1. A generator that could return 1.0 would make `U < e^0` false and break the
+    equivalence — so that premise is asserted, not assumed.
+    """
+
+    def test_the_truncated_and_RAW_indicators_are_BIT_IDENTICAL(self) -> None:
+        import numpy as np
+
+        from pricebook.foundation.rng import UniformSource
+        from pricebook.foundation.variates import standard_normals
+
+        hazard = GaussianHazard(SURVIVAL, SIGMA_H, 0.4)
+        source = UniformSource(7)
+        count = 50_000
+        equity = np.array(standard_normals(source.uniforms(count)))
+        other = np.array(standard_normals(source.uniforms(count)))
+        correlated = 0.4 * equity + math.sqrt(1.0 - 0.16) * other
+        uniforms = np.array(source.uniforms(count))
+
+        raw = hazard.truncation_level + hazard.hazard_vol * correlated
+        assert (raw < 0.0).mean() > 0.2, "the truncation must actually bite on this fixture"
+        assert np.array_equal(uniforms < np.exp(-np.maximum(raw, 0.0)), uniforms < np.exp(-raw))
+
+    def test_the_OPEN_INTERVAL_premise_the_equivalence_rests_on(self) -> None:
+        from pricebook.foundation.rng import UniformSource
+
+        draws = UniformSource(11).uniforms(20_000)
+        assert max(draws) < 1.0 and min(draws) > 0.0
+
+
 class TestTheClosedFormAgainstTheSimulation:
     @pytest.mark.parametrize("rho", RHOS)
     def test_the_two_methods_AGREE_within_the_simulation_error(self, rho: float) -> None:

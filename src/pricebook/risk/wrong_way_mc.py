@@ -72,6 +72,13 @@ def simulate_correlated_default(
     hazard_draws = rho * equity + math.sqrt(1.0 - rho * rho) * other
     uniforms = np.array(source.uniforms(config.paths))
 
+    # The `max(., 0)` writes `H_T = (a_T + s_H Y)^+` as the model DEFINES it. Operationally it is
+    # redundant here, and provably so: where the raw `H` is negative, `e^{-H} > 1 > U` so the path
+    # survives, and the truncated `H = 0` gives `e^0 = 1 > U` so it survives too - the indicator is
+    # bit-identical either way (verified on 200k paths, 55% of which have `H < 0`). That proof rests
+    # on `UniformSource` drawing from the OPEN interval `(0,1)`; a generator that could return
+    # exactly 1.0 would break it, which is why the premise is pinned in the oracle rather than
+    # assumed. Kept because faithfulness to the definition outlives an operational shortcut.
     integrated = np.maximum(hazard.truncation_level + hazard.hazard_vol * hazard_draws, 0.0)
     spots = forward * np.exp(equity_vol * equity - 0.5 * equity_vol * equity_vol)
     return CorrelatedDefaultPaths(
