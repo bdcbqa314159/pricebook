@@ -15,24 +15,46 @@ time it is pre-Jäckel and surfaced only by a re-audit. T23 fixed F-1.2 the same
 for F-3.1, **and** acts on the systemic signal: `τ=1` has now bitten twice, so it is swept proactively.
 
 ## 1. What T37 does (test-only; no `src/` change)
-1. **Fix F-3.1.** Add a **semi-annual** schedule fixture to `tests/L1/test_nominal_bootstrap.py` (ACT/365F,
-   so `ψ ≈ 0.496/0.504 ≠ 1`), and assert the **non-degeneracy premise** `ψ ≠ 1` on it, so the
-   dropped-accrual mutant dies. The reference discount factors/zero rates are computed independently
-   (the test's own summation, per §4 independence), not read back from the bootstrap.
-2. **Proactive τ=1 sweep (the systemic half — "contain the failure in its domain", §4).** Audit **every
-   accrual-bearing fixture in the tree** — anywhere a year-fraction/accrual `τ` or `ψ` multiplies a term
-   (the inflation legs, the caps/floors, the swap annuities, the YoY leg, the XVA exposure weights) —
-   and wherever the accrual is load-bearing **and** the fixture is annual-or-unit, add a non-unit-accrual
-   case and assert the `τ ≠ 1` premise. The deliverable is: a list of every accrual-bearing oracle, each
-   marked already-non-degenerate or newly-hardened. Two instruments carried this hole undetected; the
-   point is to find a third now rather than at re-audit #4.
-3. **A second independent killer for the Sobol Gray code (T20b).** `G(n) = n ⊕ ⌊n/2⌋` is killed by
-   exactly one test and is load-bearing for the whole low-discrepancy construction — the thinnest
-   single-point-of-failure oracle in the tree (re-audit #3 §(1)). Add a second, independent killer
-   (a different property the Gray code must satisfy — e.g. successive-value single-bit-change, or the
-   reflected-binary count — distinct code from the existing killer), so a later deletion of one test
-   does not silently reopen it. *(T26's Leg B numéraire divisor stays single-by-design per re-audit #2;
-   not touched here.)*
+1. **Fix F-3.1 (DONE).** A **semi-annual** fixture in `tests/L1/test_nominal_bootstrap.py` (ACT/365F,
+   `ψ ≈ 0.4986/0.5014 ≠ 1`) with the `ψ ≠ 1` premise asserted, plus a known-curve round trip and a
+   par-reprice companion. Verified by re-running the mutation — the ψ-drop now dies to 2. Suite 1433.
+1b. **Fix F-3.2 (RULED — the sweep's second survivor, same class).** `models/implied_vol_surface.py`
+   drops `ψ` from `discounted_unit = notional·ψ·df` and **survived all 1433 tests** —
+   `tests/L3/test_implied_vol_surface.py` uses annual dates, every `ψ = 1`. Measured severity: a 9.00%
+   vol reads as **5.80%** on a semi-annual period (the vol is inverted from `floorlet/discounted_unit`,
+   so dropping `ψ≈0.5` inflates the denominator ~2× and understates every surface node ~36%) — and the
+   surface is what T10+ calibrate against. Same remedy: a semi-annual fixture + `ψ ≠ 1` premise in
+   `test_implied_vol_surface.py`, confirmed by the mutation dying. `src/` is correct; the oracle was blind.
+2. **Proactive τ=1 sweep — EXHAUSTIVE, and fix every same-class survivor in-tranche.** Audit **every
+   accrual-bearing fixture in the tree** (the inflation legs, caps/floors, swap annuities, the YoY leg,
+   the XVA exposure weights, and anything else where a year-fraction/accrual multiplies a term); wherever
+   the accrual is load-bearing **and** the fixture is annual-or-unit, add a non-unit case and assert
+   `τ ≠ 1`, **confirmed by mutation**. **Scope ruling (§10):** τ=1 is now a *known class with a known
+   remedy* (three confirmed: F-1.2, F-3.1, F-3.2) — so **fix every τ=1-class survivor directly in T37**;
+   do **not** raise each one as a separate finding. Raise an `Ask:` **only** for a survivor of a
+   *different* class (a non-accrual degeneracy), which is a genuine new finding to rule. Deliverable: the
+   full list of accrual-bearing oracles, each marked already-non-degenerate or newly-hardened.
+3. **The mechanical guard — this is the systemic half, and it is why τ=1 stops here (ASSESS + build if
+   clean).** τ=1 has now bitten **three** pre-Jäckel instruments from one shared fixture convention
+   (annual dates on ACT/365F → every accrual exactly 1.0). Manual review missed all three; a proactive
+   sweep found two of them in one afternoon. This is the **T26b situation exactly** — a discipline that
+   has drifted enough times that the project *gates it rather than restates it* (the references gate was
+   floated "until the first drift earns its place" and five drifts earned it; τ=1 has three). **Assess a
+   mechanical guard** that flags an accrual-bearing test fixture whose accruals are all unit — e.g. a
+   shared schedule-building test helper that records its accruals and a check (in `verify.py` or a
+   `tests/tooling/` test) that at least one load-bearing accrual fixture per accrual-bearing module is
+   non-unit. **If a clean, non-brittle mechanism exists, build it in T37** (it turns the manual sweep
+   into a standing gate, so a *future* annual fixture is caught at CI, not at re-audit #7). **If no clean
+   mechanism exists, say so** — the exhaustive sweep (part 2) + §4's existing "assert the non-degeneracy
+   as a premise" rule stand as the backstop, and the guard is recorded as `to_go_deeper`. Feasibility is
+   Code's call to report; that a guard *should* exist if feasible is the ruling.
+4. **Second killers for the single-point-of-failure oracles.** The Sobol Gray code `G(n)=n⊕⌊n/2⌋` (T20b,
+   1 killer) is load-bearing for the whole low-discrepancy construction — add a second independent killer
+   (a distinct Gray-code property: successive-value single-bit-change, or the reflected-binary count).
+   The sweep also flagged **MM-I's freezing denominator `τ/(1+τ)` (T13, 1 killer)** and the **YoY first
+   period's `ψ` (T5, 1 killer)** — add a second killer to each **if cheap**; otherwise record them for
+   re-audit #4 (the floor is recording, the ceiling is hardening — §9). *(T26's Leg B stays
+   single-by-design per re-audit #2.)*
 
 ## 2. The oracle
 Each addition is itself the oracle: the new semi-annual bootstrap case **fails** on the ψ-dropped

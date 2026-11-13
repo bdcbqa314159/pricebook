@@ -104,11 +104,43 @@ measure-the-instrument discipline, and Code caught it itself.
 
 ---
 
+### F-3.2 (the proactive sweep's find) — the vol surface drops the accrual too. RULED: same class → T37 part 1b.
+Part 2's proactive sweep immediately found the **third** instance: `models/implied_vol_surface.py` drops
+`ψ` from `discounted_unit = notional·ψ·df` and **survives all 1433 tests** (annual-date fixture, every
+`ψ=1`). Measured: a 9.00% vol reads as **5.80%** semi-annually — a ~36% understatement of every surface
+node, and the surface is T10+'s calibration target. The `src/` is correct; the oracle was blind. Folded
+into **T37 part 1b** (same remedy, confirmed by mutation) rather than a separate tranche — τ=1 is now a
+known class with a known fix, so same-class survivors are fixed in-tranche, not raised one-by-one (the
+scope ruling). A *different*-class survivor would still be raised.
+
+### The pattern — τ=1 has bitten THREE pre-Jäckel instruments from ONE fixture convention. RULED: gate it (T26b precedent).
+F-1.2 (linker, T3, re-audit #1), F-3.1 (bootstrap, T8), F-3.2 (vol surface, T9) — all pre-Jäckel, all
+from annual dates on ACT/365F making every accrual exactly 1.0, all invisible to manual review and all
+caught only by a mutation sweep. Three drifts of one discipline is the **T26b situation** — the project
+gates a repeatedly-drifting discipline rather than restating it (the references gate earned its place at
+five drifts; this has three and a measured 36% latent mispricing behind it). **Ruled: T37 part 3 assesses
+and, if a clean mechanism exists, builds a mechanical guard** flagging an accrual-bearing fixture whose
+accruals are all unit; if no clean mechanism, the exhaustive sweep + §4's existing premise rule stand and
+the guard is recorded. **No charter prose line now** — the gate *is* the artifact (documented like the
+references gate when it lands at T37's review); restraint holds, the method is already in §4.
+
+### Single-point-of-failure oracles — updated count: FOUR. RULED.
+The sweep (run correctly, without `-x`) found two more beyond §(1)'s first pair: **MM-I's freezing
+denominator `τ/(1+τ)` (T13, 1 killer)** and the **YoY first period's `ψ` (T5, 1 killer)**. With the Sobol
+Gray code (1) and T26's Leg B (1, single-by-design), that is **four** single-killer oracles. **Ruled:**
+T37 adds a second killer to the Gray code (load-bearing, the thinnest) and to MM-I / YoY if cheap; else
+recorded for re-audit #4 (floor = record, ceiling = harden, §9). The linker `ψ` (F-1.2) is now at **2
+killers** (T30 added the second per re-audit #2's ruling) — direct evidence the second-killer remedy works.
+
 ## Disposition
-Register and charter passes clean. The mutation sweep found **one real oracle-power hole (F-3.1, the
-`τ=1` degeneracy in the T8 bootstrap)** and **one thin single-point-of-failure oracle worth hardening
-(the Sobol Gray code)** — both → **T37**, a test-only oracle-hardening tranche (fix F-3.1, proactively
-sweep all accrual-bearing fixtures for `τ=1`, add a second Gray-code killer). No `src/` defect, no new
-debt, no charter staleness. Re-audit #3 is **logged complete** with F-3.1 ruled and queued; the arc
-boundary opens once T37 lands (the hole a re-audit found is not left open across the boundary — the
-re-audit's own backstop logic).
+Register and charter passes clean. The mutation sweep found **two real oracle-power holes of one class**
+(F-3.1 bootstrap, F-3.2 vol surface — the `τ=1` degeneracy, third and second-of-three with F-1.2) and
+**four single-point-of-failure oracles** (Gray code, MM-I freezing denominator, YoY first ψ, T26 Leg B).
+All → **T37**, a test-only oracle-hardening tranche: fix F-3.1 (done) + F-3.2, an **exhaustive** proactive
+τ=1 sweep fixing every same-class survivor in-tranche, a **mechanical guard** for the τ=1 fixture
+convention if a clean mechanism exists (the T26b "gate a thrice-drifted discipline" precedent), and second
+killers for the thin oracles. No `src/` defect (the code is correct throughout; the oracles were blind),
+no new debt, no charter staleness. **Re-audit #3's reading is complete; its remediation (T37) is specced
+and queued** — the arc boundary opens once T37 lands, since a re-audit does not leave the holes it found
+open across the boundary (its own backstop logic). The oldest-first scope is the finding of record: every
+T30–T36b mutation died; all holes were pre-Jäckel.

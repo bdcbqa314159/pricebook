@@ -95,6 +95,16 @@ T29: T30, 31, 32, 33, 33b, 34, 35, 36a, 36b — so arc-close fires first, as at 
   oracles flagged, the new L0 `Φ₂` and the equity closed forms swept for the first time. Survivors
   ruled by Cowork, appended to the findings doc.
 
+**Addendum (T37 build, same day):** the proactive τ=1 sweep ordered above immediately found the
+**third** instance — **F-3.2**, the T9 implied-vol surface dropping `ψ` (annual fixture, measured 9.00%→
+5.80% vol understatement semi-annually). τ=1 has now bitten three pre-Jäckel instruments (F-1.2 linker,
+F-3.1 bootstrap, F-3.2 vol surface) from one fixture convention. Ruled: fold F-3.2 into T37 (same class,
+same remedy), make the sweep exhaustive (fix same-class survivors in-tranche, raise only different-class),
+and — the T26b "gate a thrice-drifted discipline" precedent — **assess a mechanical guard** for the
+all-unit-accrual fixture convention, building it in T37 if a clean mechanism exists. Four single-killer
+oracles recorded (Gray code, MM-I denominator, YoY ψ, T26 Leg B); second killers added to the thinnest.
+See `reaudit_03_findings.md`.
+
 **Next due:** re-arms at whichever of {next arc close, 11 tranches since **re-audit #3**} comes first.
 (The "≈ T40" in re-audit #2's note was the cadence-counter estimate; the arc-close trigger fired first,
 as it has every time — the counter has never been the firing trigger.)
