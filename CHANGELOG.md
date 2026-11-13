@@ -6,6 +6,63 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-11-13
+
+Tranche 35 — **defaultable equity under independent default.** The second hybrid, and the tranche
+where the equity vertical meets the **credit** vertical: it reuses the `SurvivalCurve` built in the
+XVA arc rather than declaring a second notion of a hazard rate.
+
+### Added
+
+- **`models/defaultable_equity.py` (L3)** — `DefaultableEquityModel` (snapshot, the *surviving*
+  process's volatility, and the reused `SurvivalCurve`), refusing a survival curve anchored to a
+  different date than the snapshot (C12's family).
+- **`engine/defaultable_equity.py` (L4)** — the modified Black formulas, registered under
+  `(EuropeanEquityOption, DefaultableEquityModel)`: the **fourth** pricer on the equity vanilla,
+  after Black (T30), Heston (T33) and the equity-rate hybrid (T34).
+- **`engine/defaultable_equity_mc.py` (L4)** — the independent simulation of the definition
+  `S_t = S̃_t·1{τ>t}`, with the default indicator drawn from a **disjoint slice** of the stream so
+  it is independent of the diffusion, which is the model's premise made operational.
+
+### The source prints both forms, which is a free transcription check
+
+`p·BSCall(F/p, K) = BSCall(F, p·K)` is Black's degree-1 homogeneity — and the book supplies *both*
+sides, so asserting their agreement checks the scaled-strike transcription against the scaled-forward
+one without inventing an identity. The engine uses the **scaled-strike** form: it never divides by
+`p` (which vanishes as the hazard grows), and at `p = 1` it is *literally* the default-free call, so
+the reduction is bit-identical rather than close.
+
+### Two of my own assumptions were wrong, and the algebra said so
+
+The pre-registered tests asserted that default makes the **call cheaper** and that a certain default
+makes it **worthless**. Both are wrong under this model, and the formula is right:
+
+- `E[S_t] = F(t)` is held **fixed** (eq 13.3 forces it), so raising the hazard does not lower the
+  stock's expectation — it *redistributes* it. Mass moves to zero while the surviving process is
+  worth `F/p`, which rises. That is a **mean-preserving spread**, and it makes every convex payoff
+  dearer: call *and* put both rise, monotonically.
+- As `p → 0` the call tends to the **forward**, not to zero: the strike scales away while `F` is
+  held, and the vanishing surviving branch is worth `F/p → ∞`; the two balance exactly.
+
+Confirmed by a direct independent simulation before the tests were rewritten (31.19/17.86 at
+`h = 0`, 58.55/45.22 at `h = 0.15`, 89.16/75.83 at `h = 0.4` — closed form and MC agreeing at each).
+The *observed* effect of worsening credit — a falling stock — is a change in **spot**, which this
+comparison deliberately holds fixed; correlated default is a different model and is not built here.
+
+### Oracles
+
+- The **`h → 0` reduction is bit-identical** to T30's Black, call and put.
+- **Put-call parity with the default terms cancelling exactly**: `BSCall(F,pK) − (1−p)K −
+  BSPut(F,pK) = F − K`, which holds for *every* `p` — blind to a slip in both formulas at once and
+  sharp against one in either.
+- The source's two forms agreed to 1e-14; the surviving-forward identity `p·F̃ = F`.
+- **The independent MC**: `E[S_t] = F` and the realised default frequency pinned *before* any price,
+  then call and put within 4·SE across the money — with the band shown to resolve an inverted
+  scaling, an unscaled strike, and a missing default lump.
+- A **non-flat** survival curve read **beyond its last pillar**, so a mutant reading `hazard(0)` and
+  exponentiating is separated (the tranche-25 degeneracy, inherited rather than rediscovered).
+- **Seven mutants, all killed.**
+
 ## [0.41.0] - 2026-11-12
 
 Tranche 34 — **the equity-rate hybrid under Hull-White.** The arc's first hybrid, and the first
