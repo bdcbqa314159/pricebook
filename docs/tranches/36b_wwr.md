@@ -91,4 +91,51 @@ arc's builds.
 
 ---
 
-## 5. Cowork's ruling on T36b — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T36b — PR #50 (§10 step 4, 2026-11-13)
+
+Accepted — v0.44.0, 1430 green, nine gates, eight mutants killed + one proved equivalent, zero
+suppressions, draft held for review. **This closes the equity & hybrids arc's builds:** the equity core,
+the three hybrids, and the wrong-way-risk capstone are all in. Load-bearing claims verified independently
+before this ruling.
+
+**The `ρ→0` reduction collapsing *through eq 13.4* — ratified, and it is a stronger guarantee than the
+exactness alone.** Choosing the Plackett form for its empty-at-`ρ=0` integral made the reduction
+bit-identical to T36a (as blessed in 0194); the bonus Code found is that the collapsed bracket *is* eq
+13.4, the identity the `a_T` solve inverts — so a solver error and a four-term error **cannot cancel**,
+because the reduction runs through the same identity both would have to corrupt. That is the §4
+"derivation-step-as-independent-check" rung appearing inside the reduction itself. Keep it.
+
+**Finding (the dropped relation symbol) — ratified as an instance, not a new clause.** `pdftotext`
+renders the limit as "If σ_H ␣␣ a_T" in **both** renderings — the operator simply gone. Read `≫` gives
+`p = 7.03` (not a probability); read `≪` reproduces the exact `p` to six digits; the requirement `p ≤ 1`
+settles it for `≪`. I confirmed eq 13.4 is a well-formed `p ∈ [0,1]` for sane `(a, σ_H)`, so the
+requirement is a legitimate decider independent of re-deriving the 7.03. This is the existing §4
+pattern — a defect **both** renderings share faithfully, caught by the only thing that survives a shared
+source gap: a property the finance must satisfy (the T8 "requirement oracle catches a source defect"
+rule). The twist — the casualty is a *relation operator*, not a function symbol (eq 11.1's `Φ`, 13.4's
+`Φ`, now this: third missing glyph in two tranches) — is worth the sentence you put in the doc, but the
+*response* was identical, so it earns no charter line. The charter earns its keep by the dual-rendering
++ requirement-decides pair covering a relation-operator drop it was not written for.
+
+**The two open questions I left in 0194 — RULED, both instances.** (1) scipy returning **exactly 0.0**
+in the deep joint tail is the sharpest "a reference is code too" (T20a) yet — a reference weaker by
+returning zero — but the response was the existing one (argue the reference's accuracy in the regime
+used, pin relative-not-absolute in the tail, state where it stops). Instance, a sentence in the doc, no
+sharpening of the clause. (2) The relation-symbol drop — instance, as above. No charter edit this
+tranche; the arc closes with the charter having earned its keep rather than grown, which is the healthy
+outcome.
+
+**The equivalent-mutant proof — ratified, and done to the bar.** The MC's `max(H,0)` survivor is a
+*genuine* equivalent mutant, and Code **proved** it bit-identical (0 mismatches on 200k paths; I
+reconfirmed 0 on 500k) rather than assuming it from "looks harmless" — `H<0 ⇒ e^{−H}>1>U` so the
+survival indicator is identical, **resting on `UniformSource` drawing the open `[0,1)`**, a premise Code
+pinned rather than left implicit. That is exactly the §4 equivalent-mutant discipline: a theorem, with
+its load-bearing premise asserted. (Distinct from `Φ₂`'s `max(·,0)` floor at `ρ=−1`, which is a real
+hole — unfloored → negative probability — closed by the degenerate-fixture ninth-shape clause firing
+again.)
+
+**The arc is closed on builds; the close itself is next.** After #50 merges I write
+`CP_equity_hybrids.md` (the arc checkpoint) and run **re-audit #3** — independently, against the merged
+`main` (the `analysis/` read-only copy + `AUDIT_FINDINGS.md` pattern), both triggers now satisfied (arc
+close; the eleven-tranche counter is at nine since re-audit #2, so arc-close is the firing trigger, as
+Code noted). Its findings feed the checkpoint. **Mark #50 ready (step 6) → Bernardo merges.**
