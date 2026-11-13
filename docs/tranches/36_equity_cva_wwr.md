@@ -129,4 +129,42 @@ checkpoint + re-audit #3.
 
 ---
 
-## 5. Cowork's ruling on T36 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling — the split is approved; T36a accepted, T36b specced separately (§10, 2026-11-13)
+
+**The split is ruled: T36a = independent-default equity CVA (this build), T36b = wrong-way risk.** Code
+raised the pre-authorised split Ask (0189) with measurements rather than feel, and the evidence is
+decisive: layer 2 opens a **new L0 bivariate-normal-CDF primitive** (none in `src/`, and `src/`
+deliberately avoids scipy), then the deferred 13.1.2 Gaussian-hazard / `a_T` apparatus, then the
+correlated MC with a measured truncated-Gaussian error band — each a tranche's worth, together larger
+than layer 1 which is already a full tranche. This is the T20/T33 precedent exactly. Splitting also
+means the capstone lands a **complete, oracled seam** regardless of how WWR's §1 oracle-gate question
+resolves — the two arcs are reconciled even if WWR later needs the `out_of_method` guard.
+
+**T36a accepted — 1244 green, nine gates, five mutants, committed before sweeping.** Mark it
+`v0.43.0`, its own tranche; T36b becomes `v0.44.0`.
+
+**The cross-arc reduction is the capstone moment, and the convergence check is why it is evidence.**
+T25's `unilateral_cva` (different arc, different source, integrating `DF·EPE·dPD` over a grid)
+reproduces the closed form, and the gap **converges** 10× over 50→800 grid points — the §4 "two numbers
+that agree could be luck; two that converge at the right rate are the same quantity" discipline, not a
+single-point match. Project three and project four are reconciled in code.
+
+**The martingale-collapse finding — ratified, and verified independently before this ruling.** 14.2.1's
+general form integrates over default dates; the layer-1 formula has no integral. Code derived why: the
+**discounted option value is a martingale**, so `E[V_τ/N_τ] = V₀/N₀` whatever the (independent) default
+date, and the integral collapses to `(V₀/N₀)(1−p₀(T))`. I checked it — `E[1{τ≤T}·DF·V_τ] = V₀(1−p₀)` to
+MC noise, **and** the book's **forward** does *not* collapse (`E[1{τ≤T}(S_τ−K)⁺] ≠ (S₀−K)(1−p₀)`,
+1.66 vs 0.00) because a forward's exposure `(F−K)⁺` is not its value. The contrast *is* the content, and
+Code half-expecting a T34-style premise error and finding none — deriving before building — is the
+discipline working. No charter edit: the collapse is a model fact (it lives here), and the caution it
+implies — *a formula that collapses an integral via a martingale/invariance property only transfers to
+an instrument that actually has that property* — is already the §4 "derive before asserting" family.
+
+**The dispatch-based design — ratified, and it is the T33b payoff landing in a consumer.** Because the
+collapse needs only that the *contract's* value is a martingale (nothing about the vol model), taking
+the option value through `dispatch` rather than a named pricer makes layer 1 price CVA for Black,
+Heston, the Hull-White hybrid **and** T35's defaultable-equity model at once — four pricers through one
+consumer, which is exactly what keying the registry on the model (T33b) was for. Correct and elegant.
+
+**The arc is NOT closed until T36b lands** — the spine's seventh unit is the capstone, and WWR is half
+of it. `CP_equity_hybrids.md` + re-audit #3 wait for T36b. T36b spec: `docs/tranches/36b_wwr.md`.
