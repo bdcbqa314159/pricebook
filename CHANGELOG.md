@@ -6,6 +6,78 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-11-13
+
+Tranche 36b — **wrong-way risk: equity CVA with correlated counterparty default.** The capstone's
+second seam, and the **last build of the equity & hybrids arc**. Brockhaus 14.5.1, on 13.1.2's
+truncated-Gaussian hazard apparatus.
+
+### Added
+
+- **`foundation/bivariate_normal.py` (L0)** — `Φ₂`, a genuinely new primitive: the tree had none,
+  and `src/` deliberately does not use scipy. **Derived** from Plackett's correlation-derivative
+  identity rather than transcribed.
+- **`risk/wrong_way_risk.py` (L5)** — eq 13.4's `a_T` solve (and its forward formula as named
+  surface), `GaussianHazard`, eq 14.5.1's four-term `risky_call_value`, and `wrong_way_cva`.
+- **`risk/wrong_way_mc.py` (L5)** — the correlated-default simulation with the **exact** indicator
+  `1{U < e^{−H_T}}`, the independent anchor.
+
+### `Φ₂` was chosen for a property, not for elegance
+
+`Φ₂ = Φ(h)Φ(k) + ∫₀^ρ φ₂` makes **independence exact at `ρ = 0`** (the integral is empty). That is
+what lets the capstone's reduction be bit-identical: a series-in-`ρ` implementation would have made
+the arc's headline anchor a tolerance question.
+
+**Its validity regime is measured and stated, in BOTH value and correlation** — relative accuracy to
+~1e-7 while `Φ₂ ≳ 1e-8`, and `|ρ| ≲ 0.99` (4.3e-08 at 0.999, 9.9e-05 at 0.9999; `|ρ| = 1` is exact
+by closed form). The WWR consumer **asserts every one of its four `Φ₂` calls lands inside both
+bounds**, and refuses a correlation outside them, rather than trusting the primitive silently.
+
+### The `ρ → 0` reduction is exact, and exact for a reason
+
+At zero correlation the first two terms sum to `F·Φ(d₊)·[Φ(−a/σ_H) + e^{−a+σ_H²/2}Φ(a/σ_H−σ_H)]` —
+and that bracket **is eq 13.4**, i.e. `p(T)`. So `V = p(T)·V̂` and `CVA = (1−p(T))·V̂`, which is
+tranche 36a exactly. Two independent things make it bit-identical: `Φ₂`'s exactness at `ρ = 0`, and
+the `a_T` solve being the inverse of the very identity the reduction collapses through — so a solver
+error and a formula error cannot cancel.
+
+### The wrong-way direction is DERIVED, never intuited
+
+`H_T` is increasing in `Y`, and `Y` correlates with the equity's `X` at `ρ` — so **`ρ > 0` makes
+default likelier exactly when a long call's exposure is largest**, which is the wrong-way case and
+must raise CVA. For a long put the same `ρ` would be right-way. The convention is stated in the test
+so no later reader re-imports "wrong-way means bigger" as a fact about `ρ`'s sign, and the
+monotonicity is confirmed independently by the simulation. (The T35 lesson, applied before the fact
+rather than after.)
+
+### Two findings in the source, both resolved by the finance
+
+- **A dropped relation symbol.** `pdftotext` renders the book's limit as "If σ_H ␣␣ a_T" in **both**
+  renderings — the operator is gone. Read as `≫` the stated approximation gives **p = 7.03**, not a
+  probability; read as `≪` it matches the exact `p` to **six digits**. The requirement `p ≤ 1`
+  decides it. Same hazard as eq 11.1's and 13.4's missing `Φ`, one level down: this time the
+  casualty was a *relation operator*.
+- **scipy is the weaker side in the deep joint tail.** My pre-registered `Φ₂` test asserted relative
+  agreement at `h=k=−6`; measured, **scipy returns exactly 0.0** there (ours gives 3.5e-17 at
+  `h=k=−4, ρ=−0.5`). The high-precision reference fails before we do — T20a's "a reference is code
+  too" in its sharpest form yet.
+
+### Oracles
+
+- The eq-13.4 solve **inverting its own forward formula**, and matching the book's own small-`σ_H`
+  limit (a derivation-step check, §4's stronger rung).
+- The exact `ρ → 0` reduction to T36a, with a material companion at `ρ ≠ 0`.
+- **The independent correlated MC** agreeing across the whole `ρ` grid (0.00–0.80 SE), with the
+  equity drift, the **13.4 solve** (realised survival frequency) and **`ρ`** (realised correlation)
+  each pinned *before* any price — and the band shown to resolve a flipped `ρ` (>20 SE) and the
+  independent approximation (>10 SE).
+- **Eight mutants killed; one PROVED equivalent** — the MC's `max(H,0)` is redundant because
+  `H < 0 ⇒ e^{−H} > 1 > U`, bit-identical indicators on 200k paths. Proved rather than assumed, with
+  the open-interval premise it rests on pinned.
+- The `Φ₂` primitive carries seven mutants of its own, including the `max(·,0)` floor at `ρ = −1`
+  that the sweep caught unexercised (without it, a **negative probability**) — §4's ninth shape
+  firing twice more in this tranche.
+
 ## [0.43.0] - 2026-11-13
 
 Tranche 36a — **CVA of an equity option under independent default.** The arc capstone's first seam:
