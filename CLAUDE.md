@@ -244,7 +244,19 @@ not an oracle. Ruled principles:
   covariance of the simulated increments reproducing `σ_iσ_jρ_ij·dt` for every pair — which pins all
   entries individually, stronger than a price pinning one correlation-weighted scalar. *(T17: ρ enters
   `C = σσρ·dt`, so the T16 trick gave 13.9% against a guessed band; the realised-covariance pin gives
-  1.66% at 80k paths, halving as √N so a factorisation bias shows as failure-to-improve.)*
+  1.66% at 80k paths, halving as √N so a factorisation bias shows as failure-to-improve.)* **The limit
+  of "weakly observable" is EXACTLY observable at zero order: a parameter whose first-order effect on
+  the chosen observable is identically zero by a structural identity cannot be pinned by that
+  observable at ANY precision — and the detector is the analytic derivative, not a wide band.** Where
+  T17's correlation was *weakly* seen in a price, a quantity can be *invisible* in it: compute
+  `d(observable)/d(parameter)` in closed form and, if an identity forces it to zero, no path count
+  rescues the price oracle — pin the parameter by its defining identity instead, and make the suite
+  **state** that the price oracle does not cover it rather than let an MC band appear to. The tell is a
+  mutation dropping the parameter that survives the whole suite while the closed-form sensitivity is
+  provably zero. *(T34: the hybrid's `d±` correlation shift `ρ_{B,S}σ_B√t` enters `F·N(d₊+s) −
+  K·N(d₋+s)`, whose `s`-derivative is `df·[F·n(d₊) − K·n(d₋)]` — and Black's identity makes
+  `F·n(d₊) = K·n(d₋)` exactly (verified 7e-15), so the shift is second-order in the price at every
+  strike; a mutant dropping it survived until it was pinned by `shift = ρ_{B,S}σ_B√t` directly.)*
 
 - **The shape behind all of the above: an oracle must contain the failure in its domain.** A green
   is evidence only about what the oracle *examined*. Every defect this project has shipped was an
