@@ -57,28 +57,58 @@ inform each other and are run together.
 - **The dividend-filter duplication (above) is the one standing rule-of-two-overdue item.**
 - The mechanical duplication/oracle-power judgment is Code's sweep (below).
 
-## (1) Oracle power — full-tree mutation sweep — PENDING (Code executes on this scope)
+## (1) Oracle power — full-tree mutation sweep — DONE (Code executed; Cowork ruled)
 
-**Scope Cowork sets (handed to Code in thread 0199):**
-- **Full-tree, oldest-first.** §9's binding emphasis: *"full-tree means the oldest tranches, not the
-  arc just built."* Re-audit #1's only mutation-pass hole (F-1.2) was in the **oldest** instrument.
-  So the sweep weights the pre-equity tree (L0 foundation, the inflation spine T2–T14, the Jäckel arc
-  T15–T22, the XVA spine T25–T29) at least as heavily as T30–T36b — an arc-close re-audit scoped only
-  to the arc just built would repeat the signature defect committed against the audit itself.
-- **Flag single-point-of-failure oracles.** Any load-bearing mutation killed by exactly one test is
-  recorded (a later test deletion silently reopens it); those guarding a previously-shipped hole want a
-  second independent killer, per re-audit #2's F-1.2 / numéraire-divisor precedent.
-- **The new L0 `Φ₂` and the equity closed forms** get their first full sweep here (they were
-  per-tranche-mutated at build, never re-swept).
-- Survivors are **ruled by Cowork** (hole vs equivalent-mutant-proved-bit-identical vs unreachable),
-  and become tranches or `to_go_deeper`/`OPEN` entries.
+**31 mutations full-tree, oldest-first; 30 killed, ONE survived — and it is in T8, one of the oldest
+tranches.** The scoping instruction was vindicated precisely: every one of the eight mutations aimed at
+the arc just built (T30–T36b) died, and the only hole in the tree is pre-Jäckel. A sweep scoped to the
+arc just built would have returned a clean bill and been wrong — the signature defect, avoided.
 
-**Status:** awaiting Code's execution and survivor report. Findings and rulings appended here.
+### F-3.1 (the survivor) — the nominal bootstrap drops the accrual, nothing notices. RULED: real hole → T37.
+`market/nominal_bootstrap.py` `annuity = Σ psi·discount[pay]` → `Σ discount[pay]` **survives all 1430
+tests.** Not an equivalent mutant: the fixture `tests/L1/test_nominal_bootstrap.py` builds annual dates
+on ACT/365F, so **every ψ = 1.0 exactly** and `psi·df ≡ df` (confirmed: annual ψ = [1.0, 1.0]). On a
+semi-annual schedule ψ ≈ 0.496/0.504 and each annuity term is overstated ~2×, so the solved discount
+factors — and every zero rate off them — are materially wrong. **The `src/` code is correct; the ORACLE
+is blind** (a weak fixture, not a live mispricing). This is **F-1.2's exact shape — the `τ=1` degeneracy,
+the charter's first-recorded §4 fixture trap — in a second instrument**, and the second time it is
+pre-Jäckel and found only by re-audit (F-1.2 was the linker at re-audit #1). **Ruled: a real oracle-power
+hole → the fix is a test-only tranche T37** (non-degenerate semi-annual fixture + a `ψ ≠ 1` premise,
+the exact remedy T23 applied to F-1.2). No `src/` change, no OPEN.md debt (no suppression, code correct);
+recorded here and queued as T37.
+
+**The systemic reading — `τ=1` has now bitten TWICE, so T37 sweeps PROACTIVELY, not just the one found.**
+Two accrual-bearing instruments (linker F-1.2, bootstrap F-3.1) carried the identical latent oracle hole,
+both pre-Jäckel, both invisible until a re-audit. "Contain the failure in its domain" (§4) says: do not
+wait for re-audit #4 to find a third. **T37 audits every accrual-bearing fixture in the tree for the
+`τ=1`/`ψ=1` degeneracy** and asserts the non-degeneracy premise wherever an accrual is load-bearing.
+
+### Two single-point-of-failure oracles (flagged as requested). RULED.
+| mutation | killers | ruling |
+|---|---|---|
+| Sobol **Gray code** `G(n)=n⊕⌊n/2⌋` (T20b) | **1** | load-bearing for the whole low-discrepancy construction — the thinnest load-bearing SPOF in the tree. **T37 adds a second independent killer.** |
+| T26 **Leg B** numéraire divisor | **1** | already ruled single-by-design at re-audit #2; **recorded for re-audit #4**, unchanged (no cheap second killer that isn't Leg B). |
+
+Five oracles sit at **2 killers** (JY convexity T4; the linker ψ F-1.2, now 2 after T23's killer; the
+capfloor boundary C10; the collateral-gap sign T29; the dividend PV T30) — recorded, not hardened; above
+the single-point line, so the floor is met.
+
+### Code's instrument defect, found and fixed mid-sweep — ratified as good discipline.
+The first pass used `pytest -x` (stop at first failure), so **every** kill reported one killer and the
+single-point-of-failure question was unanswerable — the instrument would have given a confident, useless
+answer to the exact question asked. Discarded and re-run without `-x` (real counts 1–392). Five
+`PATTERN-MISS` mutations (source not hit) were corrected and re-run (Box-Muller 93, Gauss-Hermite 13,
+bridge 11, SE n−1 4, Gray code 1). The §9 "a timing/measurement reading is only valid when measured
+correctly" spirit, applied to the sweep's own instrument. No charter line — it is the existing
+measure-the-instrument discipline, and Code caught it itself.
 
 ---
 
 ## Disposition
-Register and charter passes clean (one stale header fixed, one overdue hygiene route re-flagged). No
-new debt, no charter staleness, no capability defect found on the documentation/consistency side. The
-clean bill is provisional on the mutation sweep (1), which Code executes on the scope above; this doc is
-updated with its survivors and Cowork's rulings before the re-audit is logged complete.
+Register and charter passes clean. The mutation sweep found **one real oracle-power hole (F-3.1, the
+`τ=1` degeneracy in the T8 bootstrap)** and **one thin single-point-of-failure oracle worth hardening
+(the Sobol Gray code)** — both → **T37**, a test-only oracle-hardening tranche (fix F-3.1, proactively
+sweep all accrual-bearing fixtures for `τ=1`, add a second Gray-code killer). No `src/` defect, no new
+debt, no charter staleness. Re-audit #3 is **logged complete** with F-3.1 ruled and queued; the arc
+boundary opens once T37 lands (the hole a re-audit found is not left open across the boundary — the
+re-audit's own backstop logic).

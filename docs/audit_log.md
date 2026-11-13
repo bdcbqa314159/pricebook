@@ -81,7 +81,16 @@ T29: T30, 31, 32, 33, 33b, 34, 35, 36a, 36b — so arc-close fires first, as at 
   arc). `references.md`, `OPEN.md` (zero suppressions), the arc plan all current. No charter clause
   stale or in tension — the arc's lessons were ruled instances of existing clauses, so the charter
   covered new cases rather than growing.
-- **Oracle-power mutation sweep (Code): PENDING**, scope set — full-tree, **oldest-first** (§9's
+- **Oracle-power mutation sweep (Code): DONE — 31 mutations, 30 killed, ONE survivor.** **F-3.1**: the
+  T8 nominal bootstrap drops the accrual `ψ` and survives all 1430 tests — the `τ=1` degeneracy (every
+  fixture ψ=1.0 on annual ACT/365F), **F-1.2's exact shape in a second, pre-Jäckel instrument**. The
+  `src/` code is correct; the oracle is blind. **Ruled a real oracle-power hole → T37** (test-only:
+  semi-annual fixture + `ψ≠1` premise, the T23 remedy; **plus a proactive τ=1 sweep of all
+  accrual-bearing fixtures**, since the degeneracy has now bitten twice; plus a second killer for the
+  thinnest single-point-of-failure oracle, the Sobol Gray code). The **oldest-first scoping was
+  vindicated** — all eight T30–T36b mutations died; the only hole was pre-Jäckel. Re-audit #3 **logged
+  complete**; the arc boundary opens once T37 lands.
+- ~~**Oracle-power mutation sweep (Code): PENDING**, scope set~~ — full-tree, **oldest-first** (§9's
   binding emphasis; re-audit #1's only hole was in the oldest instrument), single-point-of-failure
   oracles flagged, the new L0 `Φ₂` and the equity closed forms swept for the first time. Survivors
   ruled by Cowork, appended to the findings doc.
