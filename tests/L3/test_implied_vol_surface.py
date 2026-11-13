@@ -77,6 +77,24 @@ def _schedule(n_periods: int) -> CouponSchedule:
     return CouponSchedule(DATES[: n_periods + 1], DC)
 
 
+#: **SEMI-ANNUAL dates, and the reason they exist (re-audit #3, F-3.2).**
+#:
+#: Every period in `DATES` is exactly 365 days on ACT/365F, so **every accrual is exactly 1.0** and
+#: the `ψ` in `discounted_unit = N · ψ · df(pay)` is invisible. Dropping it **survived all 1433
+#: tests** — the `src/` code was right, the oracle was blind. The implied vol is backed out of
+#: `floorlet / discounted_unit`, so on a semi-annual period the omission inflates the denominator
+#: ~2× and a **9.00% vol reads as 5.80%**: a 36% understatement of every node on the surface, which
+#: is what the later tranches calibrate against.
+#:
+#: Third instance of the charter's first §4 degeneracy (`τ = 1`) — after the linker (F-1.2) and the
+#: bootstrap (F-3.1), all three pre-Jäckel, all three from this one fixture convention.
+SEMI_DATES = tuple(VAL + timedelta(days=d) for d in (0, 182, 365, 547, 730))
+
+
+def _semi_schedule(n_periods: int) -> CouponSchedule:
+    return CouponSchedule(SEMI_DATES[: n_periods + 1], DC)
+
+
 def _reference_black(forward, strike, variance, kind):
     """Black-76 transcribed here, independent of `models/black.py`."""
     w = 1.0 if kind is CapFloorKind.CAP else -1.0
@@ -322,3 +340,41 @@ def test_passing_the_EXPIRY_instead_of_the_PERIOD_would_understate_the_vol():
     assert errors[0] == pytest.approx(0.0, abs=1e-9), "node 1's horizons coincide, as expected"
     assert all(e < -0.2 for e in errors[1:]), f"the trap is not actually costly here: {errors}"
     assert errors == sorted(errors, reverse=True), f"the error must grow with maturity: {errors}"
+
+
+# ── F-3.2: the accrual made visible (re-audit #3) ───────────────────────────────────────────────
+def test_the_SEMI_ANNUAL_fixtures_accruals_are_NOT_degenerate() -> None:
+    """The premise the test below rests on, asserted rather than believed — a believed premise is
+    exactly what let this hole live from tranche 9 to re-audit #3."""
+    accruals = [psi for _, _, psi in _semi_schedule(4).periods()]
+    assert all(abs(psi - 1.0) > 0.4 for psi in accruals), accruals
+    assert len({round(psi, 6) for psi in accruals}) > 1, (
+        f"the accruals must differ from EACH OTHER too, else a single wrong constant survives: "
+        f"{accruals}"
+    )
+
+
+def test_the_surface_node_is_ACCRUAL_WEIGHTED_on_a_NON_UNIT_schedule() -> None:
+    """The oracle F-3.2 was missing: recover the input vols from SEMI-ANNUAL floor quotes.
+
+    The test prices each floorlet itself (eq 2.6.5, `C = 0`) including its own `ψ`, and the surface
+    inverts the nested quotes. With `ψ ≈ 0.5` the accrual is load-bearing on both sides, so dropping
+    it from `discounted_unit` no longer returns the vols that went in.
+    """
+    def floorlet(i: int, sigma: float) -> float:
+        start, pay, psi = list(_semi_schedule(i).periods())[i - 1]
+        tau = MEASURE.year_fraction(pay) - MEASURE.year_fraction(start)
+        m = (NOMINAL.df(start) / NOMINAL.df(pay)) * (REAL.df(pay) / REAL.df(start))
+        return N * psi * NOMINAL.df(pay) * _reference_black(
+            m, 1.0 + KAPPA, sigma * sigma * tau, CapFloorKind.FLOOR
+        )
+
+    quotes = []
+    for n in range(1, len(SIGMA_BY_PERIOD) + 1):
+        total = sum(floorlet(i, SIGMA_BY_PERIOD[i - 1]) for i in range(1, n + 1))
+        quotes.append(FloorQuote(_semi_schedule(n), KAPPA, Money(total, EUR), Money(N, EUR)))
+
+    nodes = implied_vol_surface(MARKET, quotes)
+    for i, sigma in enumerate(SIGMA_BY_PERIOD, start=1):
+        pay = SEMI_DATES[i]
+        assert nodes.vol(pay, KAPPA) == pytest.approx(sigma, rel=1e-10), f"period {i}"
