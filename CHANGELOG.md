@@ -6,6 +6,52 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-11-13
+
+Tranche 36a — **CVA of an equity option under independent default.** The arc capstone's first seam:
+**project three (XVA, T25–T29) meets project four (equity, T30–T35)**. Split from T36 at build time
+on measured evidence; wrong-way risk is T36b.
+
+### Added
+
+- **`risk/equity_cva.py` (L5)** — `equity_option_cva`: `CVA = (1−R)·(1−p₀(T))·V₀`. New arithmetic in
+  neither arc — a *consumer* of both.
+
+### The integral collapses, and the derivation is the content
+
+Brockhaus 14.2.1 states the general form `CVA = (1−R)N₀·E[(1/N_τ)1{0<τ≤T}·V_τ]` — a weighted sum
+over default **dates**, not a single number. It collapses because, under independence of `τ` and
+`(N,S)`, the **discounted option value is a martingale**: `E[V_t/N_t] = V₀/N₀` for every fixed `t`,
+so the expectation does not depend on *when* default happens, and integrating against the default
+density leaves `(V₀/N₀)(1−p₀(T))`.
+
+**The book's forward contract in the same section does *not* collapse**, and the contrast is the
+point: a forward's exposure `(F_t−K)⁺` is not its value — a forward can be worth less than nothing —
+so the martingale argument cannot reach it. An option's exposure *is* its value. Derived here rather
+than transcribed (§4 rates a derivation above a transcription), and verified independently at review.
+
+### The headline oracle is a cross-ARC reduction
+
+Tranche 25's `unilateral_cva` — a different arc, a different source, a different composition,
+integrating `DF(t)·EPE(t)·dPD(t)` over a time grid — reproduces the closed form, and the gap
+**converges** under grid refinement (10× over 50→800 points). Convergence rather than a point match
+is what makes them the same quantity instead of two close numbers (the T31 lesson).
+
+### Model-agnostic by construction
+
+The collapse needs only that the *contract's* value is a martingale — nothing about the volatility
+model — so the option value is taken through `dispatch` rather than from a named pricer. Layer 1
+therefore prices CVA for **Black (T30), Heston (T33), the Hull-White hybrid (T34) and the
+defaultable-equity model (T35)** without knowing which, which is tranche 33b's `(product, model)`
+registry paying off in a consumer rather than a test.
+
+### Oracles
+
+- The cross-arc reduction and its convergence rate.
+- Two zeros (`h → 0`, `R → 1`); the full-loss bound at `p → 0`; monotone in the hazard and the
+  recovery; a **non-flat** survival curve read beyond its last pillar (T25's degeneracy, inherited).
+- **Five mutants, all killed.**
+
 ## [0.42.0] - 2026-11-13
 
 Tranche 35 — **defaultable equity under independent default.** The second hybrid, and the tranche

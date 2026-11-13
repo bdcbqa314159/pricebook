@@ -72,6 +72,7 @@ frontier beyond the elementary. Nothing here is `out_of_method` — equity is cl
 ## Decision — the full spine is committed (Bernardo, 2026-11-10)
 Bernardo chose the **full seven-tranche spine** (T30 → T36 + checkpoint) over a trimmed version: the
 complete capstone, equity core *and* all three hybrids. The queue is T30 → T31 → T32 → T33 → **T33b (the (product,model) registry, ruled at T33's
-review — infrastructure before the hybrids multiply the product×model pricers)** → T34 → T35 → T36 →
+review — infrastructure before the hybrids multiply the product×model pricers)** → T34 → T35 → **T36a (independent-default equity CVA — the cross-arc seam, built v0.43.0)** →
+**T36b (wrong-way risk — the equity/default correlation; split from T36 at build, ruled 2026-11-13)** →
 `CP_equity_hybrids.md`; Cowork writes each per-tranche spec before its build (§10). T30 is
 specced (`docs/tranches/30_equity_underlying.md`); the rest follow in turn.
