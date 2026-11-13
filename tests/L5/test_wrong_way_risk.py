@@ -70,14 +70,32 @@ class TestTheTruncationSolveEq134:
         values = [survival_from_truncation(a, sigma_h) for a in (-1.0, 0.0, 1.0, 2.5)]
         assert all(b < a for a, b in zip(values, values[1:])), values
 
-    def test_the_SMALL_SIGMA_H_limit_matches_the_books_own_approximation(self) -> None:
-        """The book's derivation step: `σ_H ≫ a_T ⇒ p ≈ e^{−a_T+σ_H²/2}` — an independent check on
-        13.4 from the source itself, stronger than a second rendering of it (§4)."""
-        sigma_h = 2.0
-        level = 0.05
+    @pytest.mark.parametrize("sigma_h,level", [(0.1, 2.0), (0.05, 1.5), (0.2, 3.0)])
+    def test_the_books_own_APPROXIMATION_checks_13_4_independently(
+        self, sigma_h: float, level: float
+    ) -> None:
+        """The book's derivation step: `σ_H ≪ a_T ⇒ p ≈ e^{−a_T+σ_H²/2}`.
+
+        **The relation symbol is dropped by `pdftotext` in both renderings** — the text reads
+        "If σ_H ␣␣ a_T" — so which way it points had to be settled by the finance, not the glyph.
+        It is `≪`: measured, `σ_H ≪ a_T` reproduces the exact `p` to six digits (0.136014 vs
+        0.136014), while reading it as `≫` gives **p = 7.03**, which is not a probability. Same
+        shape as eq 11.1's and 13.4's missing `Φ`, one level down: this time the casualty was a
+        *relation operator*, and the requirement `p ≤ 1` is what decided it.
+
+        With the direction settled it is a genuine independent check on 13.4 — a limit of the
+        source's own derivation, which §4 rates above a second rendering of the same line.
+        """
+        assert sigma_h < level, "the premise: this is the σ_H ≪ a_T regime"
         assert survival_from_truncation(level, sigma_h) == pytest.approx(
-            math.exp(-level + sigma_h * sigma_h / 2.0), rel=0.2
+            math.exp(-level + sigma_h * sigma_h / 2.0), rel=1e-5
         )
+
+    def test_the_OTHER_reading_of_the_dropped_symbol_is_refuted_by_the_finance(self) -> None:
+        """The companion that makes the test above a decision rather than a guess: in the `σ_H ≫
+        a_T` regime the same expression exceeds 1, so it cannot be a survival probability."""
+        assert math.exp(-0.05 + 2.0 * 2.0 / 2.0) > 1.0
+        assert survival_from_truncation(0.05, 2.0) <= 1.0
 
     def test_a_CERTAIN_survival_needs_a_very_negative_level(self) -> None:
         assert solve_truncation_level(0.999, 0.45) < solve_truncation_level(0.5, 0.45)
