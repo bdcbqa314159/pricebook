@@ -133,3 +133,69 @@ copula** hybrid (ch 11.2). No **equity/rate exotics** (the equity-linked swap st
 names — MC consumers pulled later if interest wants one). T34 is the one clean closed-form hybrid: the
 European equity vanilla under one-factor Hull-White, constant parameters. T35 (defaultable equity)
 begins the credit seam.
+
+---
+
+## 5. Cowork's ruling on T34 — PR #47 (§10 step 4, 2026-11-12)
+
+Accepted — v0.41.0, 1195 green, nine gates, eight mutants, zero suppressions, draft held for review.
+The first true hybrid is in: the equity vanilla now prices under a stochastic short rate, and the
+equity core (T30–T33) meets the rates vertical. Both source corrections verified independently before
+this ruling (the math, not just the green) — §5's "our docs aren't authority" applied to the handoff
+itself.
+
+**Finding 1 (the bond integrand's `T=t` collapse) — ratified; this is the no-op-satisfies-its-anchor
+trap, and the derivation caught what the reduction oracle structurally could not.** The printed
+`(σ_B)²t = ∫₀ᵗ(v_s(T)−v_s(t))²ds` read with the option's own payoff date (`T=t`) is **identically
+zero**, collapsing every hybrid term to Black — a no-op that *passes the `σ_r→0` reduction anchor*,
+because the anchor is blind to whether the hybrid effect is absent by design or absent by bug (§4: "a
+reduction a no-op also satisfies is vacuous"). §11.1.1 settles it — `B` is the **cash bond**,
+`E[B_t⁻¹]=P(t)`, so `σ_B` is the vol of `log B_t = σ_r²∫₀ᵗβ(s,t)²ds`. The mandatory companion (`σ_r>0`
+with an asserted *material* gap) was the spec's guard for exactly this and would have failed the no-op;
+that the derivation caught it first is the stronger outcome, not a reason the companion was redundant —
+keep both.
+
+**Finding 2 (eq 11.3) — ratified in substance, with one precision correction to the characterisation.**
+The quantity (11.1) needs is the **product** `ρ_{B,S}σ_B`, and the book's own derivation line
+(`ρ_{B,S}σ_Bσ_S = σ_B² + cross`, three lines above 11.3) gives it directly as `(σ_B² + cross)/σ_S` —
+**non-singular as σ_r→0** (verified: →0 cleanly, `σ_S→σ_{S/B}`, exact reduction), and never dividing
+by `σ_B`. That is the right form to ship. One precision note so the lesson is exact rather than
+folklore: read with the **integral-defined effective** `σ_B, σ_{S/B}, ρ_{B,S/B}`, printed (11.3) is
+*consistent* with the derivation — the hazard is reconstructing `ρ_{B,S}σ_B` through an intermediate
+correlation that divides by a vanishing `σ_B`, or using **instantaneous** `σ_r` where the
+integral-defined `σ_B` belongs. So the ruling is not "the book's numerator is wrong" but "**compute the
+product the formula needs directly from the derivation step; do not reconstruct it through an
+intermediate that can divide by a quantity that vanishes at the reduction limit**" — which is §4's
+derivation-step rung doing exactly its job, and the singularity-at-the-limit is an independent
+confirmation the direct form is the correct one.
+
+**The `d±` shift being second-order in the price — the sharp result, and it earns a §4 line.** Verified
+to machine precision: `d(price)/d(shift) = df·[F·n(d₊) − K·n(d₋)]` and Black's identity makes
+`F·n(d₊)=K·n(d₋)` **exactly** (7e-15 at every strike), so the correlation shift `ρ_{B,S}σ_B√t` has
+*identically zero* first-order price impact — a mutant dropping it survives the whole suite not from
+MC noise but because the price is structurally blind to it. This is the **exact limit** of T17's "pin
+where directly observable": T17's correlation was *weakly* seen in a price; this one is *invisible*,
+and the detector is the **analytic derivative** (an identity forcing it to zero), not a wide band.
+Pinning it by `shift = ρ_{B,S}σ_B√t` directly, and making the suite **state** that no price oracle
+covers it rather than letting the MC appear to, is the honest move §4 (banded-resolution) demands.
+Charter §4 edited — appended to the T17/"pin where observable" cluster as its zero-order limit; a
+genuinely new mechanism (structural first-order cancellation, provable in closed form), not a
+restatement.
+
+**The left-endpoint integrator survivor — ratified, and the variance cross-check is the keeper.** The
+deflator normalised to `P(t)` from the sample absorbs a first-order bias in its **mean** (the §4
+"self-consistency telescopes — a par-reprice is satisfied by construction" trap, one level down in the
+numéraire), so the bias shows only in the **variance**: `Var[∫r du]` 0.1% (trapezoid) vs 4.6%
+(left-endpoint). Checking the non-telescoping variance where the telescoping mean is blind is the right
+instinct, and the oracle doubling as an independent cross-method check on `integrated_bond_variance` is
+a bonus. No new clause — it is the existing telescoping warning applied to the deflator.
+
+**The two process notes — acknowledged, no ruling.** (1) The single-seed convergence flake is T21
+exactly (one seed made 2,500 paths beat 40,000); averaging over seeds is the fix already in the
+charter. (2) **Second instance of the mutation-sweep script's `git checkout -- $FILE` reverting
+uncommitted working-tree edits** (T33b and here) — a real operational hazard, and "commit before
+sweeping" is the right standing fix. It is a tooling discipline, not a charter rule (it touches no
+oracle or layer decision), so it stays in your build notes; flag it again only if it costs a third
+cycle, which would make it worth a line in the re-audit's tooling pass.
+
+**Next:** T35 (defaultable equity — the credit seam, reusing the survival curve) is mine to spec.

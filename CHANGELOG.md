@@ -31,13 +31,18 @@ tranche to price equity against the rates machinery the tree already had.
    naive `T = t` makes it **identically zero**, collapsing the formula to Black while still passing
    its own reduction oracle. §11.1.1 settles it: `B` is the **cash bond** (`E[B_t⁻¹] = P(t)`), so
    `σ_B` is the volatility of `log B_t`, which for Hull-White is `σ_r²∫₀ᵗβ(s,t)²ds`.
-2. **Eq (11.3)'s numerator is not `σ_B + ρσ_{S/B}`.** Read that way it contradicts the book's **own
-   derivation three lines above**, which gives `ρ_{B,S}σ_Bσ_S = σ_B² + cross`. They differ because
-   `ρ_{B,S/B}` is a *time-averaged* correlation. The derivation step is the authority (§4 rates an
-   earlier step above the final line). The corrected form is also the numerically sound one: what
-   (11.1) needs is the **product** `ρ_{B,S}σ_B = (σ_B² + cross)/σ_S`, with no division by `σ_B`.
+2. **Take the product (11.1) needs straight from the derivation step, not via (11.3).** The printed
+   (11.3) **is** consistent with the book's own derivation — *provided* every symbol is the
+   integral-defined **effective** quantity (`ρ_{B,S/B}` is time-averaged, not the instantaneous `ρ`;
+   `σ_B` is the effective bond vol, not `σ_r`). The hazard is numerical: reconstructing
+   `ρ_{B,S}·σ_B` through `ρ_{B,S}` routes via a quantity that **divides by `σ_B`**, which vanishes at
+   the `σ_r → 0` limit the anchor lives at. Taken from the derivation step the product is
+   `(σ_B² + cross)/σ_S` — no division by `σ_B`, exactly zero at zero rate vol.
 
 Both were found by **deriving before implementing**, and both corrected my own pre-registered tests.
+*(The first write-up of finding 2 claimed the book's numerator was wrong; it is not — the error was
+the reconstruction route. Corrected at review, and recorded because §5 cuts both ways: a false claim
+*about* a source is as bad as a number copied from one.)*
 
 ### Oracles
 

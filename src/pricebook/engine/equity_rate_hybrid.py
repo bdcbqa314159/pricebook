@@ -26,19 +26,26 @@ which `pdftotext` drops in **both** renderings of (11.1).
    `sigma_r^2 integral_0^t beta(s,t)^2 ds`. That is what this module computes, and the test checks
    it against its own quadrature of that integrand.
 
-2. **Eq (11.3)'s numerator is not `sigma_B + rho*sigma_{S/B}`.** Read that way - taking the printed
-   `rho_{B,S/B}` for the model's instantaneous `rho` - it disagrees with the book's **own
-   derivation** three lines above, which computes
-   `rho_BS sigma_B sigma_S t = E[sigma_B W^B * sigma_S W^S] = sigma_B^2 t + rho_{B,S/B} sigma_B sigma_{S/B} t`.
-   The two differ because `rho_{B,S/B}` is a *time-averaged* correlation: the cross covariance is
-   `rho*sigma*X` with `X` the **mean** bond vol, and `X != sigma_B` unless the bond vol is constant
-   in time, which under mean reversion it is not. The derivation step is the authority (§4 rates an
-   earlier step of a source's own derivation above its final line), so this uses
-   `rho_BS = (sigma_B^2 + cross) / (sigma_B sigma_S)`.
+2. **Compute the product (11.1) needs straight from the derivation step - do not reconstruct it
+   through (11.3).** The printed (11.3) is `rho_BS = (sigma_B + rho_{B,S/B} sigma_{S/B}) / sigma_S`,
+   and it **is** consistent with the book's own derivation three lines above
+   (`rho_BS sigma_B sigma_S t = sigma_B^2 t + rho_{B,S/B} sigma_B sigma_{S/B} t`) **provided every
+   symbol in it is the integral-defined EFFECTIVE quantity** - `rho_{B,S/B}` is a time-averaged
+   correlation, not the model's instantaneous `rho`, and `sigma_B` is the effective bond vol, not
+   `sigma_r`. The book is not wrong here; a naive substitution of the instantaneous parameters for
+   the effective ones is.
 
-   That form is also the numerically sound one: what (11.1) actually needs is the **product**
-   `rho_BS * sigma_B = (sigma_B^2 + cross)/sigma_S`, which has no division by `sigma_B` at all and
-   is therefore exactly zero at zero rate vol rather than `0/0`.
+   What makes the distinction matter is **numerical, and it is why this module does not use (11.3)
+   at all**: (11.1) needs the *product* `rho_BS * sigma_B`, and reconstructing it as
+   `rho_BS` times `sigma_B` routes through a quantity that divides by `sigma_B` - which vanishes at
+   the `sigma_r -> 0` reduction, the one limit the tranche's anchor lives at. Taken directly from the
+   derivation step the product is `(sigma_B^2 + cross)/sigma_S`: no division by `sigma_B`, exactly
+   zero at zero rate vol rather than `0/0`, and one fewer intermediate to get wrong.
+
+   *(The first draft of this docstring said the book's numerator was wrong. It is not - the error was
+   in the reconstruction route, and Cowork caught the overstatement at review. Recorded because §5's
+   "our own docs are not an authority" cuts both ways: a false claim ABOUT a source is as bad as a
+   number copied from one.)*
 
 Provenance:
   stock:  none
