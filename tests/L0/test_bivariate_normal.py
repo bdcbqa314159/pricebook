@@ -201,5 +201,20 @@ class TestTheGuardsAreReachable:
         """`|ρ| = 1` makes the integrand singular, so it is the closed form or nothing."""
         assert bivariate_normal_cdf(0.7, 1.4, 1.0) == pytest.approx(norm.cdf(0.7), rel=1e-15)
         assert bivariate_normal_cdf(0.7, 1.4, -1.0) == pytest.approx(
-            max(norm.cdf(0.7) + norm.cdf(1.4) - 1.0, 0.0), rel=1e-15
+            norm.cdf(0.7) + norm.cdf(1.4) - 1.0, rel=1e-15
         )
+
+    def test_the_COUNTERMONOTONE_floor_at_rho_minus_one_actually_BITES(self) -> None:
+        """`Φ₂(h,k;−1) = max(Φ(h)+Φ(k)−1, 0)`, and the `max` must be exercised.
+
+        Found by mutation: dropping the floor **survived the whole suite**, because every fixture
+        here had `Φ(h)+Φ(k) > 1` and the negative branch was never reached. That is §4's ninth
+        degeneracy — the *input population* uniform in the one respect a guard discriminates on —
+        and the fix is to supply an input the guard rejects. At `h = k = −1` the raw expression is
+        `0.1587 + 0.1587 − 1 = −0.683`, so without the floor this returns a **negative probability**.
+        """
+        raw = norm.cdf(-1.0) + norm.cdf(-1.0) - 1.0
+        assert raw < -0.5, "the fixture must make the unfloored expression genuinely negative"
+        assert bivariate_normal_cdf(-1.0, -1.0, -1.0) == 0.0
+        for h, k in ((-2.0, -0.5), (-3.0, -3.0), (0.0, -1.5)):
+            assert bivariate_normal_cdf(h, k, -1.0) >= 0.0
