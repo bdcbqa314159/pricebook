@@ -66,3 +66,26 @@ separable than the §9 list suggests.
 
 **Next due (superseded — re-audit #2 ran at the T29 arc close; see its result above):** re-arms at
 whichever of {next arc close, 11 tranches since **re-audit #2** at T29 ≈ **T40**} comes first.
+
+---
+
+## Re-audit #3 — equity & hybrids arc close (v0.44.0, T36b, 2026-11-13)
+
+Fired by the **arc-close trigger** (the eleven-tranche cadence counter is at nine since re-audit #2 at
+T29: T30, 31, 32, 33, 33b, 34, 35, 36a, 36b — so arc-close fires first, as at #2). Findings:
+`docs/audit/reaudit_03_findings.md`.
+
+- **Register-accuracy + charter-staleness passes (Cowork): clean.** One stale `to_go_deeper` header
+  fixed (BROCKHAUS arc marked closed; the 13.1.2-for-the-stock route added); one overdue code-hygiene
+  route re-flagged (the dividend-filter consolidation, `dividends_before(T)`, never done across the
+  arc). `references.md`, `OPEN.md` (zero suppressions), the arc plan all current. No charter clause
+  stale or in tension — the arc's lessons were ruled instances of existing clauses, so the charter
+  covered new cases rather than growing.
+- **Oracle-power mutation sweep (Code): PENDING**, scope set — full-tree, **oldest-first** (§9's
+  binding emphasis; re-audit #1's only hole was in the oldest instrument), single-point-of-failure
+  oracles flagged, the new L0 `Φ₂` and the equity closed forms swept for the first time. Survivors
+  ruled by Cowork, appended to the findings doc.
+
+**Next due:** re-arms at whichever of {next arc close, 11 tranches since **re-audit #3**} comes first.
+(The "≈ T40" in re-audit #2's note was the cadence-counter estimate; the arc-close trigger fired first,
+as it has every time — the counter has never been the firing trigger.)

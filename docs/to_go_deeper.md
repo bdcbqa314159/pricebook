@@ -170,12 +170,23 @@ Routes recorded as the arc runs; the full set lands at the checkpoint `CP_xva_sp
 
 ---
 
-## `BROCKHAUS-2016` — *Equity Derivatives and Hybrids* (the equity arc: T30–, in progress)
+## `BROCKHAUS-2016` — *Equity Derivatives and Hybrids* (the equity arc: T30–T36b, **CLOSED** v0.44.0)
 
-Routes recorded as the arc runs; the full set (the exotic zoo — barriers/cliquets/asians/autocallables
-ch 3, implied-vol dynamics ch 7, correlation & copulas / multi-asset ch 8–9, FX & quanto ch 15,
-local-stochastic & jump-diffusion ch 6.3–6.4, portfolio credit ch 12.4) lands at the checkpoint
-`CP_equity_hybrids.md`. So far:
+Arc closed 2026-11-13 at the capstone; the full deferred set is in `CP_equity_hybrids.md`'s honest
+completion ratio — the exotic zoo (barriers/cliquets/asians/autocallables ch 3), implied-vol dynamics
+(ch 7), correlation & copulas / multi-asset (ch 8–9), FX & quanto (ch 15), local-stochastic &
+jump-diffusion (ch 6.3–6.4), portfolio credit (ch 12.4), Heston calibration + Carr-Madan FFT,
+portfolio/collateralised equity CVA, and structural/asset-barrier WWR (ch 14.4). The specific
+oracle-able routes recorded as the arc ran:
+
+0. **Correlated-default defaultable equity for the STOCK itself (Brockhaus 13.1.2).** T36b built the
+   13.1.2 apparatus (`Φ₂`, the `a_T` solve, the correlated Gaussian hazard) for the *counterparty's*
+   default in wrong-way risk; the correlated defaultable-*equity* vanilla — the stock's own
+   jump-to-default skew, `ρ` between the default and the diffusion — was never pulled (T35 built only
+   the independent-default 13.1.1). **Route:** now cheap, since `Φ₂` exists at L0 and the apparatus is
+   in the tree; a defaultable-equity model gains the `ρ` and reuses the bivariate-normal four-term call.
+   Oracle: `ρ→0` reduces to T35's independent default, `h→0` to T30. Pulled when a skew-from-credit
+   product wants it.
 
 1. **Consolidate the `tᵢ ≤ T` dividend-date filter into one `dividends_before(T)` (code hygiene, not a
    capability).** T30 writes the pre-expiry dividend filter once per convention (continuous/proportional/
