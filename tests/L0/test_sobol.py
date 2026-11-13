@@ -77,6 +77,59 @@ def test_T20b_the_GRAY_CODE_matches_the_sources_printed_table():
         assert changed.bit_count() == 1, f"G({n}) differs from G({n - 1}) in {changed.bit_count()} bits"
 
 
+def test_T20b_the_GRAY_CODE_drives_the_SEQUENCE_a_second_independent_killer() -> None:
+    """The same point set computed **without any Gray code at all** — a second method, not a
+    second assertion.
+
+    Flagged by re-audit #3: `gray_code` is load-bearing for the whole low-discrepancy construction
+    and the mutation `G(n) = n ⊕ ⌊n/2⌋ → n` was killed by **exactly one test**. Both the printed
+    table and the one-bit property live in that single function, so deleting it would reopen the
+    hole with the suite still green — the §9 single-point-of-failure shape, on an L0 primitive
+    everything above it rests on.
+
+    This kills it a different way. Sobol's `n`-th point is `⊕_j v_j` over the **set bits of the
+    Gray code** `G(n)`; the production path reaches it incrementally, XOR-ing the one direction
+    integer that changed. Here the same point is built **directly** from `G(n)`'s bits with no
+    incremental state, so the two agree only if the Gray code is what the recurrence assumes. A
+    wrong `G` — the identity included — desynchronises them immediately.
+    """
+    dimensions, count = 3, 300
+    table = [direction_integers(k) for k in range(1, dimensions + 1)]
+    scale = 1.0 / 2**32
+
+    direct = []
+    for n in range(1, count + 1):
+        code = n ^ (n >> 1)   # the Gray code written out HERE, independent of the module's
+        point = []
+        for k in range(dimensions):
+            value = 0
+            bits = code
+            index = 0
+            while bits:
+                if bits & 1:
+                    value ^= table[k][index]
+                bits >>= 1
+                index += 1
+            point.append(value * scale)
+        direct.append(tuple(point))
+
+    incremental = SobolSequence(dimensions=dimensions).uniforms(count)
+    assert incremental == direct, "the incremental and direct constructions must agree exactly"
+
+
+def test_T20b_the_one_bit_property_is_its_OWN_test_so_a_deletion_cannot_take_both() -> None:
+    """Split out from the table oracle deliberately (re-audit #3).
+
+    *"Exactly one bit changes in any one increase"* is what makes Antonov-Saleev cost one XOR per
+    draw instead of `b` of them, and it is a different claim from "the first eight values match the
+    printed table". They were asserted in one function, so one deletion removed both; they are two
+    tests now because a single-point-of-failure oracle is only single until someone edits the file.
+    """
+    for n in range(1, 5_000):
+        changed = gray_code(n) ^ gray_code(n - 1)
+        assert changed.bit_count() == 1, f"G({n}) differs from G({n - 1}) in {changed.bit_count()} bits"
+
+
 # ============================================================================================
 # THE TRANSCRIBED TABLE and the direction-integer construction — eqs 8.18/8.19.
 # ============================================================================================
