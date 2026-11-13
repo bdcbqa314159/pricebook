@@ -6,6 +6,61 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.44.1] - 2026-11-13
+
+Tranche 37 — **accrual-oracle hardening.** Test-only; **no `src/` change**. Remediates re-audit #3,
+whose mutation sweep found two real oracle holes — code correct, oracles blind — in pre-Jäckel
+tranches.
+
+### Two holes closed
+
+- **F-3.1, the nominal bootstrap (T8).** `annuity = sum(ψ · df)` → `sum(df)` **survived all 1430
+  tests**: the fixture's dates are `ANCHOR + 365·k` on ACT/365F, so **every ψ is exactly 1.0**. On a
+  semi-annual schedule each annuity term is overstated **~2.01×**. Closed with a semi-annual fixture,
+  a `ψ ≠ 1` premise, a known-curve round trip and a par-reprice companion; the mutant now dies.
+- **F-3.2, the implied-vol surface (T9).** Dropping `ψ` from `discounted_unit` **survived all 1433
+  tests**. The vol is backed out of `floorlet / discounted_unit`, so on a semi-annual period a
+  **9.00% vol reads as 5.80%** — a 36% understatement of every node the later tranches calibrate
+  against. Closed the same way; the mutant now dies.
+
+**`τ = 1` has now bitten three times** — the linker (F-1.2, T3), the bootstrap, the vol surface —
+all pre-Jäckel, all from one fixture convention, and all found only by a re-audit's sweep.
+
+### The exhaustive sweep (re-audit #3, target 1)
+
+Every accrual multiplication in `src/` was mutated, not a sample: `swap_annuity` (killed by 5), the
+bootstrap's last accrual (2), Market Model I's `τ/(1+τ)` (1), MM-II's (4), the LMM drift's `fτ` (15),
+the Bermudan annuity (14), the cap/floor caplet (2), the linker's `ψ` (**2**, up from 1 — direct
+evidence that re-audit #2's second-killer remedy works), and the YoY first period's `ψ` (1). Two
+survivors, both above, both fixed.
+
+### A second independent killer for Sobol's Gray code
+
+`G(n) = n ⊕ ⌊n/2⌋` is load-bearing for the whole low-discrepancy construction and was killed by
+**exactly one test** — which held both the printed-table oracle and the one-bit property, so one
+deletion would have reopened it silently. Added: the same point set built **directly** from `G(n)`'s
+set bits with no incremental state — a second *method*, not a second assertion — and the one-bit
+property split into its own test. The mutation now dies to 2.
+
+### The mechanical guard: assessed and NOT built, with the evidence
+
+Re-audit #3 asked whether a CI gate could catch a future degenerate fixture. Two mechanisms were
+built and tested:
+
+- **Textual** (scan tests for annual date arithmetic) — **rejected**: it flags
+  `test_inflation_capfloor.py`, whose accrual mutation is in fact killed by two tests. It cannot
+  tell whether an accrual is load-bearing in the path a fixture exercises.
+- **Behavioural** (instrument `CouponSchedule.periods()` and record the accruals each test module
+  actually exercises) — works, is cheap, and has total discovery by construction. But as a *gate*
+  it flagged **7 modules, of which zero are real holes**: four (`index_ratio`, `jy_calibration`,
+  `jy_full_calibration`, `seasoned`) have **no accrual multiplication in their subject code at all**,
+  and the other three are killed by tests elsewhere. 7/7 false positives.
+
+**Verdict: no clean, non-brittle mechanism exists.** The missing half is *whether the subject code
+uses the accrual*, which only mutation testing answers — and that is already the re-audit's job. The
+guard goes to `to_go_deeper`; the exhaustive sweep and §4's premise rule stand. Reported rather than
+shipped, because a gate with a 7-entry exemption list would be a gate that cannot fail.
+
 ## [0.44.0] - 2026-11-13
 
 Tranche 36b — **wrong-way risk: equity CVA with correlated counterparty default.** The capstone's
