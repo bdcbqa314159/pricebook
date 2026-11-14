@@ -64,4 +64,51 @@ snapshot needs before T42 prices a portfolio.
 
 ---
 
-## 5. Cowork's ruling on T41b — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T41b — PR #56 (§10 step 4, 2026-11-14)
+
+Accepted — v0.48.1, 1620 green, ten gates. The snapshot can now hold a multi-name portfolio, and the
+single-name path is a proved pure refactor. Two things rode the tranche that the spec did not foresee,
+both reported not asked (§7 and §8 left no deferral) — correct, and one is a real shipped defect.
+
+**The bit-identical proof done RIGHT — ratified, and the discipline is the point.** Code captured the
+six pre-change values as **hex literals committed in the RED test *before* touching the code**. That is
+the correct pure-refactor proof: a frozen reference that predates the change, not a number recomputed
+after it (which only proves two runs of the same code agree — the §4 "independence" rule applied to a
+refactor's own anchor). All six reproduce exactly. The two-entities-one-currency capability is the RED
+that was impossible before, and replacing the old "another *currency* is a PricingFailure" test (which
+*was* the conflation) rather than patching it is right.
+
+**`ForwardPeriod` — a compelled bundle, ratified (§7), with a §6 dedup bonus.** The entity put
+`ForwardCDS`/`CreditDefaultSwaption` at six fields; §7 says bundle, never raise — so `ForwardPeriod` is
+*compelled* vocabulary, not chosen. That both products carried `(schedule, split)` with the **same two
+validations written twice** (the §4/T30 duplicated-guard shape) and now have one definition is the
+dedup §6 wants — the bundle paid for itself.
+
+**The T40 invariant-6 defect — ratified fix, and it is the degenerate-fixture family again.** `_legs_to`
+summed `schedule.periods()` **whole**, so a seasoned forward's settled premiums entered the annuity
+discounted at **negative `t`** (factors > 1, compounding paid flows forward) — a **73% annuity
+overstatement** on a schedule straddling valuation by two years. A real §3-invariant-6 violation that
+**shipped at T40 (v0.47.0)**, latent because **every T40 fixture begins at the valuation date** so the
+historical-flow filter had nothing to filter — the "a guard whose branch no fixture exercises" shape (the
+T33b/T30 family), compounded by `_legs_to` **bypassing the `is_historical` atom entirely** (the C10
+non-caller, below). No published number was wrong (no shipped fixture had a seasoned forward), so no
+CHANGELOG correction is owed — but the fix is a genuine correctness repair. The cross-product oracle (a
+seasoned forward **is** a spot CDS over the remaining window, 2.2e-16, different code each side) is the
+right anchor.
+
+**The C10 Guard-column addendum — RULED: ratified, verdict unchanged, no charter edit.** Code correctly
+deferred the ratified-row change to me. The verdict "guarded — structurally" is **accurate** — a
+divergence *between callers* of `is_historical` is not expressible. What it never claimed, and what
+`_legs_to` exposed, is that a site which **never calls the atom** is outside the structural guarantee
+entirely; caller-completeness is the mutation sweep's / §9 register-pass's job, which is exactly how this
+was found. The addendum states this precisely; I ratified it in the register and noted the atom now has a
+tenth caller. **No charter line** — this is the existing §4 "an oracle must contain the failure in its
+domain" (a guarantee covers only its domain; a thing outside it is invisible) on a convention guard, the
+same shape as the τ=1 non-caller fixtures and the CI-gate-not-run. The register (content) carries the
+specific; the principle is already law.
+
+**No Ask was owed and none made** — `ForwardPeriod` forced by §7, the invariant-6 fix forced by §8
+(a defect in code this tranche touched cannot be deferred). Both reported, correctly.
+
+**Next:** T42 (the first-to-default basket) — the first product priced through the copula — mine to
+spec. **Mark #56 ready (step 6) → Bernardo merges.**

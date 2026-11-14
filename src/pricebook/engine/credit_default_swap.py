@@ -93,7 +93,7 @@ def risky_pv01(product: CreditDefaultSwap, model: CreditModel) -> float:
     return legs.risky_pv01(
         _live_periods(product, market.valuation_date),
         market.curves.discount(currency),
-        model.survival(currency))
+        model.survival(product.reference_entity))
 
 
 def protection_leg(
@@ -108,7 +108,7 @@ def protection_leg(
     **toward** an independent reference — a ruled correctness fix (`OPEN.md` OI-4, closed), not a
     silent reordering — and it makes this the single formula the engine and the bootstrap share,
     so a bootstrapped curve now reprices its own calibrating CDS to zero through the engine
-    (`docs/conventions_register.md` C11, guarded).
+    (`docs/conventions_register.md` C13, guarded).
     """
     market = model.market
     currency = product.notional.currency
@@ -119,7 +119,8 @@ def protection_leg(
         return 0.0
     horizon = discount.time_measure.year_fraction(periods[-1][1])
     return legs.protection_leg(
-        discount, model.survival(currency), model.recovery, horizon, per_segment
+        discount, model.survival(product.reference_entity), model.recovery, horizon,
+        per_segment
     ) * product.notional.amount
 
 
@@ -137,7 +138,7 @@ def riemann_bracket(
     market = model.market
     currency = product.notional.currency
     discount = market.curves.discount(currency)
-    survival = model.survival(currency)
+    survival = model.survival(product.reference_entity)
 
     periods = _live_periods(product, market.valuation_date)
     if not periods:

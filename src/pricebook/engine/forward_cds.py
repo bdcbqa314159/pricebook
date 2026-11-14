@@ -15,7 +15,7 @@ weight by survival from today, so their difference carries "and the name has not
 `tE`". A separate factor would double-count it.
 
 **Both legs come from the shared L1 functional, so a forward CDS and a spot CDS cannot disagree
-about what a protection leg is** (`docs/conventions_register.md` C11). The composition here is the
+about what a protection leg is** (`docs/conventions_register.md` C13). The composition here is the
 only new arithmetic, which is why the suite transcribes *it* pointwise and anchors the rest on a
 cross-product: the forward CDS must equal the difference of two spot CDS prices through tranche
 38's engine, for every contractual spread — different code on each side.
@@ -50,14 +50,29 @@ from pricebook.products.forward_cds import ForwardCDS
 from pricebook.engine.credit_default_swap import _DEFAULT_PER_SEGMENT
 
 
-def _legs_to(dates: tuple, day_count, model, currency) -> legs.CdsLegs:
-    """The spot legs to `dates[-1]`, per unit notional, from the shared L1 functional."""
-    discount = model.market.curves.discount(currency)
-    survival = model.survival(currency)
+def _legs_to(dates: tuple, day_count, model, product) -> legs.CdsLegs:
+    """The spot legs to `dates[-1]`, per unit notional, from the shared L1 functional.
+
+    **Historical periods are excluded here, and omitting that was a real defect.** Until tranche
+    41b this summed `schedule.periods()` whole, so a seasoned contract's already-paid premiums
+    entered the annuity and were "discounted" at a negative `t` — giving factors **above 1**, which
+    compounds a settled payment forward. On a schedule straddling the valuation date by two years
+    the annuity read 4.81 against a correct 2.78, a **73% overstatement**. Invariant 6 says a flow
+    on or before `valuation_date` is excluded and never discounted with non-positive `t`, and
+    `is_historical` is the one atom every pay-boundary site must use
+    (`docs/conventions_register.md` C10) — this site was not using it.
+
+    It was invisible because every tranche-40 fixture begins *at* the valuation date, so no
+    schedule had a historical period to drop: the filter had nothing to filter.
+    """
+    discount = model.market.curves.discount(product.notional.currency)
+    survival = model.survival(product.reference_entity)
     schedule = CouponSchedule(dates, day_count)
+    live = [period for period in schedule.periods()
+            if not is_historical(period[1], model.market.valuation_date)]
     horizon = discount.time_measure.year_fraction(dates[-1])
     return legs.CdsLegs(
-        annuity=legs.risky_pv01(schedule.periods(), discount, survival),
+        annuity=legs.risky_pv01(live, discount, survival),
         protection=legs.protection_leg(
             discount, survival, model.recovery, horizon, _DEFAULT_PER_SEGMENT))
 
@@ -68,12 +83,9 @@ def forward_quote(product, model) -> tuple[float, float]:
     Works for both products: each carries a schedule spanning `[t, T]` and a date on it (the
     forward start, or the option expiry) that splits it.
     """
-    currency = product.notional.currency
-    split = product.forward_start if isinstance(product, ForwardCDS) else product.expiry
-    index = product.schedule.dates.index(split)
-    near = _legs_to(product.schedule.dates[: index + 1], product.schedule.day_count,
-                    model, currency)
-    far = _legs_to(product.schedule.dates, product.schedule.day_count, model, currency)
+    period = product.period
+    near = _legs_to(period.near_dates(), period.schedule.day_count, model, product)
+    far = _legs_to(period.schedule.dates, period.schedule.day_count, model, product)
     return legs.forward_spread(near, far), legs.forward_annuity(near, far)
 
 
@@ -83,7 +95,7 @@ def price_forward_cds(
 ) -> PricingResult | PricingFailure:
     """`ω·(S(t,tF,T) − S₀)·RPV01(t,tF,T)·N`."""
     currency = product.notional.currency
-    if is_historical(product.schedule.dates[-1], model.market.valuation_date):
+    if is_historical(product.period.maturity, model.market.valuation_date):
         # Invariant 6: a matured contract is the shell's business, PV 0 before any market lookup.
         return PricingResult(pv=Money(0.0, currency))
     try:
@@ -103,7 +115,7 @@ def price_credit_default_swaption(
 ) -> PricingResult | PricingFailure:
     """`RPV01(0,tE,T)·Black(S(0,tE,T), K, σ²tE, ω)·N` — eq 9.3."""
     currency = product.notional.currency
-    if is_historical(product.expiry, model.market.valuation_date):
+    if is_historical(product.period.start, model.market.valuation_date):
         # An expired option is the shell's business: exercise or lapse already happened.
         return PricingResult(pv=Money(0.0, currency))
     try:
@@ -112,7 +124,7 @@ def price_credit_default_swaption(
     except KeyError as exc:
         return PricingFailure(f"cannot price the default swaption: {exc}")
 
-    expiry_years = discount.time_measure.year_fraction(product.expiry)
+    expiry_years = discount.time_measure.year_fraction(product.period.start)
     total_variance = model.volatility * model.volatility * expiry_years
     # `SwaptionDirection` already satisfies Black's `OptionDirection` protocol — payer is a call
     # on the spread (ω=+1), receiver a put (ω=−1) — so it is passed straight through rather than

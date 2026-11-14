@@ -27,9 +27,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from pricebook.foundation.money import Currency
 from pricebook.market.snapshot import MarketSnapshot
-from pricebook.market.survival_curve import SurvivalCurve
+from pricebook.market.survival_curve import ReferenceEntity, SurvivalCurve
 from pricebook.models.credit import CreditModel
 
 
@@ -55,5 +54,5 @@ class CreditSwaptionModel:
     def recovery(self) -> float:
         return self.credit.recovery
 
-    def survival(self, currency: Currency) -> SurvivalCurve:
-        return self.credit.survival(currency)
+    def survival(self, entity: ReferenceEntity) -> SurvivalCurve:
+        return self.credit.survival(entity)

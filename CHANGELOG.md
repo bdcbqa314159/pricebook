@@ -6,6 +6,69 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.48.1] - 2026-11-14
+
+### Changed — tranche 41b, survival curves keyed by reference entity
+
+A §3-conformance refactor the multi-name products force. `CurveSet.survivals` was keyed by
+**`Currency`**, so N names in one currency were **not representable in the snapshot** — which is why
+tranche 41's copula held its per-name curves on the model, and why tranche 42's basket engine would
+have read market data from outside `model.market`. The currency key conflated two things: a CDS has
+a **currency** (whose discount curve it uses) and a **reference entity** (whose survival curve it
+uses).
+
+- `market/survival_curve.py` — `ReferenceEntity(name)`, mirroring `EquityAsset(ticker)`. Just a
+  name: no sector, seniority, or currency-of-issue, which would be a hierarchy nothing asks for.
+- `CurveSet.survivals` re-keyed, `survival(entity)` replacing `survival(currency)`.
+- `CreditDefaultSwap`, `ForwardCDS`, `CreditDefaultSwaption` and `CreditName` carry an explicit
+  entity; the T38–T40 engines look the curve up by it. The **discount** curve stays currency-keyed.
+- `products/forward_cds.py` — **`ForwardPeriod(schedule, start)`**, the pair both forward products
+  carry. The bundle is *compelled*: the new entity field would otherwise put both at six fields,
+  over §7's limit, which is un-bundled vocabulary rather than a reason to raise it. It also removes
+  a real duplication — the "split must be a schedule date" and "must precede the maturity"
+  validations were written out twice, once per product, which is the duplicated-guard shape §4
+  warns about. One definition now, so one fixture suffices.
+
+### Oracles
+
+- **Bit-identical single-name path.** The pre-change values were captured as **hex literals and
+  committed in the RED test** before the re-key, which is what makes it a pre-registration rather
+  than a re-run: a refactor compared against a freshly recomputed number proves only that two runs
+  of the same code agree. All of the CDS PV, risky PV01, protection leg, par spread, the forward CDS
+  and the swaption reproduce exactly.
+- **The capability that was impossible before**: two distinct entities in one currency, each CDS
+  pricing against its own name's curve, with the two curves asserted materially different (2.41×)
+  so "each sees its own" has content.
+- The two keys are now **independent**, asserted directly: the same name in another currency finds
+  the same survival curve, and an unknown **name** fails however familiar the currency. The old
+  test ("a survival curve for another *currency* is a PricingFailure") was exactly the conflation
+  this removes, so it was replaced rather than patched.
+
+### Fixed — a real defect in tranche 40's forward engine, found by this tranche's sweep
+
+`_legs_to` summed `schedule.periods()` **whole**, so a seasoned contract's already-paid premiums
+entered the annuity and were discounted at a negative `t` — giving factors **above 1**, which
+compounds a settled payment forward. On a schedule straddling the valuation date by two years the
+annuity read **4.81 against a correct 2.78, a 73% overstatement**. This violates invariant 6 ("a
+flow on or before `valuation_date` is excluded and never discounted with non-positive `t`") and
+bypassed `is_historical`, the single atom every pay-boundary site must use
+(`docs/conventions_register.md` C10).
+
+It was invisible because **every tranche-40 fixture begins at the valuation date**, so no schedule
+had a historical period: the filter had nothing to filter. The oracle now is a cross-product with
+exact economics behind it — once the forward start has passed, a forward CDS **is** a spot CDS over
+the remaining window, and the two agree to 2.2e-16 with different code on each side.
+
+### Mutation sweep
+
+8 mutants, full suite each, no `-x`. Reverting either engine's lookup to the currency key dies 36
+and 19 times; returning *any* curve instead of refusing an unknown entity dies 6 times. One
+survivor, which is what uncovered the defect above: `ForwardPeriod.maturity` returning the **split**
+instead of the end survived, because it only matters when the forward start has passed and the
+maturity has not — and no fixture was seasoned. Chasing it found the invariant-6 violation; the
+seasoned cross-product now kills it 4 ways.
+
+
 ## [0.48.0] - 2026-11-14
 
 ### Added — tranche 41, the one-factor Gaussian copula (the multi-name half opens)
@@ -240,7 +303,9 @@ committed count:
   *different* integral from the trapezoid it asserts about;
 - the duplication **collapsed** — `credit_legs.protection_leg` is the one formula the engine and
   the bootstrap call — so OI-4 closed rather than persisting, and the agreement became a guarded
-  convention, `docs/conventions_register.md` **C11**;
+  convention, `docs/conventions_register.md` **C11** (**renumbered to C13 at
+  v0.48.1** — the id was already held by the `model.market` row; left as published
+  with the correction beside it, per the v0.45.0 precedent);
 - a new oracle became available that could not exist while the two disagreed: a bootstrapped curve
   reprices its own calibrating CDS **through the engine** to **−5.8e-18 of notional** on the same
   grid, with the residual on a coarser grid falling at second order (the rate distinguishes a

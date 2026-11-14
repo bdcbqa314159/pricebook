@@ -30,11 +30,11 @@ from datetime import date, timedelta
 import pytest
 
 from pricebook.engine import price
-from pricebook.foundation import Currency, Money, PricingResult
+from pricebook.foundation import CouponSchedule, Currency, Money, PricingResult
 from pricebook.foundation.day_count import DayCountConvention
 from pricebook.foundation.time_measure import TimeMeasure
 from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
-from pricebook.market.survival_curve import SurvivalCurve
+from pricebook.market.survival_curve import ReferenceEntity, SurvivalCurve
 from pricebook.models.credit import CreditModel
 from pricebook.products.credit_default_swap import CreditDefaultSwap, ProtectionDirection
 from pricebook.risk.credit_valuation_adjustment import ExposureProfile, unilateral_cva
@@ -45,6 +45,9 @@ TM = TimeMeasure(VAL, DC)
 EUR = Currency("EUR")
 DISCOUNT = CurveKey(CurveRole.DISCOUNT, EUR)
 NOTIONAL = Money(10_000_000.0, EUR)
+#: Tranche 41b: survival curves are keyed by the name, not the currency.
+ACME = ReferenceEntity("ACME")
+
 RECOVERY = 0.40
 SPREAD = 0.01
 
@@ -64,7 +67,7 @@ FLAT_RATE = 0.025
 def _market(curve: DiscountCurve, survival: SurvivalCurve) -> MarketSnapshot:
     return MarketSnapshot(
         valuation_date=VAL,
-        curves=CurveSet({DISCOUNT: curve}, survivals={EUR: survival}),
+        curves=CurveSet({DISCOUNT: curve}, survivals={ACME: survival}),
     )
 
 
@@ -75,9 +78,7 @@ def _model(curve: DiscountCurve = SLOPED, survival: SurvivalCurve = TERM_HAZARD,
 
 def _cds(dates: tuple = SEMI_DATES, spread: float = SPREAD,
          direction: ProtectionDirection = ProtectionDirection.BUYER) -> CreditDefaultSwap:
-    from pricebook.foundation import CouponSchedule
-
-    return CreditDefaultSwap(CouponSchedule(dates, DC), spread, NOTIONAL, direction)
+    return CreditDefaultSwap(CouponSchedule(dates, DC), spread, NOTIONAL, direction, ACME)
 
 
 def _flat(hazard: float) -> SurvivalCurve:
@@ -88,8 +89,6 @@ class TestTheFixtureIsNotDegenerate:
     """Every premise the mutation table needs, asserted — the τ=1 lesson applied pre-emptively."""
 
     def test_the_premium_ACCRUALS_are_non_unit_and_unequal(self) -> None:
-        from pricebook.foundation import CouponSchedule
-
         accruals = [psi for _, _, psi in CouponSchedule(SEMI_DATES, DC).periods()]
         assert all(abs(a - 1.0) > 0.4 for a in accruals), accruals
         assert len({round(a, 6) for a in accruals}) > 1, f"must differ from each other: {accruals}"
@@ -357,7 +356,7 @@ class TestTheProtectionLegAgainstItsClosedForm:
             valuation_date=VAL,
             curves=CurveSet(
                 {DISCOUNT: DiscountCurve.flat(VAL, self.RATE, DC)},
-                survivals={EUR: SurvivalCurve.flat(VAL, self.LAMBDA, DC)}))
+                survivals={ACME: SurvivalCurve.flat(VAL, self.LAMBDA, DC)}))
         return CreditModel(market, RECOVERY)
 
     def _exact(self) -> float:
@@ -455,6 +454,47 @@ class TestTheGuardsAreReachable:
         with pytest.raises(ValueError, match="time measure"):
             CreditModel(_market(SLOPED, elsewhere), RECOVERY)
 
+    def test_a_snapshot_with_NO_survival_curve_is_a_PricingFailure(self) -> None:
+        bare = MarketSnapshot(valuation_date=VAL, curves=CurveSet({DISCOUNT: SLOPED}))
+        with pytest.raises(ValueError, match="survival"):
+            CreditModel(bare, RECOVERY)
+
+    def test_the_CURRENCY_and_the_ENTITY_are_INDEPENDENT_keys(self) -> None:
+        """What tranche 41b bought, asserted as the separation itself.
+
+        This test used to read "a survival curve for another *currency* is a PricingFailure",
+        because the survival lookup went through the notional's currency — which is precisely the
+        conflation 41b removed. Now the two keys are independent, and the assertion is that they
+        are: the same name priced in another currency finds the same survival curve (given that
+        currency's discount curve), and an unknown **name** fails however familiar the currency."""
+        usd = Currency("USD")
+        two_currencies = MarketSnapshot(
+            valuation_date=VAL,
+            curves=CurveSet(
+                {DISCOUNT: SLOPED, CurveKey(CurveRole.DISCOUNT, usd): SLOPED},
+                survivals={ACME: TERM_HAZARD}))
+        model = CreditModel(two_currencies, RECOVERY)
+
+        in_usd = price(
+            CreditDefaultSwap(CouponSchedule(SEMI_DATES, DC), SPREAD,
+                              Money(NOTIONAL.amount, usd), ProtectionDirection.BUYER, ACME),
+            model)
+        assert isinstance(in_usd, PricingResult), in_usd
+        # the same discount curve is used for both, so the same entity gives the same number
+        assert in_usd.pv.amount == pytest.approx(
+            price(_cds(), CreditModel(two_currencies, RECOVERY)).pv.amount, rel=1e-12)
+
+    def test_an_UNKNOWN_ENTITY_is_a_PricingFailure_whatever_the_currency(self) -> None:
+        """§3.4 — and it never silently substitutes another name's curve, which would be a wrong
+        number wearing the right shape."""
+        other = ReferenceEntity("NOT-IN-THE-SNAPSHOT")
+        out = price(
+            CreditDefaultSwap(CouponSchedule(SEMI_DATES, DC), SPREAD, NOTIONAL,
+                              ProtectionDirection.BUYER, other),
+            _model())
+        assert not isinstance(out, PricingResult)
+        assert "no survival curve for" in out.reason and "NOT-IN-THE-SNAPSHOT" in out.reason
+
     def test_a_MATURED_cds_is_PV_zero_invariant_6(self) -> None:
         past = tuple(VAL - timedelta(days=365 * (3 - k)) for k in range(4))
         out = price(_cds(dates=past), _model())
@@ -465,28 +505,3 @@ class TestTheGuardsAreReachable:
         bare = MarketSnapshot(valuation_date=VAL, curves=CurveSet({DISCOUNT: SLOPED}))
         with pytest.raises(ValueError, match="survival"):
             CreditModel(bare, RECOVERY)
-
-    def test_a_survival_curve_for_ANOTHER_currency_is_a_PricingFailure(self) -> None:
-        """The accessor raises rather than defaulting to a never-defaults curve.
-
-        The empty-map refusal above cannot reach this path: a snapshot *with* a EUR curve is a
-        valid credit model, and only the USD notional makes the lookup miss. Defaulting to
-        survival = 1 would zero the protection leg and price the CDS at minus its premium — a
-        wrong number that looks plausible — so the miss must surface as a failure value (§3.4)."""
-        from pricebook.foundation import CouponSchedule
-
-        usd = Currency("USD")
-        product = CreditDefaultSwap(
-            CouponSchedule(SEMI_DATES, DC), SPREAD, Money(NOTIONAL.amount, usd),
-            ProtectionDirection.BUYER)
-        # A USD DISCOUNT curve is supplied so the discount lookup (which runs first) succeeds and
-        # the only thing missing is the USD survival curve — otherwise this test would pass while
-        # asserting nothing about the survival guard.
-        both = MarketSnapshot(
-            valuation_date=VAL,
-            curves=CurveSet(
-                {DISCOUNT: SLOPED, CurveKey(CurveRole.DISCOUNT, usd): SLOPED},
-                survivals={EUR: TERM_HAZARD}))
-        out = price(product, CreditModel(both, RECOVERY))
-        assert not isinstance(out, PricingResult)
-        assert "no survival curve for" in out.reason and "USD" in out.reason

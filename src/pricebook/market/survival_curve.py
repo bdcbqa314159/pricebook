@@ -43,6 +43,28 @@ from pricebook.foundation.time_measure import TimeMeasure
 
 
 @dataclass(frozen=True)
+class ReferenceEntity:
+    """The name whose default a credit product is written on — the key its survival curve is
+    held under.
+
+    Mirrors `EquityAsset(ticker)` deliberately: the snapshot holds per-name market data under a
+    per-name key. Until tranche 41b survival curves were keyed by **`Currency`**, which conflated
+    two different things — a CDS has a currency (whose *discount* curve it uses) and a reference
+    entity (whose *survival* curve it uses) — and made a portfolio of several names in one currency
+    unrepresentable, which is what tranche 42's basket needs.
+
+    Just a name. **No sector, seniority, or currency-of-issue**: those would be a hierarchy nothing
+    asks for yet (§6), and a name is one entity.
+    """
+
+    name: str
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("a reference entity needs a name")
+
+
+@dataclass(frozen=True)
 class SurvivalCurve:
     """Survival probabilities from a piecewise-constant hazard rate.
 

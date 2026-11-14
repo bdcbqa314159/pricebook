@@ -17,6 +17,7 @@ from enum import Enum
 
 from pricebook.foundation.money import Money
 from pricebook.foundation.schedule import CouponSchedule
+from pricebook.market.survival_curve import ReferenceEntity
 
 
 class ProtectionDirection(Enum):
@@ -51,6 +52,11 @@ class CreditDefaultSwap:
     spread: float
     notional: Money
     direction: ProtectionDirection
+    #: The name whose default is protected — the key its survival curve is held
+    #: under. Explicit rather than derived from the notional's currency, which was
+    #: tranche 41b's whole point: a CDS has a currency and an entity, and they are
+    #: not the same key.
+    reference_entity: ReferenceEntity
 
     def __post_init__(self) -> None:
         if self.spread < 0.0:

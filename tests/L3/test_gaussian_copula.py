@@ -35,7 +35,7 @@ from pricebook.foundation.distributions import norm_cdf
 from pricebook.foundation.quadrature import standard_normal_expectation
 from pricebook.foundation.time_measure import TimeMeasure
 from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
-from pricebook.market.survival_curve import SurvivalCurve
+from pricebook.market.survival_curve import ReferenceEntity, SurvivalCurve
 from pricebook.models.gaussian_copula import CreditName, GaussianCopula
 
 from datetime import date
@@ -65,8 +65,9 @@ def _copula(betas: tuple[float, ...] = BETAS,
             hazards: tuple[float, ...] = HAZARDS) -> GaussianCopula:
     return GaussianCopula(
         _market(),
-        tuple(CreditName(beta, SurvivalCurve.flat(VAL, hazard, DC))
-              for beta, hazard in zip(betas, hazards)))
+        tuple(CreditName(ReferenceEntity(f"NAME{position}"), beta,
+                         SurvivalCurve.flat(VAL, hazard, DC))
+              for position, (beta, hazard) in enumerate(zip(betas, hazards))))
 
 
 def _default_probability(hazard: float, horizon: float = HORIZON) -> float:
@@ -318,7 +319,7 @@ class TestTheRequirementOracles:
 class TestTheGuardsAreReachable:
     def test_a_BETA_outside_the_unit_interval_is_refused(self) -> None:
         with pytest.raises(ValueError, match="factor loading"):
-            CreditName(1.4, SurvivalCurve.flat(VAL, 0.02, DC))
+            CreditName(ReferenceEntity("X"), 1.4, SurvivalCurve.flat(VAL, 0.02, DC))
 
     def test_an_EMPTY_portfolio_is_refused(self) -> None:
         with pytest.raises(ValueError, match="at least one name"):
@@ -327,7 +328,7 @@ class TestTheGuardsAreReachable:
     def test_a_survival_curve_on_a_DIFFERENT_clock_is_refused(self) -> None:
         other = SurvivalCurve.flat(date(2025, 6, 1), 0.02, DC)
         with pytest.raises(ValueError, match="time measure"):
-            GaussianCopula(_market(), (CreditName(0.3, other),))
+            GaussianCopula(_market(), (CreditName(ReferenceEntity("X"), 0.3, other),))
 
     def test_an_OUT_OF_RANGE_name_index_is_refused(self) -> None:
         with pytest.raises(IndexError):
