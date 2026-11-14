@@ -6,6 +6,92 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.48.0] - 2026-11-14
+
+### Added — tranche 41, the one-factor Gaussian copula (the multi-name half opens)
+
+`models/gaussian_copula.py` — `CreditName(beta, survival)` and `GaussianCopula(market, names)`,
+with the threshold `C_i = Φ⁻¹(1−Q_i)`, the asset correlation `ρ_ij = β_iβ_j`, the conditional
+default `p_i(T|Z)`, the pairwise joint `p_ij = Φ₂(C_i,C_j;ρ_ij)`, and the same joint by the
+conditional-independence integral. No product and no `price()` — tranche 42's basket pulls it.
+
+`CreditName` bundles the pair **not** to meet the §7 field limit (`(market, betas, survivals)`
+would be three fields) but because parallel tuples make a mis-pairing expressible: name 0's beta
+against name 1's curve is a wrong number with no symptom. Pairing them makes it unrepresentable
+rather than merely tested.
+
+### Oracles
+
+- **The anchor is marginal recovery through the market-factor integral**: `E_Z[p_i(T|Z)] = 1−Q_i`
+  to 1e-10, a genuinely different computation from the threshold that produced it. Its companion
+  half, `Φ(C_i) = 1−Q_i`, telescopes by construction and is labelled as a guard.
+- The three exact limits (`ρ = 0` product, `ρ = 1` minimum, `ρ = −1` Fréchet lower bound), each to
+  1e-10, with a generic-`ρ` companion asserted strictly between the first two.
+- **Φ₂ against the conditional-independence integral** — two genuinely different computations of
+  the same joint, which is also the statement of §13.4.
+- The threshold against `scipy.special.ndtri`, the conditional probability against an independent
+  transcription of 13.4, monotonicity in the market factor, and the joint bounded by each marginal.
+
+### Fixed — L0: a Gauss-Hermite rule that cannot be built is now refused
+
+`foundation/quadrature.py` (tranche 12b) returned a **silently wrong answer** for large node
+counts. `numpy.polynomial.hermite.hermgauss` loses its weights to underflow: measured on numpy
+2.4.3, correct to 370 nodes, and at **371 every weight is `0.0`, so `E[1]` comes back as `0.0`** —
+finite, plausible, and 100% wrong, which is strictly worse than the `NaN` that appears from ~380.
+Either way a caller asking for a finer rule than the library can build received a number instead of
+a refusal, against §3.4.
+
+The guard asserts this module's **own stated invariant** (`Σwᵢ = E[1] = 1`, which its docstring
+already names as an oracle) rather than a hard-coded 370, so the usable range can move with numpy
+without the guard moving. Found because tranche 41's market-factor integral wanted 256 nodes at
+high factor loadings — inside the range, one refinement from the cliff.
+
+### Fixed — the unit-β marginal is taken analytically
+
+At `|β| = 1` the conditional default probability is an **indicator** in `Z`, and Gauss-Hermite
+cannot integrate a step: measured 13%, 18%, 19% and 5% wrong at 16, 64, 256 and 370 nodes —
+non-monotone, and never right at any count. The expectation is elementary instead (`β = +1` gives
+`Z < C`, `β = −1` gives `Z > −C`, both `Φ(C) = 1−Q_i`), so it is computed directly. This is the
+configuration the `ρ = ±1` limits make natural, so the naive route would have been a silent 18%
+error in a case the model invites. A companion test asserts the quadrature *would* be materially
+wrong and does not converge, which is what makes the special case necessary rather than assumed.
+
+### Two of the spec's premises did not survive measurement
+
+1. **Φ₂ is the accurate side at high correlation, not the integral.** The spec expected Φ₂ to
+   degrade as `|ρ| → 1` and the market-factor integral to be the reference there. Against
+   `scipy.stats.multivariate_normal`, at `ρ = 0.9801` **Φ₂ is accurate to 8.9e-16** while the
+   integral at the committed 64 nodes is **1.8e-02** out — the integrand approaches a step as
+   `β → 1`, so the quadrature is what degrades. Φ₂ is exact at `ρ = ±1` by construction, being
+   derived from Plackett's identity rather than a quadrature in `ρ`; tranche 36b's `|ρ| ≤ 0.99`
+   regime concerns deep-tail *values* (`Φ₂ ≳ 1e-8`), and these probabilities are ≈0.05.
+2. **The `ρ = −1` reduction is vacuous on a low-default fixture.** `max(p_i + p_j − 1, 0)` is `0`
+   when `p_i + p_j < 1`, which an implementation returning zero also satisfies. The fixture carries
+   deliberately high hazards for that case, with `p_i + p_j > 1` asserted as the premise.
+
+An earlier draft of this suite also asserted that the marginal-recovery convergence was
+**non-monotone** in the node count. It is at one fixture (`C = −2.5`) and is not at the one the
+test uses (`C = −2.33`), so the claim would have pinned an accident; replaced by the robust
+statement — the gap between a coarse rule and the committed one, 1e07×.
+
+### Mutation sweep
+
+20 mutants, full suite each, no `-x`. One survivor and three load-bearing single-killers:
+
+- swapping `C_i` and `C_j` in the joint **survives**: `Φ₂` is symmetric in its arguments, so the
+  mutation is **exact in ℝ** and differs by **≤2 ULP** (measured over 216 argument combinations) —
+  the §4 reordering category, not a hole. Worth noting that the suite's own symmetry assertion is
+  what makes it unobservable: asserting an invariance creates an equivalent-mutant class under it.
+- the unit-β indicator branch (direction, and its removal) had one killer each → 2, via the new
+  unit-β marginal recovery.
+- integrating **name 0 for every index** had one killer because the recovery test looped over the
+  names inside a single test. Parametrised per name, it now fails 6 cases — a looping test is one
+  deletion away from reopening the hole.
+
+The remaining single-killers are refusal guards with one condition each; recorded in
+`docs/audit_log.md` for re-audit #4.
+
+
 ## [0.47.0] - 2026-11-14
 
 ### Added — tranche 40, the forward CDS and the knockout default swaption

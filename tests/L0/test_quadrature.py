@@ -75,3 +75,41 @@ def test_TOO_FEW_nodes_is_measurably_worse_so_the_node_count_matters():
 def test_a_nonsensical_node_count_is_refused():
     with pytest.raises(ValueError, match="at least"):
         standard_normal_expectation(math.exp, nodes=0)
+
+
+class TestAnUnbuildableRuleIsREFUSED:
+    """Found at tranche 41 — above ~370 nodes the rule silently integrates to the wrong answer.
+
+    `numpy.polynomial.hermite.hermgauss` loses its weights to underflow for large degree. Measured
+    on numpy 2.4.3: correct to 370 nodes; at **371 every weight is `0.0`**, so `E[1]` comes back as
+    `0.0` — finite, plausible, and 100% wrong, which is strictly worse than the `NaN` that appears
+    from ~380. Either way a caller asking for a finer rule than the library can build was handed a
+    number instead of a refusal, against §3.4.
+
+    The guard asserts this module's **own** stated invariant (`E[1] = 1`, the normalisation its
+    docstring names as an oracle) rather than a hard-coded 370, so the usable range can move with
+    numpy without the guard moving.
+    """
+
+    def test_the_largest_WORKING_rule_still_normalises(self) -> None:
+        assert standard_normal_expectation(lambda z: 1.0, nodes=370) == pytest.approx(1.0, abs=1e-13)
+
+    @pytest.mark.filterwarnings("ignore:overflow encountered:RuntimeWarning")
+    def test_the_FIRST_BROKEN_rule_is_refused_rather_than_returning_ZERO(self) -> None:
+        """371 is the dangerous one: its weights are all zero, so without the guard this returns
+        `0.0` for every integrand — a silent wrong number, not a visible failure."""
+        with pytest.raises(ValueError, match="does not normalise"):
+            standard_normal_expectation(lambda z: 1.0, nodes=371)
+
+    @pytest.mark.filterwarnings("ignore:overflow encountered:RuntimeWarning")
+    @pytest.mark.filterwarnings("ignore:invalid value encountered:RuntimeWarning")
+    @pytest.mark.filterwarnings("ignore:divide by zero encountered:RuntimeWarning")
+    def test_a_FAR_TOO_FINE_rule_is_refused_rather_than_returning_NaN(self) -> None:
+        with pytest.raises(ValueError, match="does not normalise"):
+            standard_normal_expectation(lambda z: 1.0, nodes=512)
+
+    def test_THE_PREMISE_the_guard_is_not_simply_rejecting_everything_large(self) -> None:
+        """A guard that refused every big rule would pass the two tests above while breaking the
+        256-node rule tranche 41 actually needs."""
+        assert standard_normal_expectation(lambda z: z * z, nodes=256) == pytest.approx(
+            1.0, abs=1e-12)

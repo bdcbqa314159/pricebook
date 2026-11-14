@@ -79,7 +79,7 @@ twin-MC — ruled at the §1 gate if interest ever pulls there.
 Bernardo chose the **full credit spine (T38–T44)** over the compact single-name or middle options — the
 canonical credit-derivatives library, single-name *and* the multi-name correlation core, the second
 capstone. **The queue:** T38 (the CDS) → T39 (the CDS survival bootstrap) → T40 (forward CDS + default
-swaption) → T41 (the one-factor Gaussian copula) → T42 (first-to-default basket) → T43 (the LHP tranche)
+swaption) → T41 (the one-factor Gaussian copula) → **T41b (survival re-keyed by ReferenceEntity — §3 prep for multi-name, ruled at T41's review)** → T42 (first-to-default basket) → T43 (the LHP tranche)
 → T44 (recursive loss distribution + base correlation) → `CP_okane_credit.md` (closes the arc, fires
 re-audit #4). Cowork writes each per-tranche spec before its build (§10); this is the queue, not the
 specs. **T38 is specced** (`docs/tranches/38_credit_default_swap.md`); the rest follow in turn.
