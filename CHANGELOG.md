@@ -104,6 +104,16 @@ where the error is an order loss rather than a value.
   mutant: `breaks` is built from the pillars and `hazard` is right-continuous at one, so both reads
   land in the same constant piece — bit-identical over 32 curve/horizon combinations.
 
+Re-swept after the OI-4 fix, with five mutants added for the newly shared engine path. One new
+single-killer surfaced and was hardened rather than recorded: a bracket computed on a uniform grid
+was caught by exactly one test. Investigating why exposed a weak oracle — *"the trapezoid sits
+inside the bracket"* is close to arithmetically necessary, since the trapezoid **is** the mean of
+the left and right sums, differing only in summation order. The claim a bracket exists to make is
+that it contains the **true value**, and that discriminates sharply: pillar-aware it contains a
+200k/segment reference at every refinement, while on a uniform grid it **excludes** the truth by
+~6% at every refinement, bracketing nothing. Asserted now, which both strengthens the oracle and
+gives the mutation a second independent killer.
+
 
 ## [0.45.0] - 2026-11-14
 

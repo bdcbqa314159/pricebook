@@ -130,7 +130,7 @@ than rediscovering them:
 | re-audit #3 | tranche 26's Leg B numéraire divisor | single **by design** — one leg, one identity |
 | T38 | `CreditModel`'s recovery-range refusal | a guard with one behaviour; single killer is inherent |
 | T38 | `CreditModel`'s shared-clock refusal | same shape |
-| T39 | the bootstrap's five refusals (arbitrage, its `>` boundary, maturity order, empty strip, recovery range) and the leg's horizon guard | six guards, one condition each — inherent |
+| T39 | the leg's non-positive-horizon guard and the bootstrap's five refusals (arbitrage, its `>` boundary, maturity order, empty strip, recovery range) and the leg's horizon guard | six guards, one condition each — inherent |
 
 T38's two load-bearing single killers were **hardened in-tranche** rather than recorded: the
 protection-leg quadrature rule (1 → 3 killers, via a closed-form anchor) and the direction factor
