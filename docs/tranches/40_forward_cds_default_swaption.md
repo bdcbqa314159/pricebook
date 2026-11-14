@@ -103,3 +103,49 @@ maturity default swaps, ch 9.4 — `to_go_deeper`, as the arc plan said). No **C
 (a flat `σ` input; a quoted surface is `to_go_deeper`). No **multi-name** anything (phase 2, T41+). No
 **CS01 / spread risk** sensitivities (ch 8 — a later risk tranche if pulled). T40 is the forward CDS and
 the knockout default swaption, closing the single-name vertical; T41 opens the correlation half.
+
+---
+
+## 5. Cowork's ruling on T40 — PR #54 (§10 step 4, 2026-11-14)
+
+Accepted — v0.47.0, 1560 green, ten gates. The single-name CDS vertical closes: forward CDS + the
+knockout default swaption, Black on the forward spread under the risky-annuity measure. Three of the
+spec's oracles were weaker than I wrote them; Code labelled rather than quietly adjusted — correct, and
+two of the corrections are mine to own.
+
+**The knockout-flag omission — RATIFIED, and my spec §1 was wrong.** I specced a `knockout` flag on the
+product; Code omitted it and flagged the deviation (the §10 boundary — report, don't silently comply).
+Right by §6: a boolean that can only ever be `True` is a config knob for a hypothetical future *and* a
+carried-but-unread field (its `False` branch isn't priceable), and it reads as though both variants were
+priceable. **The type is** the knockout swaption — name and docstring carry the scope — and non-knockout
+arrives as its **own product** when pulled, not a flag flipped. Carry no flag.
+
+**Ask (a) — non-knockout swaption: DEFER (`to_go_deeper`), as recommended.** Cheap (= knockout +
+front-end protection, a `protection_leg` over `[0,tE]`, already built) but unpulled — the §1 pull gate
+says no. Recorded with its decomposition.
+
+**The three weak-oracle findings — ratified.** (1) Eq 9.2 ≡ the 9.2.1 derivation (relative gap exactly
+0.0): `S = Prot/RPV01` by definition, so the derivation-step "independent check" I offered is vacuous
+here — the step IS the final form, not a different computation; the real independence is the engine
+cross-product (1e-12). §4's stronger rung is independent only when the step is a genuinely different
+computation, not a definitional substitution — an instance of "self-consistency telescopes", noted, no
+line. (2) The par-forward `V=0` telescopes — kept as a guard, engine-difference the anchor. (3) **Flat
+hazard ≠ flat spread curve — my spec's flat-curve reduction premise was wrong:** with a non-flat
+discount and a discrete premium schedule the par spread drifts with maturity even at flat hazard, so a
+2e-03 band would have absorbed a real effect; Code replaced it with the exact conditions (**equal par
+spreads**, exact in ℝ to a few ULP — the §4 reordering case, after self-correcting a "bit-exact" claim;
+and **both curves flat**, 3e-08) and asserted the misleading case as a *non*-reduction. The §4
+reduction-anchor discipline catching a Cowork premise error; the ~69-ULP conditioning note near a
+degenerate forward window is the right honesty.
+
+**The variance-split oracle — ratified.** `σ²tE` pinned only by the pointwise transcription left `σ²`
+and `σ·tE` single-killed; Black's ATM asymptotic `σ√tE/√(2π)` (a rate, error quadratic in σ) separates
+them (0.707×, 4.98×) — the §4 "complete about one aspect, silent about the decomposition" trap, closed.
+
+**Ask (b) — σ sourcing — settled by the spec** (flat input; surface → `to_go_deeper`). Nothing owed.
+
+**No charter edit.** Findings 1–3 are existing §4 applied, two of them my spec's imprecision caught by
+the build — the two-surface split doing its job. The single-name vertical is complete.
+
+**Next:** T41 (the one-factor Gaussian copula) opens the multi-name half — mine to spec. **Mark #54
+ready (step 6) → Bernardo merges.**
