@@ -187,7 +187,16 @@ not an oracle. Ruled principles:
   another is anchored by the **exact reduction** to the old case at the degenerate parameter
   (`σr → 0` ⇒ the deterministic limit; `I(t)=I0` ⇒ the inception formula) — exact by construction,
   better than a numerical limit. It **requires a companion oracle exercising the non-degenerate
-  general case**: a reduction a no-op implementation also satisfies is vacuous.
+  general case**: a reduction a no-op implementation also satisfies is vacuous. **And the companion
+  must be non-degenerate in the SPECIFIC parameter the reduction zeroes — an exact reduction is often
+  exact *because* it degenerates the very parameter a discretisation error lives in, so the anchor is
+  structurally blind to that error class.** Ask what the reduction kills, and make the companion exercise
+  exactly that, checked by convergence **rate** where the error is an order loss rather than a value
+  (the T25 rate-detector). *(T39: T38's flat-hazard credit-triangle anchor reads 5.7e-10 — exact — because
+  a flat hazard has no interior pillars, and the protection-leg trapezoid loses an order *only* at a
+  pillar where `default_density = λQ` jumps; the exact anchor could not see a first-vs-second-order
+  integration defect, which a term-structured companion measured by its O(1/M) vs O(1/M²) rate catches at
+  once.)*
 - **Self-consistency telescopes.** A par-reprice-to-zero is satisfied by construction when
   construction and pricing share a convention — *even a wrong one*. Keep it as a consistency guard;
   the correctness anchor is a non-telescoping check of the structure itself (a pointwise identity,
@@ -573,7 +582,14 @@ unconditionally only for the fraction.)*
   it.** A gate that CI never calls cannot fail, which is the same empty-gate defect one level up from the
   §9 "a gate that can't fail" rule: it degrades to a lint someone must remember to run by hand, exactly
   the *guarded*-vs-*folklore* line §7 draws for conventions. So the charter's gate list and `ci.yml` must
-  agree, and the agreement is itself checked. *(T38: `verify.py references`, built at T26b and celebrated
+  agree, and the agreement is itself checked by **`verify.py gates`** — listed here and invoked in
+  `ci.yml`, so it covers itself — which rejects a gate named-but-never-invoked (T38's defect),
+  invoked-but-never-named, and the shape a set comparison misses: a name both sides agree on that
+  `verify.py` does not implement. *(The clause as first ruled ended "the agreement is itself checked"
+  while nothing checked it — a charter asserting a practice that did not exist, the very defect it names;
+  Code built the gate rather than soften the wording, since the violation is statically decidable and so
+  gateable by §9's own boundary. The clause and its enforcement landed in one merge, so the charter never
+  shipped the false practice.)* *(T38: `verify.py references`, built at T26b and celebrated
   in §7 as "the gate's first run caught the other two", was wired only locally and **never in CI** — it
   caught `OKANE-2008` at `in-hand` only because Code ran `verify.py all` by hand. Twelve tranches a cited
   key could have merged green. Now in `ci.yml`; the §7 boast was true of a local run, not a CI run, until

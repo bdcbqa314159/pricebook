@@ -6,6 +6,115 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-11-14
+
+### Added — tranche 39, the CDS survival-curve bootstrap
+
+- `market/cds_bootstrap.py` — `bootstrap_survival_curve(quotes, discount, recovery)`: a par CDS
+  strip to a piecewise-flat forward hazard curve, solved maturity by maturity, shortest first
+  (`OKANE-2008` ch 7.4/7.5). L1 because of what it **produces** — market data from quotes, using
+  only L0+L1, never the L4 engine. A quote is `(schedule, spread)`, not maturity → spread, because
+  the schedule carries the premium frequency as well as the maturity; a mapping would silently
+  assume one frequency across the curve.
+- A **root-find**, unlike tranche 8's closed-form bootstrap: `λₘ` enters the protection integral
+  inside `exp(−∫λ)` *and* the premium leg's survivals, so `V = 0` is genuinely implicit. `V` is
+  strictly increasing in `λₘ`, which is what makes a bracketed solve right and gives the arbitrage
+  test its exact form.
+- **Arbitrage is refused by a sign test, not a tolerance** (ch 7.7): since `V` increases in `λₘ`, a
+  root with `λₘ ≥ 0` exists iff `V(λₘ=0) ≤ 0`, so a quote too low to be consistent with the shorter
+  maturities is detected exactly and refused in domain vocabulary rather than surfacing as a
+  solver bracket failure.
+- `market/credit_legs.py` — the CDS leg arithmetic at L1, shared by the bootstrap and the engine.
+
+### Oracles
+
+- **The known-curve round trip** (tranche 8's anchor): an independently constructed
+  term-structured hazard curve → par spreads computed in the test → bootstrapped back → hazards
+  recovered to **4.8e-07**, converging second order (1.9e-06 / 4.8e-07 / 1.2e-07 at 25/50/100
+  points per segment). Independent in its **quadrature**, not only its code: the test integrates
+  `½(Z(a)+Z(b))·(Q(a)−Q(b))`, exact in the survival differences, where the implementation
+  integrates `Z·λ·Q`.
+- **The credit triangle, inverted** — and restructured from the spec. The gap to `λ = S/(1−R)` is
+  **not** the integration grid (identical at 50 and 400 points per segment): it is the premium
+  discretisation, and it is first order in the premium period — 1.015e-02, 5.065e-03, 1.687e-03,
+  3.89e-04, 5.54e-05 at 2, 4, 12, 52, 365 periods a year. So it is asserted as a **convergence in
+  the premium frequency** with that measured rate, which is sharper than a band at any one
+  frequency.
+- **The extraction is proved pure by bit-identity**: `risky_pv01` lifted out of the engine leaves
+  its values unchanged to the last bit across **324 fixtures × 5 values**. Nothing was reordered,
+  so the strong claim was available and is the one made.
+- Requirement oracles: `Q` monotone non-increasing, every hazard non-negative, each quote
+  repricing to par across **two different quadratures** (max 1.4e-08).
+
+### Changed
+
+- `engine/credit_default_swap.py` delegates `risky_pv01` to the shared L1 function. Its protection
+  leg does **not** delegate — see below.
+
+### Ruled and fixed in this tranche — `OPEN.md` OI-4, closed
+
+`λ(t)Q(t)` is **discontinuous at every hazard pillar**. The engine integrated `default_density(t)`
+pointwise on a uniform grid, so a trapezoid straddled those jumps and **lost an order** — and at a
+segment's end `default_density` returns the hazard of the segment *starting* there, the wrong one
+for the piece ending there. The shared L1 functional reads the hazard once per pillar segment,
+exact between pillars, and recovers second order.
+
+Code raised this rather than ruling it, since correcting the engine moves a **shipped** number.
+**Cowork ruled the engine adopts the per-segment integration** (thread 0214): the +1.846e-05 move
+is provably *toward* an independent 20k/segment reference, so it is a ruled correctness change and
+not the silent reordering §4's pure-refactor rule forbids. Measured after the switch, at the same
+committed count:
+
+- the engine's term-structured protection leg: **1.8e-05 → 6.3e-11** against a 200k/segment
+  reference, and the test band tightened by five orders with it (a band left at 3e-05 would have
+  gone on passing while asserting nothing);
+- the **flat**-hazard closed-form anchor: **unchanged at +5.672e-10**, bit for bit — a flat hazard
+  has no interior pillars, so one segment of 2000 points *is* the quadrature v0.45.0 shipped, which
+  is why that version's published figure stays exactly reproducible;
+- `riemann_bracket` breaks at the same pillars, since on a uniform grid it would bracket a
+  *different* integral from the trapezoid it asserts about;
+- the duplication **collapsed** — `credit_legs.protection_leg` is the one formula the engine and
+  the bootstrap call — so OI-4 closed rather than persisting, and the agreement became a guarded
+  convention, `docs/conventions_register.md` **C11**;
+- a new oracle became available that could not exist while the two disagreed: a bootstrapped curve
+  reprices its own calibrating CDS **through the engine** to **−5.8e-18 of notional** on the same
+  grid, with the residual on a coarser grid falling at second order (the rate distinguishes a
+  discretisation from a defect where no single value can).
+
+**The finding that outlived the defect.** Tranche 38's rung-1 closed-form anchor uses a **flat**
+hazard — which has no interior pillars, so it is exact *because* it degenerates the very parameter
+this error lives in, and was structurally blind to a first-vs-second-order integration defect.
+That earned a charter §4 clause on the reduction-anchor blind spot: the companion must be
+non-degenerate in the specific parameter the reduction zeroes, checked by convergence **rate**
+where the error is an order loss rather than a value.
+
+### Mutation sweep
+
+19 mutants, full suite each, no `-x`. Three first-pass survivors, two of them real and both in the
+**tests**:
+
+- A refusal oracle **passed with its guard deleted**: `match="recovery"` was satisfied by an
+  unrelated bracket-expansion failure whose message also contained the word. A refusal oracle must
+  name the condition it refuses, or it only asserts that *something* went wrong. Both paths now
+  pinned separately.
+- The arbitrage test's `>` versus `>=` boundary is reached only at `V(λ=0) = 0` **exactly**, which
+  happens only for a **0bp quote** — where zero hazard is the right answer, not an arbitrage. No
+  fixture reached it until one was added.
+- Reading the hazard at a segment's start rather than its midpoint is a **proved equivalent**
+  mutant: `breaks` is built from the pillars and `hazard` is right-continuous at one, so both reads
+  land in the same constant piece — bit-identical over 32 curve/horizon combinations.
+
+Re-swept after the OI-4 fix, with five mutants added for the newly shared engine path. One new
+single-killer surfaced and was hardened rather than recorded: a bracket computed on a uniform grid
+was caught by exactly one test. Investigating why exposed a weak oracle — *"the trapezoid sits
+inside the bracket"* is close to arithmetically necessary, since the trapezoid **is** the mean of
+the left and right sums, differing only in summation order. The claim a bracket exists to make is
+that it contains the **true value**, and that discriminates sharply: pillar-aware it contains a
+200k/segment reference at every refinement, while on a uniform grid it **excludes** the truth by
+~6% at every refinement, bracketing nothing. Asserted now, which both strengthens the oracle and
+gives the mutation a second independent killer.
+
+
 ## [0.45.0] - 2026-11-14
 
 ### Added — tranche 38, the credit default swap (project five opens: O'Kane credit)
@@ -37,6 +146,10 @@ single source of truth and CI asserts it matches the top entry.
   unit exposure, both sides converging to the same integral — different code each side.
 - **Measured, not toleranced**: the trapezoid sits inside O'Kane's explicit Riemann bracket, the
   bracket tightens at `O(1/M)`, and the committed step count resolves its own error (~2e-05).
+  **Superseded at v0.46.0** — that ~2e-05 was the *uniform-grid* quadrature's resolution. Tranche
+  39 found it loses an order at every hazard pillar and ruled the engine onto the per-segment
+  integration (`OPEN.md` OI-4, closed); the same committed count now resolves **6.3e-11**. The
+  figure above is left as published, with the correction beside it, rather than quietly edited.
 
 ### Changed
 

@@ -166,7 +166,7 @@ class TestTheProtectionLegIsTheCvaIntegral:
             grid = tuple(horizon * k / points for k in range(1, points + 1))
             profile = ExposureProfile(grid, tuple(1.0 for _ in grid))
             t25 = unilateral_cva(profile, TERM_HAZARD, SLOPED, 1.0 - RECOVERY)
-            return abs(protection_leg(_cds(), _model(), steps=8000) / NOTIONAL.amount - t25)
+            return abs(protection_leg(_cds(), _model(), per_segment=8000) / NOTIONAL.amount - t25)
 
         gaps = [gap(n) for n in (40, 160, 640)]
         assert all(b < a for a, b in zip(gaps, gaps[1:])), gaps
@@ -394,10 +394,27 @@ class TestTheDiscretisationIsMeasuredNotToleranced:
         fixture, so the left sum bounds above and the right sum below."""
         from pricebook.engine.credit_default_swap import protection_leg, riemann_bracket
 
-        lower, upper = riemann_bracket(_cds(), _model(), steps=24)
-        value = protection_leg(_cds(), _model(), steps=24)
+        lower, upper = riemann_bracket(_cds(), _model(), per_segment=24)
+        value = protection_leg(_cds(), _model(), per_segment=24)
         assert lower <= value <= upper, f"{value} outside [{lower}, {upper}]"
         assert upper > lower, "the bracket must be non-degenerate at this step count"
+
+    def test_the_bracket_CONTAINS_the_true_value_which_is_what_a_bracket_is_FOR(self) -> None:
+        """The claim that is not nearly-automatic, and the one the bracket exists to make.
+
+        "The trapezoid sits inside the bracket" is close to arithmetically necessary — the
+        trapezoid *is* the mean of the left and right sums, differing only in summation order — so
+        on its own it is a weak assertion. Containing an independently computed fine reference is
+        the real property, and it is the one that discriminates: with a bracket on a uniform grid
+        the sums apply a single hazard across the whole span and the interval **excludes** the
+        truth by ~6% at every refinement, so it brackets nothing. Pillar-aware, it contains it at
+        every count — which is also the second independent killer for that mutation."""
+        from pricebook.engine.credit_default_swap import protection_leg, riemann_bracket
+
+        reference = protection_leg(_cds(), _model(), per_segment=200_000)
+        for per_segment in (24, 96, 384):
+            lower, upper = riemann_bracket(_cds(), _model(), per_segment=per_segment)
+            assert lower <= reference <= upper, (per_segment, lower, reference, upper)
 
     def test_the_bracket_TIGHTENS_and_the_error_falls_at_the_stated_rate(self) -> None:
         """`O(1/M)` for the bracket width; the trapezoid itself converges faster. Asserting the
@@ -406,7 +423,7 @@ class TestTheDiscretisationIsMeasuredNotToleranced:
 
         widths = []
         for steps in (24, 96, 384):
-            lower, upper = riemann_bracket(_cds(), _model(), steps=steps)
+            lower, upper = riemann_bracket(_cds(), _model(), per_segment=steps)
             widths.append(upper - lower)
         ratios = [a / b for a, b in zip(widths, widths[1:])]
         assert all(3.0 < r < 5.0 for r in ratios), f"expected ~4x per 4x refinement: {ratios}"
@@ -415,13 +432,17 @@ class TestTheDiscretisationIsMeasuredNotToleranced:
         """State what a green rules out: the committed `M` against a very fine reference."""
         from pricebook.engine.credit_default_swap import protection_leg
 
-        reference = protection_leg(_cds(), _model(), steps=200_000)
+        reference = protection_leg(_cds(), _model(), per_segment=200_000)
         committed = protection_leg(_cds(), _model())
-        # Measured 2e-05 at the committed 2000 steps; asserted at 3e-05 so a real regression in the
-        # quadrature shows while second-order noise does not. The first draft claimed 1e-06 and
-        # failed at 9.4e-05 — the claim was the error, which is why the engine now states the
-        # measured table instead of a hoped-for figure.
-        assert abs(committed / reference - 1.0) < 3e-5
+        # Measured 6.3e-11 at the committed 2000 points per segment; asserted at 1e-09 so a real
+        # regression shows while second-order noise does not.
+        #
+        # This read 2e-05 until tranche 39. The old quadrature integrated `default_density`
+        # pointwise on a uniform grid and lost an order at every hazard pillar; breaking at the
+        # pillars (OI-4, ruled) improved it ~300,000x at the same committed count. The band had to
+        # be tightened by five orders with it: a band left at 3e-05 would have gone on passing
+        # while asserting nothing, which is the failure mode this test exists to prevent.
+        assert abs(committed / reference - 1.0) < 1e-09
 
 
 class TestTheGuardsAreReachable:

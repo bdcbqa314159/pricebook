@@ -51,21 +51,26 @@ from __future__ import annotations
 from pricebook.engine.registry import register
 from pricebook.foundation.money import Money
 from pricebook.foundation.results import PricingFailure, PricingResult
+from pricebook.market import credit_legs as legs
 from pricebook.foundation.time_measure import is_historical
 from pricebook.models.credit import CreditModel
 from pricebook.products.credit_default_swap import CreditDefaultSwap
 
-#: Steps in the protection-leg quadrature. Numerical config arriving with its first consumer
-#: (§3.5), and the count is **measured, not chosen**: the trapezoid converges cleanly at second
-#: order (4.0x per 4x refinement, verified), giving relative error 3.7e-04 at 100 steps, 9.2e-05 at
-#: 400, 2.3e-05 at 1600 and 6.0e-06 at 6400 against a 200,000-step reference. Cost is 0.19 ms at
-#: 400 and 0.92 ms at 2000.
+#: Points **per pillar segment** in the protection-leg quadrature — not points in total, since
+#: tranche 39 made the integration break at every hazard pillar (`market/credit_legs.py`). Numerical
+#: config arriving with its first consumer (§3.5), and the count is **measured, not chosen**.
 #:
-#: 2000 is committed: it resolves **better than 2e-05 relative** - on a 100 bp spread that is
-#: sub-0.01 bp, comfortably past where a CDS is quoted - for under a millisecond. 400 was the first
-#: draft and its 9.2e-05 was fine too; the point of stating both is that the oracle asserts the
-#: *resolution*, so the number is defensible rather than inherited.
-_DEFAULT_STEPS = 2000
+#: Against a 200,000-per-segment reference on the term-structured fixture: 1.0e-07 at 50,
+#: 6.3e-09 at 200, 1.0e-09 at 500, 6.3e-11 at 2000 — clean second order, 4x per 2x refinement.
+#: Cost at 2000 is 2.5 ms for a three-segment curve.
+#:
+#: 2000 is committed, and the reason is not accuracy alone: on a **flat** hazard there are no
+#: interior pillars, so one segment of 2000 points is bit-for-bit the quadrature v0.45.0 shipped —
+#: which keeps that version's published closed-form figure (+5.672e-10) exactly reproducible while
+#: the term-structured case improves from 1.8e-05 to 6.3e-11. 500 would cost a quarter as much for
+#: 1.0e-09, which is also ample; the point of stating the table is that the choice is defensible
+#: rather than inherited.
+_DEFAULT_PER_SEGMENT = 2000
 
 
 def _live_periods(product: CreditDefaultSwap, valuation_date):
@@ -85,63 +90,41 @@ def risky_pv01(product: CreditDefaultSwap, model: CreditModel) -> float:
     """
     market = model.market
     currency = product.notional.currency
-    discount = market.curves.discount(currency)
-    survival = model.survival(currency)
-
-    total = 0.0
-    for start, pay, accrual in _live_periods(product, market.valuation_date):
-        # No clamp here: a period straddling the valuation date gives a negative start, and
-        # `SurvivalCurve.cumulative_hazard` already returns 0 for t <= 0, so Q(t<0) is
-        # exactly 1. A second `max(., 0)` was a duplicated guard (§4/T30) - proved
-        # bit-identical over 399 negative times - and the clamp belongs to the curve,
-        # where tests/L1/test_survival_curve.py reaches it directly.
-        start_years = discount.time_measure.year_fraction(start)
-        pay_years = discount.time_measure.year_fraction(pay)
-        total += (
-            0.5
-            * accrual
-            * discount.df_at(pay_years)
-            * (survival.survival(start_years) + survival.survival(pay_years))
-        )
-    return total
+    return legs.risky_pv01(
+        _live_periods(product, market.valuation_date),
+        market.curves.discount(currency),
+        model.survival(currency))
 
 
 def protection_leg(
-    product: CreditDefaultSwap, model: CreditModel, steps: int = _DEFAULT_STEPS
+    product: CreditDefaultSwap, model: CreditModel, per_segment: int = _DEFAULT_PER_SEGMENT
 ) -> float:
-    """`(1-R) * integral_0^T Z(t) lambda(t) Q(t) dt` times the notional, by trapezoid.
+    """`(1−R) ∫₀ᵀ Z(t)λ(t)Q(t)dt` times the notional — the ONE shared L1 functional.
 
-    The integrand is `Z * (default density)`, and `SurvivalCurve.default_density` is tranche 25's -
-    so the *same* function supplies both this leg and the CVA integral it is checked against, which
-    is what makes the cross-arc oracle a check on the composition rather than on the density.
+    The engine integrated this itself until tranche 39, pointwise in `default_density` on a uniform
+    grid. That loses an order at every hazard pillar, where `λQ` jumps, and sat 1.846e-05 below the
+    truth on a term-structured curve; the shared functional reads the hazard once per pillar
+    segment, which is exact between pillars and second order. Adopting it moved a shipped number
+    **toward** an independent reference — a ruled correctness fix (`OPEN.md` OI-4, closed), not a
+    silent reordering — and it makes this the single formula the engine and the bootstrap share,
+    so a bootstrapped curve now reprices its own calibrating CDS to zero through the engine
+    (`docs/conventions_register.md` C11, guarded).
     """
-    if steps < 1:
-        raise ValueError(f"the protection leg needs at least one step, got {steps}")
     market = model.market
     currency = product.notional.currency
     discount = market.curves.discount(currency)
-    survival = model.survival(currency)
 
     periods = _live_periods(product, market.valuation_date)
     if not periods:
         return 0.0
     horizon = discount.time_measure.year_fraction(periods[-1][1])
-    if horizon <= 0.0:
-        return 0.0
-
-    step = horizon / steps
-    area = 0.0
-    previous = discount.df_at(0.0) * survival.default_density(0.0)
-    for index in range(1, steps + 1):
-        t = step * index
-        current = discount.df_at(t) * survival.default_density(t)
-        area += 0.5 * (previous + current) * step
-        previous = current
-    return (1.0 - model.recovery) * area * product.notional.amount
+    return legs.protection_leg(
+        discount, model.survival(currency), model.recovery, horizon, per_segment
+    ) * product.notional.amount
 
 
 def riemann_bracket(
-    product: CreditDefaultSwap, model: CreditModel, steps: int = _DEFAULT_STEPS
+    product: CreditDefaultSwap, model: CreditModel, per_segment: int = _DEFAULT_PER_SEGMENT
 ) -> tuple[float, float]:
     """O'Kane's explicit lower and upper Riemann sums for the protection leg.
 
@@ -160,20 +143,28 @@ def riemann_bracket(
     if not periods:
         return 0.0, 0.0
     horizon = discount.time_measure.year_fraction(periods[-1][1])
-    step = horizon / steps
+    if horizon <= 0.0:
+        return 0.0, 0.0
     scale = (1.0 - model.recovery) * product.notional.amount
 
+    # The SAME breaks as the trapezoid it brackets. On a uniform grid these sums would bracket a
+    # different integral, because `λQ` jumps at a pillar and a cell straddling one is bounded by
+    # neither of its endpoints.
     left = right = 0.0
-    for index in range(steps):
-        a, b = step * index, step * (index + 1)
-        left += discount.df_at(a) * survival.default_density(a) * step
-        right += discount.df_at(b) * survival.default_density(b) * step
+    for lo, hi in zip(segment_breaks := legs.segment_breaks(survival, horizon),
+                      segment_breaks[1:]):
+        hazard = survival.hazard(0.5 * (lo + hi))
+        step = (hi - lo) / per_segment
+        for index in range(per_segment):
+            a_t, b_t = lo + step * index, lo + step * (index + 1)
+            left += discount.df_at(a_t) * survival.survival(a_t) * step * hazard
+            right += discount.df_at(b_t) * survival.survival(b_t) * step * hazard
     first, second = scale * left, scale * right
     return min(first, second), max(first, second)
 
 
 def par_spread(
-    product: CreditDefaultSwap, model: CreditModel, steps: int = _DEFAULT_STEPS
+    product: CreditDefaultSwap, model: CreditModel, per_segment: int = _DEFAULT_PER_SEGMENT
 ) -> float:
     """`S_par = Protection / (RPV01 * notional)` - the spread making the contract worth zero.
 
@@ -184,7 +175,7 @@ def par_spread(
     annuity = risky_pv01(product, model)
     if annuity <= 0.0:
         raise ValueError("a par spread needs a positive risky annuity; the contract has no premium legs")
-    return protection_leg(product, model, steps) / (annuity * product.notional.amount)
+    return protection_leg(product, model, per_segment) / (annuity * product.notional.amount)
 
 
 @register(CreditDefaultSwap, CreditModel)
