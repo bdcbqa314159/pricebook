@@ -93,6 +93,13 @@ def _spot_cds(end_years: float, spread: float) -> CreditDefaultSwap:
         ProtectionDirection.BUYER)
 
 
+def _spot_cds_with(
+    end_years: float, spread: float, direction: ProtectionDirection
+) -> CreditDefaultSwap:
+    return CreditDefaultSwap(
+        CouponSchedule(_dates(0.0, end_years), DC), spread, NOTIONAL, direction)
+
+
 def _forward_cds(spread: float, expiry: date = EXPIRY) -> ForwardCDS:
     return ForwardCDS(
         CouponSchedule(FULL_DATES, DC), expiry, spread, NOTIONAL, ProtectionDirection.BUYER)
@@ -151,14 +158,21 @@ STRIKE = 0.0180
 class TestTheForwardCdsAgainstTheSpotEngine:
     """The anchor: a cross-product identity with different code on each side."""
 
+    @pytest.mark.parametrize("direction", list(ProtectionDirection))
     @pytest.mark.parametrize("spread", [0.0150, 0.0229148072, 0.0300])
-    def test_the_forward_cds_IS_the_difference_of_two_spot_cds(self, spread: float) -> None:
+    def test_the_forward_cds_IS_the_difference_of_two_spot_cds(
+        self, spread: float, direction: ProtectionDirection) -> None:
+        """Parametrised over the direction as well as the spread, so this is also the second
+        independent killer for the `omega` factor — a mutation dropping it was caught by exactly
+        one test (the buyer/seller symmetry) until the anchor itself covered both sides."""
         model = _credit()
-        far = price(_spot_cds(MATURITY_YEARS, spread), model)
-        near = price(_spot_cds(EXPIRY_YEARS, spread), model)
+        far = price(_spot_cds_with(MATURITY_YEARS, spread, direction), model)
+        near = price(_spot_cds_with(EXPIRY_YEARS, spread, direction), model)
         assert isinstance(far, PricingResult) and isinstance(near, PricingResult)
         want = far.pv.amount - near.pv.amount
-        got = price(_forward_cds(spread), model)
+        got = price(
+            ForwardCDS(CouponSchedule(FULL_DATES, DC), EXPIRY, spread, NOTIONAL, direction),
+            model)
         assert isinstance(got, PricingResult)
         assert got.pv.amount == pytest.approx(want, rel=1e-12, abs=1e-06), (got.pv.amount, want)
 
@@ -350,6 +364,34 @@ class TestTheDefaultSwaption:
         got = price(_swaption(STRIKE, SwaptionDirection.PAYER), _swaption_model())
         assert got.pv.amount == pytest.approx(want, rel=1e-12), (got.pv.amount, want)
 
+    def test_the_ATM_value_matches_BLACKS_ASYMPTOTIC_which_pins_the_TOTAL_VARIANCE(
+        self) -> None:
+        """A second killer for the total variance, independent of the pointwise transcription.
+
+        At the money Black's bracket is `F·σ√t/√(2π) + O(σ³t^{3/2})`, so
+        `price/(annuity·N·F) → σ√tE/√(2π)` — **linear in `σ√t`**, which separates `σ²tE` from the
+        two plausible slips at `tE = 2`: using `σ²` alone reads `1/√2 = 0.707×` the asymptotic,
+        and using `σ·tE` reads `4.98×`. Both were killed by exactly one test (the transcription)
+        before this existed.
+
+        Asserted as a **rate**, since the asymptotic is only a limit: the relative error is
+        measured at 3.3e-05, 1.3e-04 and 5.3e-04 for σ = 0.02, 0.04, 0.08 — exactly quadratic in
+        σ, 4.0× per doubling, which a wrong variance cannot imitate."""
+        forward, annuity = _par_forward()
+        expiry_years = (EXPIRY - VAL).days / 365.0
+        scale = annuity * NOTIONAL.amount * forward
+        errors = []
+        for volatility in (0.02, 0.04, 0.08):
+            at_the_money = CreditDefaultSwaption(
+                CouponSchedule(FULL_DATES, DC), EXPIRY, forward, NOTIONAL,
+                SwaptionDirection.PAYER)
+            got = price(at_the_money, _swaption_model(volatility)).pv.amount / scale
+            want = volatility * math.sqrt(expiry_years) / math.sqrt(2.0 * math.pi)
+            errors.append(abs(got / want - 1.0))
+        assert errors[0] < 1e-04, errors
+        for coarse, fine in zip(errors[1:], errors):
+            assert 3.8 < coarse / fine < 4.2, f"quadratic in sigma: {errors}"
+
     def test_both_swaption_values_are_NON_NEGATIVE(self) -> None:
         for direction in SwaptionDirection:
             got = price(_swaption(STRIKE, direction), _swaption_model())
@@ -382,6 +424,15 @@ class TestTheGuardsAreReachable:
         with pytest.raises(ValueError, match="strike"):
             CreditDefaultSwaption(CouponSchedule(FULL_DATES, DC), EXPIRY, 0.0, NOTIONAL,
                                   SwaptionDirection.PAYER)
+
+    def test_a_PAR_SPREAD_on_a_ZERO_annuity_is_refused(self) -> None:
+        """`CdsLegs.par_spread` divides by the annuity, and the `tF → t` reduction constructs
+        exactly the degenerate leg (`CdsLegs(0.0, 0.0)`) — so the guard is reachable and a
+        mutation dropping it survived until this existed. Nothing in `src/` calls the property
+        (the engine composes `forward_spread` directly); it is how the suite states eq 9.2's
+        printed form, which is why it is kept rather than deleted."""
+        with pytest.raises(ValueError, match="positive risky annuity"):
+            CdsLegs(annuity=0.0, protection=0.0).par_spread
 
     def test_a_NON_POSITIVE_forward_annuity_is_refused(self) -> None:
         """`S(t,tF,T)` divides by it, so a degenerate forward window must fail, not return inf."""
