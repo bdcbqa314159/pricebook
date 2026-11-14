@@ -90,7 +90,12 @@ def risky_pv01(product: CreditDefaultSwap, model: CreditModel) -> float:
 
     total = 0.0
     for start, pay, accrual in _live_periods(product, market.valuation_date):
-        start_years = max(discount.time_measure.year_fraction(start), 0.0)
+        # No clamp here: a period straddling the valuation date gives a negative start, and
+        # `SurvivalCurve.cumulative_hazard` already returns 0 for t <= 0, so Q(t<0) is
+        # exactly 1. A second `max(., 0)` was a duplicated guard (§4/T30) - proved
+        # bit-identical over 399 negative times - and the clamp belongs to the curve,
+        # where tests/L1/test_survival_curve.py reaches it directly.
+        start_years = discount.time_measure.year_fraction(start)
         pay_years = discount.time_measure.year_fraction(pay)
         total += (
             0.5

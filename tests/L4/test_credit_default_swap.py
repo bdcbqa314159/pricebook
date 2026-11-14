@@ -51,6 +51,9 @@ SPREAD = 0.01
 #: NON-UNIT and UNEQUAL accruals (182/183-day periods), and a NON-FLAT discount curve: the τ=1
 #: history designed out from the start rather than remediated at a later re-audit.
 SEMI_DATES = tuple(VAL + timedelta(days=d) for d in (0, 182, 365, 547, 730, 912, 1095))
+#: A MID-PERIOD trade: the first period starts 90 days BEFORE valuation, so `t_start < 0`. The
+#: aligned fixture above cannot see the negative-time branch at all (§4 degenerate fixture).
+STRADDLING_DATES = tuple(VAL + timedelta(days=d) for d in (-90, 92, 275, 457, 640, 822, 1005))
 ANNUAL_DATES = tuple(VAL + timedelta(days=365 * k) for k in range(6))
 #: TERM-STRUCTURED hazard, read beyond its last pillar at the 3y maturity.
 TERM_HAZARD = SurvivalCurve(TM, (0.0, 1.0, 2.0), (0.010, 0.022, 0.040))
@@ -167,6 +170,95 @@ class TestTheProtectionLegIsTheCvaIntegral:
 
         gaps = [gap(n) for n in (40, 160, 640)]
         assert all(b < a for a, b in zip(gaps, gaps[1:])), gaps
+
+
+class TestTheRiskyAnnuityIsTranscribedPointwise:
+    """Eq 6.4 pointwise, not only by its properties.
+
+    The properties below (positive, decreasing in the hazard, linear in the spread) are a
+    *complete* set of assertions about the wrong aspect: they are blind to the accrual-on-default
+    term, because `(Q(tₙ₋₁) + Q(tₙ))` and `2Q(tₙ)` are both positive and both decreasing. A
+    mutation replacing the first with the second survived the whole suite, which is §4's
+    presence-and-sign-but-not-magnitude trap. So eq 6.4 is transcribed here term by term, with its
+    survivals summed from the hazard pillars rather than read back from `SurvivalCurve`.
+    """
+
+    @staticmethod
+    def _ref_survival(curve: SurvivalCurve, t: float) -> float:
+        """`exp(−∫₀ᵗλ)` with the integral summed segment by segment, independently of the curve."""
+        if t <= 0.0:
+            return 1.0
+        total = 0.0
+        for i, hazard in enumerate(curve.hazards):
+            start = curve.times[i]
+            if t <= start:
+                break
+            end = curve.times[i + 1] if i + 1 < len(curve.times) else float("inf")
+            total += hazard * (min(t, end) - start)
+        return math.exp(-total)
+
+    def _ref_rpv01(self, dates: tuple, curve: SurvivalCurve, disc: DiscountCurve) -> float:
+        """`½ Σₙ Δₙ Z(tₙ) (Q(tₙ₋₁) + Q(tₙ))` — O'Kane eq 6.4, per unit notional."""
+        total = 0.0
+        for start, pay in zip(dates, dates[1:]):
+            if pay <= VAL:
+                continue
+            accrual = (pay - start).days / 365.0
+            t_start = (start - VAL).days / 365.0
+            t_pay = (pay - VAL).days / 365.0
+            total += 0.5 * accrual * disc.df_at(t_pay) * (
+                self._ref_survival(curve, t_start) + self._ref_survival(curve, t_pay))
+        return total
+
+    def test_the_fixture_SEPARATES_the_two_survivals(self) -> None:
+        """The premise: `Q(tₙ₋₁) ≠ Q(tₙ)` materially, or the transcription cannot see the term."""
+        gaps = [abs(TERM_HAZARD.survival((s - VAL).days / 365.0)
+                    - TERM_HAZARD.survival((p - VAL).days / 365.0))
+                for s, p in zip(SEMI_DATES, SEMI_DATES[1:])]
+        assert min(gaps) > 0.004, f"the period survivals must differ to pin the term: {gaps}"
+
+    def test_the_risky_annuity_matches_the_INDEPENDENT_transcription(self) -> None:
+        from pricebook.engine.credit_default_swap import risky_pv01
+
+        got = risky_pv01(_cds(), _model())
+        want = self._ref_rpv01(SEMI_DATES, TERM_HAZARD, SLOPED)
+        assert got == pytest.approx(want, rel=1e-13), f"{got} vs {want}"
+
+    def test_a_STRADDLING_first_period_matches_too_negative_start_times(self) -> None:
+        """A mid-period trade: the first period starts BEFORE valuation, so `t_start < 0`.
+
+        The aligned fixture starts exactly at `VAL`, which hides the negative-time branch
+        entirely — a §4 degenerate fixture. `Q(t<0) = 1` by the curve's own clamp, and this is
+        what exercises it through the engine."""
+        from pricebook.engine.credit_default_swap import risky_pv01
+
+        assert (STRADDLING_DATES[0] - VAL).days < 0, "the premise: the first period must straddle"
+        product = _cds(dates=STRADDLING_DATES)
+        got = risky_pv01(product, _model())
+        want = self._ref_rpv01(STRADDLING_DATES, TERM_HAZARD, SLOPED)
+        assert got == pytest.approx(want, rel=1e-13), f"{got} vs {want}"
+
+    def test_THE_COMPANION_the_accrual_on_default_term_is_worth_a_MEASURED_amount(self) -> None:
+        """The mutant form is positive and decreasing in the hazard — and 0.59% wrong.
+
+        Asserting that the wrong variant satisfies the property oracles is what proves the
+        pointwise transcription necessary rather than merely additional (§4)."""
+        from pricebook.engine.credit_default_swap import risky_pv01
+
+        mutant = sum(
+            0.5 * ((p - s).days / 365.0) * SLOPED.df_at((p - VAL).days / 365.0)
+            * (2.0 * self._ref_survival(TERM_HAZARD, (p - VAL).days / 365.0))
+            for s, p in zip(SEMI_DATES, SEMI_DATES[1:]))
+        truth = risky_pv01(_cds(), _model())
+        assert mutant / truth - 1.0 == pytest.approx(-0.005853, abs=1e-5), mutant / truth - 1.0
+        # ... and it passes every property the suite asserted before this class existed:
+        assert mutant > 0.0
+        mutant_by_hazard = [
+            sum(0.5 * ((p - s).days / 365.0) * SLOPED.df_at((p - VAL).days / 365.0)
+                * (2.0 * self._ref_survival(_flat(h), (p - VAL).days / 365.0))
+                for s, p in zip(SEMI_DATES, SEMI_DATES[1:]))
+            for h in (0.005, 0.03, 0.10)]
+        assert mutant_by_hazard == sorted(mutant_by_hazard, reverse=True)
 
 
 class TestTheRequirementOracles:
