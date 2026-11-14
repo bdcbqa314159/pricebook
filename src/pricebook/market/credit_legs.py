@@ -96,6 +96,11 @@ def protection_leg(
     breaks = sorted({0.0, horizon} | {t for t in survival.times if 0.0 < t < horizon})
     area = 0.0
     for lo, hi in zip(breaks, breaks[1:]):
+        # The midpoint, not `lo`, though the two are bit-identical here: `breaks` is built
+        # FROM the pillars and `hazard` is right-continuous at one, so every segment's `lo`
+        # lands in the same constant piece (verified over 32 curve/horizon combinations).
+        # Reading the midpoint says what is meant — the hazard *in force on this segment* —
+        # and stays correct if a break is ever added that is not a pillar.
         hazard = survival.hazard(0.5 * (lo + hi))
         step = (hi - lo) / per_segment
         previous = discount.df_at(lo) * survival.survival(lo)

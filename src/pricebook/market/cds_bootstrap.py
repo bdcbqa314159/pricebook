@@ -111,7 +111,7 @@ def bootstrap_survival_curve(
                 raise ValueError(
                     f"the quote {spread:.6%} at {horizon:.4f}y needs a forward hazard above "
                     f"{_MAX_HAZARD:.0%} a year, which is past anything quotable — the strip or "
-                    f"the recovery is wrong.")
+                    f"the assumed loss given default is wrong.")
 
         hazards.append(bracketed_root(value, 0.0, upper))
         if index + 1 < len(quotes):

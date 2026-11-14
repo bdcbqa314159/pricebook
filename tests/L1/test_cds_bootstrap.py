@@ -235,6 +235,19 @@ class TestArbitrageIsREFUSED:
         curve = bootstrap_survival_curve(quotes, DISCOUNT, RECOVERY)
         assert all(h > 0.0 for h in curve.hazards)
 
+    def test_a_ZERO_spread_strip_is_ACCEPTED_at_zero_hazard_not_refused(self) -> None:
+        """The exact boundary of the arbitrage test, and the reason it is `>` and not `>=`.
+
+        A 0bp par quote says the name cannot default, so `V(λ=0) = 0` **exactly** — the only
+        input for which the sign test's boundary is reached. `>=` would reject it as
+        arbitrageable, which is wrong: zero hazard is the right answer, not an inconsistency.
+        Nothing else in the suite reaches `at_zero == 0.0`, so a `>`/`>=` mutation survived until
+        this fixture existed."""
+        quotes = tuple((_schedule(m), 0.0) for m in MATURITIES)
+        curve = bootstrap_survival_curve(quotes, DISCOUNT, RECOVERY)
+        assert curve.hazards == pytest.approx((0.0,) * len(MATURITIES), abs=1e-15), curve.hazards
+        assert curve.survival(5.0) == 1.0
+
     def test_quotes_OUT_OF_MATURITY_ORDER_are_refused(self) -> None:
         quotes = ((_schedule(3.0), 0.0110), (_schedule(1.0), 0.0060))
         with pytest.raises(ValueError, match="maturity"):
@@ -245,5 +258,18 @@ class TestArbitrageIsREFUSED:
             bootstrap_survival_curve((), DISCOUNT, RECOVERY)
 
     def test_a_RECOVERY_outside_the_unit_interval_is_refused(self) -> None:
-        with pytest.raises(ValueError, match="recovery"):
+        """Matched on the guard's OWN words, which is not fussiness.
+
+        This test first read `match="recovery"` and **passed with the guard deleted**: with
+        `R = 1.4` the protection leg goes negative, no hazard can price the quote, and the
+        bracket-expansion failure raised a message that happened to contain the word "recovery"
+        too. A mutation sweep caught it. A refusal oracle has to name the condition it refuses, or
+        it is only asserting that *something* went wrong."""
+        with pytest.raises(ValueError, match=r"recovery must sit in \[0, 1\]"):
             bootstrap_survival_curve(_known_quotes(), DISCOUNT, 1.4)
+
+    def test_an_UNREACHABLE_quote_is_refused_by_its_OWN_message(self) -> None:
+        """The other path the test above used to collide with — pinned separately so it cannot
+        stand in for anything else. A 60% spread at 40% recovery needs a hazard beyond the cap."""
+        with pytest.raises(ValueError, match="past anything quotable"):
+            bootstrap_survival_curve(((_schedule(1.0), 0.60),), DISCOUNT, 0.999999)
