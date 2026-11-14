@@ -11,6 +11,7 @@ from pricebook.engine.variance_replication import fair_variance, price_variance_
 from pricebook.engine.heston_fourier import FourierGrid, heston_call_price, heston_probabilities
 from pricebook.engine.equity_rate_hybrid import price_european_equity_option_hull_white
 from pricebook.engine.defaultable_equity import price_european_equity_option_defaultable
+from pricebook.engine.credit_default_swap import price_credit_default_swap
 from pricebook.engine.heston_mc import (
     heston_call_estimate,
     heston_forward_estimate,

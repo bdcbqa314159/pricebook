@@ -61,8 +61,7 @@ FLAT_RATE = 0.025
 def _market(curve: DiscountCurve, survival: SurvivalCurve) -> MarketSnapshot:
     return MarketSnapshot(
         valuation_date=VAL,
-        curves=CurveSet({DISCOUNT: curve}),
-        survivals={EUR: survival},
+        curves=CurveSet({DISCOUNT: curve}, survivals={EUR: survival}),
     )
 
 
@@ -206,8 +205,11 @@ class TestTheRequirementOracles:
             assert isinstance(out, PricingResult)
             return out.pv.amount
 
+        # `risky_pv01` is per unit notional, so the slope carries the notional. The first draft
+        # compared against the bare RPV01 and failed by exactly that factor — a units error in the
+        # test, not the code.
         slope = (value(0.02) - value(0.01)) / 0.01
-        assert slope == pytest.approx(-rpv01, rel=1e-12)
+        assert slope == pytest.approx(-rpv01 * NOTIONAL.amount, rel=1e-12)
 
     def test_the_SELLER_is_the_exact_negative_of_the_BUYER(self) -> None:
         model = _model()
@@ -223,7 +225,9 @@ class TestTheRequirementOracles:
         assert protection_leg(_cds(), model) == 0.0
         out = price(_cds(), model)
         assert isinstance(out, PricingResult)
-        assert out.pv.amount == pytest.approx(-SPREAD * risky_pv01(_cds(), model), rel=1e-12)
+        assert out.pv.amount == pytest.approx(
+            -SPREAD * risky_pv01(_cds(), model) * NOTIONAL.amount, rel=1e-12
+        )
 
     def test_FULL_recovery_makes_protection_worthless(self) -> None:
         from pricebook.engine.credit_default_swap import protection_leg
@@ -260,9 +264,13 @@ class TestTheDiscretisationIsMeasuredNotToleranced:
         """State what a green rules out: the committed `M` against a very fine reference."""
         from pricebook.engine.credit_default_swap import protection_leg
 
-        reference = protection_leg(_cds(), _model(), steps=20_000)
+        reference = protection_leg(_cds(), _model(), steps=200_000)
         committed = protection_leg(_cds(), _model())
-        assert abs(committed / reference - 1.0) < 1e-6
+        # Measured 2e-05 at the committed 2000 steps; asserted at 3e-05 so a real regression in the
+        # quadrature shows while second-order noise does not. The first draft claimed 1e-06 and
+        # failed at 9.4e-05 — the claim was the error, which is why the engine now states the
+        # measured table instead of a hoped-for figure.
+        assert abs(committed / reference - 1.0) < 3e-5
 
 
 class TestTheGuardsAreReachable:
@@ -285,3 +293,28 @@ class TestTheGuardsAreReachable:
         bare = MarketSnapshot(valuation_date=VAL, curves=CurveSet({DISCOUNT: SLOPED}))
         with pytest.raises(ValueError, match="survival"):
             CreditModel(bare, RECOVERY)
+
+    def test_a_survival_curve_for_ANOTHER_currency_is_a_PricingFailure(self) -> None:
+        """The accessor raises rather than defaulting to a never-defaults curve.
+
+        The empty-map refusal above cannot reach this path: a snapshot *with* a EUR curve is a
+        valid credit model, and only the USD notional makes the lookup miss. Defaulting to
+        survival = 1 would zero the protection leg and price the CDS at minus its premium — a
+        wrong number that looks plausible — so the miss must surface as a failure value (§3.4)."""
+        from pricebook.foundation import CouponSchedule
+
+        usd = Currency("USD")
+        product = CreditDefaultSwap(
+            CouponSchedule(SEMI_DATES, DC), SPREAD, Money(NOTIONAL.amount, usd),
+            ProtectionDirection.BUYER)
+        # A USD DISCOUNT curve is supplied so the discount lookup (which runs first) succeeds and
+        # the only thing missing is the USD survival curve — otherwise this test would pass while
+        # asserting nothing about the survival guard.
+        both = MarketSnapshot(
+            valuation_date=VAL,
+            curves=CurveSet(
+                {DISCOUNT: SLOPED, CurveKey(CurveRole.DISCOUNT, usd): SLOPED},
+                survivals={EUR: TERM_HAZARD}))
+        out = price(product, CreditModel(both, RECOVERY))
+        assert not isinstance(out, PricingResult)
+        assert "no survival curve for" in out.reason and "USD" in out.reason

@@ -280,7 +280,7 @@ created the drift rather than five tranches later.)*
 
 ---
 
-### `OKANE-2008` — `in-hand`
+### `OKANE-2008` — `worked-from`
 
 O'Kane, D., *Modelling Single-name and Multi-name Credit Derivatives*, Wiley Finance Series, 2008.
 ~450 pp. Held at `_stock/NewDocuments/Modelling Single-name and Multi-name Credit Derivatives …
@@ -309,8 +309,9 @@ Candidate map (ruled per-tranche at build; the arc plan is `docs/okane_credit_ar
 | 18, 20 | the recursive loss distribution, **base correlation** | the market-standard tranche machinery |
 | 4, 10–11, 19, 21–23 | bonds/asset swaps, indices + index options, implied/compound corr, copula-skew models, CPPI/CPDO/CDO², dynamic models | `to_go_deeper`; ch 23 (intensity-gamma, affine-jump) a possible `out_of_method` candidate |
 
-**Status `in-hand`** — flips to `worked-from` when the first tranche builds against it (the `references`
-gate enforces this, as it did for `BROCKHAUS-2016`).
+**Status `worked-from`** since T38 (v0.45.0): ch 3's credit triangle and ch 6's
+premium leg / risky PV01 (eqs 6.2/6.4) are built and oracled in
+`engine/credit_default_swap.py`.
 
 ---
 

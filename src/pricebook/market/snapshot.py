@@ -24,6 +24,7 @@ from datetime import date
 from pricebook.foundation.inflation import InflationIndex
 from pricebook.market.curve_set import CurveSet
 from pricebook.market.equity import EquityAsset, EquityUnderlying
+from pricebook.foundation.money import Currency
 from pricebook.market.equity_skew import ImpliedVolSkew
 from pricebook.market.fixing_series import FixingSeries
 
