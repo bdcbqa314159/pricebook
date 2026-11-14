@@ -33,6 +33,7 @@ jobs:
       - run: python verify.py provenance   # every module names its source AND its oracle
       - run: python verify.py references   # a cited key is held AND built against
       - run: python verify.py version      # __version__ == the top CHANGELOG entry
+      - run: python verify.py gates        # this charter's gate list == the invocations below
       - run: ruff check src/pricebook      # PLR0913 (max-args=5) + SLF001 (private access)
       - run: npx -y pyright@1.1.411        # pinned: a pyright bump surfaces new diagnostics
 

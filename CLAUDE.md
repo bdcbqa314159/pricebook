@@ -555,7 +555,7 @@ unconditionally only for the fraction.)*
 ## 9. Gates, branches, flow
 
 - **`verify.py`**: `acyclic` · `layers` · `fields` · `debt` · `version` · `provenance` ·
-  `references` · `slow` · `tests` (floored). CI runs ubuntu + windows, Python 3.12. Tolerance-based oracles are a hard rule
+  `references` · `gates` · `slow` · `tests` (floored). CI runs ubuntu + windows, Python 3.12. Tolerance-based oracles are a hard rule
   (transcendental results differ 1–2 ULP across runtimes); the byte-identical statelessness check
   is same-process only. **A timing gate's reading is only valid when measured in isolation** — running
   `slow` concurrently with the full suite or a type-checker reports contention, not run time (T19: a

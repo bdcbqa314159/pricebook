@@ -58,6 +58,21 @@ single source of truth and CI asserts it matches the top entry.
   which is how it caught `OKANE-2008` left at `in-hand` today. A gate that is not run is not a
   gate.
 
+### Added — `verify.py gates`, closing the clause this tranche ratified
+
+Charter §9 now says a gate named there "is not live until `ci.yml` invokes it… the charter's gate
+list and `ci.yml` must agree, **and the agreement is itself checked**." Nothing checked it, so the
+clause asserted a practice that did not exist — the defect §9 itself names about the merge-method
+clause. `verify.py gates` parses §9's gate list and the workflow's `verify.py` invocations and
+rejects three divergences: a gate named but never invoked (T38's actual defect), one invoked but
+never named, and — the shape a set comparison is blind to — a name the two sides **agree** on that
+`verify.py` does not implement. It is listed in §9 and invoked in `ci.yml`, so it covers itself.
+Statically decidable, which is what makes it gateable where T37's τ=1 fixture guard was not.
+
+Seeded-drift tests in `tests/tooling/test_gates_gate.py` (the T26b references-gate pattern):
+removing the `references` line from a copy of the real workflow reproduces the T38 defect and the
+gate rejects it. Five mutations of the gate, all killed.
+
 ### Mutation sweep
 
 18 mutants, full suite each, no `-x`. Two first-pass survivors, both test gaps and no `src/`
