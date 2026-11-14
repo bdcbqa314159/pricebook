@@ -303,6 +303,17 @@ class TestTheRequirementOracles:
         slope = (value(0.02) - value(0.01)) / 0.01
         assert slope == pytest.approx(-rpv01 * NOTIONAL.amount, rel=1e-12)
 
+    def test_FREE_protection_is_worth_a_POSITIVE_amount_to_the_BUYER_only(self) -> None:
+        """A second, independent killer for the direction factor.
+
+        The exact-negative identity below is symmetric in `omega`, so a mutation that drops the
+        factor entirely leaves `buyer == seller` and only that one test notices. At zero spread
+        the buyer receives protection for nothing, so the SIGNS are forced and asymmetric."""
+        buyer = price(_cds(spread=0.0, direction=ProtectionDirection.BUYER), _model())
+        seller = price(_cds(spread=0.0, direction=ProtectionDirection.SELLER), _model())
+        assert buyer.pv.amount > 0.0, buyer.pv.amount
+        assert seller.pv.amount < 0.0, seller.pv.amount
+
     def test_the_SELLER_is_the_exact_negative_of_the_BUYER(self) -> None:
         model = _model()
         buyer = price(_cds(), model)
@@ -325,6 +336,54 @@ class TestTheRequirementOracles:
         from pricebook.engine.credit_default_swap import protection_leg
 
         assert protection_leg(_cds(), _model(recovery=1.0)) == 0.0
+
+
+class TestTheProtectionLegAgainstItsClosedForm:
+    """Rung 1. Under a FLAT hazard and FLAT rates the integral is elementary:
+
+        (1-R) ∫₀ᵀ e^{-rt} λe^{-λt} dt = (1-R) λ (1 - e^{-(r+λ)T}) / (r+λ)
+
+    The leg previously had only a Riemann bracket and the cross-arc CVA check — both rung 2/3, and
+    both built from the same trapezoid shape, which is why a right-Riemann mutation of the
+    quadrature was killed by exactly one test. A closed form is independent of the quadrature
+    rule, so it separates them by a factor of ~7e4 at the committed step count.
+    """
+
+    LAMBDA = 0.03
+    RATE = 0.025
+
+    def _flat_model(self) -> CreditModel:
+        market = MarketSnapshot(
+            valuation_date=VAL,
+            curves=CurveSet(
+                {DISCOUNT: DiscountCurve.flat(VAL, self.RATE, DC)},
+                survivals={EUR: SurvivalCurve.flat(VAL, self.LAMBDA, DC)}))
+        return CreditModel(market, RECOVERY)
+
+    def _exact(self) -> float:
+        horizon = (SEMI_DATES[-1] - VAL).days / 365.0
+        decay = self.RATE + self.LAMBDA
+        return ((1.0 - RECOVERY) * self.LAMBDA * (1.0 - math.exp(-decay * horizon)) / decay
+                * NOTIONAL.amount)
+
+    def test_the_protection_leg_matches_the_CLOSED_FORM(self) -> None:
+        from pricebook.engine.credit_default_swap import protection_leg
+
+        got = protection_leg(_cds(), self._flat_model())
+        want = self._exact()
+        # 5.7e-10 measured at the committed 2000 steps; the band is the measured error with room,
+        # not a guess. A right-Riemann rule reads 4.1e-05 here, so this resolves it 4000x over.
+        assert got == pytest.approx(want, rel=1e-8), f"{got} vs {want}"
+
+    def test_the_quadrature_is_SECOND_ORDER_against_the_closed_form(self) -> None:
+        """The rate, not just the value: an O(1/M) rule cannot fake an O(1/M²) slope."""
+        from pricebook.engine.credit_default_swap import protection_leg
+
+        model, want = self._flat_model(), self._exact()
+        errors = [abs(protection_leg(_cds(), model, steps) / want - 1.0)
+                  for steps in (200, 400, 800)]
+        for coarse, fine in zip(errors, errors[1:]):
+            assert 3.5 < coarse / fine < 4.5, f"second order means ~4x per halving: {errors}"
 
 
 class TestTheDiscretisationIsMeasuredNotToleranced:
