@@ -100,4 +100,63 @@ oracled by marginal recovery + the exact limits + the Φ₂/integral cross-check
 
 ---
 
-## 5. Cowork's ruling on T41 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T41 — PR #55 (§10 step 4, 2026-11-14)
+
+Accepted — v0.48.0, 1598 green, ten gates. The first multi-name model is in; the marginal recovery and
+the three exact limits hold, and two pre-existing L0 defects a new consumer surfaced are fixed.
+
+**`CreditName(beta, survival)` bundled for CORRECTNESS, not the field count — ratified, and the reasoning
+is the sharp part.** Three loose fields were legal; pairing them makes a **mis-pairing unrepresentable**,
+which is the index bug the distinct-β/distinct-Q premises exist to catch — turning a runtime oracle into
+a structural impossibility. That is §6 bundling at its best (vocabulary that removes a failure mode), one
+better than meeting a limit.
+
+**Two pre-existing L0 defects, both fixed — ratified, and both are the re-audit's job done early by a
+consumer.** (1) `foundation/quadrature.py` returned **0.0** (every weight underflowed) at ≥371 nodes —
+a finite, plausible, 100%-wrong number where §3.4 demands a failure; the guard asserts the module's
+**own** invariant `Σwᵢ=1` rather than a magic 371, which is the right shape (it tracks the real cliff,
+not a constant). Surfaced because T41 wanted 256 nodes — one refinement from the edge. (2) The unit-β
+marginal was 18% wrong because at `|β|=1` the conditional probability is a **step** and Gauss-Hermite
+cannot integrate a discontinuity (non-monotone, never right) — taken analytically now. This is the §4
+reduction-anchor-blind-spot (T39) in a new guise: the `ρ=±1` limit the model *invites* is exactly where
+the integrand degenerates, so a silent 18% error sat in a natural case until the step was handled in
+closed form.
+
+**Two of my spec's premises did not survive measurement — owned, Code's corrections ratified.**
+1. **Φ₂ is the ACCURATE side at high ρ; my spec had it reversed.** I wrote that Φ₂ degrades near `|ρ|→1`
+   and the market-factor integral is the reference there. False: Φ₂ (Plackett) is **exact at ρ=±1 by
+   construction** and 8.9e-16 at ρ=0.98, while the **integral** is 1.8e-02 out at 64 nodes — because the
+   conditional probabilities become near-steps as `β→1` (the *same* fact as defect 2). T36b's `|ρ|≤0.99`
+   regime is about **deep-tail small values**, a different axis I conflated with high ρ. So Φ₂ is the
+   reference across ρ, and the market-factor integral is the thing checked (and known to degrade near the
+   step limit). My error, caught by measurement — the two-surface split working.
+2. **The ρ=−1 reduction is vacuous unless `p_i+p_j>1`** (`max(1−Q_i−Q_j,0)=0` otherwise) — a degenerate-
+   fixture premise I should have specified; Code asserted high hazards so the max is live. Ratified. (And
+   Code caught its own over-specific draft pinning a non-monotone convergence true at only one fixture —
+   good, that would have pinned an accident.)
+
+**The sweep's one survivor and the invariance observation — ratified, no charter line.** The survivor
+(swapping Φ₂'s first two arguments) is a **proved equivalent mutant**: `Φ₂(a,b;ρ)=Φ₂(b,a;ρ)` is a true
+identity (bivariate-normal symmetry), so the swap is ℝ-exact to ≤2 ULP — the existing §4 equivalent-mutant
+rule, proved. Code's framing — *asserting an invariance creates an equivalent-mutant class under it* — is
+a useful lens and correct, but it **is** the equivalent-mutant rule (a symmetry-respecting mutation is
+provably equivalent), so no new line; flagged for recurrence, agreed.
+
+**The Ask — RULED: survival curves re-key by a credit reference entity, as prep tranche T41b before
+T42.** The real §3 tension Code names: `CurveSet.survivals` is keyed by **`Currency`**, so a multi-name
+portfolio (N names, one currency) is **not representable in the snapshot** — harmless at T41 (no engine,
+§3 binds engines) but a genuine violation once T42's basket engine reaches per-name curves that live on
+the model instead of `model.market`. The currency-keying was always a single-name simplification (a CDS
+has a currency *and* a reference entity — the discount curve is the currency's, the survival curve is the
+*entity's*). The fix is **already modelled in the tree**: `equities` is keyed by `EquityAsset(ticker)`.
+So: introduce a `ReferenceEntity` identifier (mirroring `EquityAsset`), key `survivals` by it, give
+`CreditDefaultSwap` (and `CreditName`) an explicit entity, and update T38–T40's lookup. **As its own
+prep tranche T41b** (not folded into T42) because it re-keys the snapshot and touches three shipped
+tranches — the T33b precedent (infrastructure before the products multiply the consumers). The single-name
+re-key must be a **§4 pure refactor, bit-identical** (same curve, new key). Spec: `docs/tranches/41b_reference_entity_keying.md`.
+
+**No charter edit** — the L0 fixes are §3.4/§4 applied, the two spec errors my imprecision caught by the
+build, the invariance survivor the existing equivalent-mutant rule.
+
+**Next:** **T41b** (re-key survival by `ReferenceEntity`), then T42 (first-to-default basket) — both
+mine; T41b is specced. **Mark #55 ready (step 6) → Bernardo merges.**
