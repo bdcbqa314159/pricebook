@@ -195,3 +195,20 @@ oracle-able routes recorded as the arc ran:
    guard is single-point and a single fixture suffices — rule-of-two is well past its trigger (§6).
    **Do it at the next touch of the dividend/forward code** (likely T32's local-vol or a later equity
    tranche), not a tranche of its own. Oracle-able trivially (the extraction is a pure refactor, §4).
+
+---
+
+## Tooling — the τ=1 accrual-fixture guard (declined at T37, 2026-11-14)
+
+A CI guard that would flag an accrual-bearing test fixture whose accruals are all unit (`τ=1`), to catch
+a *future* annual-dates fixture at commit rather than at a re-audit. **Assessed and declined at T37**, not
+deferred for lack of interest: both prototypes were built and tested. A **textual** scan (annual date
+arithmetic) false-flags `test_inflation_capfloor.py`, whose accrual is killed by two tests — it cannot
+see load-bearing-ness. A **behavioural** instrument of `CouponSchedule.periods()` is clean on discovery
+but, as a gate, flags 7 of 14 modules with zero real holes (four — `index_ratio`, `jy_calibration`,
+`jy_full_calibration`, `seasoned` — have no accrual multiplication in their subject code at all). The
+missing half — *does the subject code use the accrual?* — is a dynamic property only mutation testing
+answers, which is the periodic re-audit's job (§9, now carrying the gateability boundary). **Route to
+revive:** a static type/effect marker on accrual-consuming code that a gate could read without running
+it (none exists today). Until then the periodic sweep + §4's premise rule are the backstop — they caught
+all three `τ=1` instances (F-1.2, F-3.1, F-3.2).

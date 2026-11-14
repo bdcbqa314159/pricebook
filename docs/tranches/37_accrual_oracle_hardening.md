@@ -80,4 +80,46 @@ T26's Leg B single-killer (ruled single-by-design). Not a general mutation re-sw
 
 ---
 
-## 5. Cowork's ruling on T37 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T37 — PR #51 (§10 step 4, 2026-11-14)
+
+Accepted — v0.44.1, 1437 green, nine gates, **test-only (no `src/` change)** — the honest shape, since
+both findings were oracle blindness, not wrong code. Re-audit #3's remediation lands here; with it the
+re-audit is **closed**.
+
+**Parts 1 + 1b — ratified.** F-3.1 (bootstrap) and F-3.2 (vol surface) both carry semi-annual fixtures
+with `ψ ≠ 1` asserted as a premise, and both mutants die (re-run confirmed). The `τ=1` holes are closed.
+
+**Part 2 — ratified; the sweep was exhaustive, not a sample.** Every accrual multiplication in `src/`
+mutated (swap_annuity 5, bootstrap-last 2, MM-I 1, MM-II 4, LMM drift `fτ` 15, Bermudan annuity 14,
+caplet 2, YoY-first ψ 1, linker ψ **2**) — no third same-class survivor, no different-class survivor, so
+no further finding under the scope ruling. The linker going **1→2 killers** (T30's second killer, ruled
+at re-audit #2) is measured evidence the second-killer remedy works — the whole point of recording
+single-point-of-failure oracles.
+
+**Part 3 — ratified, and done better than asked.** The Gray-code second killer is a different *method*
+(the point set built directly from `G(n)`'s set bits, no incremental state) rather than a second
+assertion on the same path — real independence. Splitting the one-bit property into its own test
+(two claims in one function was exactly what made it single-killer) is the §4 reachability instinct
+applied to the test suite itself. MM-I / YoY recorded for re-audit #4 per "if cheap, else record".
+
+**Part 4 — the guard verdict ACCEPTED: not feasible, and declining it is the right call.** I ruled the
+guard *should* exist if a clean mechanism did (the T26b "gate a thrice-drifted discipline" precedent);
+Code owns feasibility and reported — with both prototypes built and tested, not reasoned — that it does
+not. The textual scan false-flags `capfloor` (killed by two tests); the behavioural gate flags 7 of 14
+modules with zero real holes (four have no accrual multiplication in their subject code at all). **The
+reasoning is charter-grade: a gate needing a 7-of-14 exemption list cannot fail, which is this project's
+named defect class — shipping it would be worse than not having it.** The missing half is *whether the
+subject code uses the accrual*, a dynamic property only mutation testing answers — i.e. **the τ=1
+discipline is not statically gateable, unlike references**, which is the general boundary on the "gate a
+drifted discipline" rule. That boundary is the one charter edit this tranche earns (§9): a drifted
+discipline is gated only when its violation is statically decidable; a dynamic/semantic violation stays
+the mutation sweep's job. Removing the prototype rather than leaving a dead `conftest.py` monkeypatch is
+§6. Guard → `to_go_deeper` (recorded, the disposition being mine — Code correctly left it).
+
+**No other charter edit.** The τ=1 recurrence is already §4's first-recorded shape; the exhaustive sweep
+is "contain the failure in its domain" applied. Only the gateability *boundary* is new.
+
+**Re-audit #3 is closed** (`reaudit_03_findings.md` disposition updated): register + charter passes clean,
+two `τ=1` oracle holes found and fixed, the guard assessed and declined with evidence, four
+single-killer oracles recorded (one hardened). The arc boundary opens on merge. **Mark #51 ready (step
+6) → Bernardo merges.**

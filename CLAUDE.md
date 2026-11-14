@@ -573,7 +573,17 @@ unconditionally only for the fraction.)*
   every push and catch *structural* drift (layering, fields, debt balance, provenance), so the
   re-audit targets only what they cannot: **(1) oracle power** — a full-tree mutation sweep, because
   mutation is per-tranche and never re-run, so an oracle strong at T4 can be silently weakened by a
-  later refactor (the project's signature defect, applied to history). **Full-tree means the oldest
+  later refactor (the project's signature defect, applied to history). **A drifted discipline is gated
+  (§7's references precedent) only when its violation is STATICALLY decidable; when the violation is a
+  dynamic/semantic property — *is this accrual load-bearing in the path the fixture exercises?* — no CI
+  gate can see it and it stays the mutation sweep's job.** The references discipline was static (header
+  status + citations, T26b); the `τ=1` fixture degeneracy is not — a static gate for it is a *can't-fail*
+  gate, the project's own named defect. *(T37 built both candidates: a textual scan false-flagged
+  `capfloor` (killed by two tests), and a behavioural gate instrumenting `periods()` flagged 7 of 14
+  modules with zero real holes — four have no accrual multiplication in their subject code at all. A gate
+  needing a 7-of-14 exemption list cannot fail, so the guard was declined to `to_go_deeper` and the
+  periodic sweep + §4's assert-the-non-degeneracy premise stand as the backstop — which is exactly what
+  caught `τ=1`'s three instances F-1.2/F-3.1/F-3.2.)* **Full-tree means the oldest
   tranches, not the arc just built** — re-audit #1's one hole (F-1.2, T3's linker accrual, dropped
   `ψ` invisible because every fixture was `τ=1`) lived in the *oldest* instrument and was found only
   when the sweep was extended past the recent arc it was first scoped to: the signature defect

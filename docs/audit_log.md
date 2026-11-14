@@ -105,6 +105,15 @@ all-unit-accrual fixture convention, building it in T37 if a clean mechanism exi
 oracles recorded (Gray code, MM-I denominator, YoY ψ, T26 Leg B); second killers added to the thinnest.
 See `reaudit_03_findings.md`.
 
+**CLOSED (T37, v0.44.1, 2026-11-14).** Remediation landed, test-only: F-3.1 and F-3.2 fixed (semi-annual
+fixtures + `ψ≠1` premise, mutants die); the τ=1 sweep was exhaustive (every accrual multiplication in
+`src/` mutated — no third same-class and no different-class survivor); the Gray-code second killer added
+(a different method); MM-I/YoY recorded for re-audit #4. The **mechanical guard was assessed with two
+built prototypes and declined** — τ=1 load-bearing-ness is a dynamic property no static gate can see
+(7-of-14 false positives), so it stays the mutation sweep's job; charter §9 gained the gateability
+boundary, guard → `to_go_deeper`. Re-audit #3 is complete; no `src/` defect was ever present (all holes
+were blind oracles), no new debt, one charter edit (the §9 gateability boundary).
+
 **Next due:** re-arms at whichever of {next arc close, 11 tranches since **re-audit #3**} comes first.
 (The "≈ T40" in re-audit #2's note was the cadence-counter estimate; the arc-close trigger fired first,
 as it has every time — the counter has never been the firing trigger.)
