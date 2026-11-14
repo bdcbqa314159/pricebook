@@ -201,6 +201,79 @@ class TestTheForwardCdsAgainstTheSpotEngine:
         assert seller.pv.amount == pytest.approx(-buyer.pv.amount, rel=1e-14)
 
 
+class TestASEASONEDForwardWhoseStartHasPASSED:
+    """Invariant 6 on the forward path — a defect tranche 40 shipped and 41b's sweep found.
+
+    Every tranche-40 fixture begins *at* the valuation date, so no schedule had a historical
+    period and the filter that drops them had nothing to filter. On a schedule straddling the
+    valuation date, `_legs_to` summed the already-paid premiums and "discounted" them at a negative
+    `t` — factors **above 1**, compounding settled payments forward — giving an annuity of 4.81
+    against a correct 2.78, a **73% overstatement**.
+
+    The oracle is a cross-product with exact economics behind it: once the forward start has
+    passed, a forward CDS **is** a spot CDS over the remaining window, so the two must agree — and
+    they do, to 2.2e-16, with entirely different code on each side.
+    """
+
+    SEASONED = tuple(VAL + timedelta(days=round(182.5 * i)) for i in range(-4, 7))
+
+    def test_THE_PREMISE_the_schedule_really_has_HISTORICAL_periods(self) -> None:
+        schedule = CouponSchedule(self.SEASONED, DC)
+        historical = [pay for _, pay, _ in schedule.periods() if pay <= VAL]
+        assert len(historical) >= 3, historical
+        assert self.SEASONED[3] < VAL < self.SEASONED[-1], "and the split is in the past"
+
+    def test_a_SEASONED_forward_cds_IS_the_spot_cds_on_the_same_schedule(self) -> None:
+        schedule = CouponSchedule(self.SEASONED, DC)
+        spread = 0.0180
+        forward = price(
+            ForwardCDS(ForwardPeriod(schedule, self.SEASONED[3]), spread, NOTIONAL,
+                       ProtectionDirection.BUYER, ACME),
+            _credit())
+        spot = price(
+            CreditDefaultSwap(schedule, spread, NOTIONAL, ProtectionDirection.BUYER, ACME),
+            _credit())
+        assert forward.pv.amount == pytest.approx(spot.pv.amount, rel=1e-14)
+
+    def test_no_period_is_discounted_at_a_NEGATIVE_time(self) -> None:
+        """The specific thing invariant 6 forbids, asserted directly: a discount factor above 1
+        means a settled payment was compounded forward rather than dropped."""
+        forward_quote_annuity = _seasoned_annuity(self.SEASONED)
+        live_only = _seasoned_annuity(self.SEASONED, live_only=True)
+        assert forward_quote_annuity == pytest.approx(live_only, rel=1e-14)
+
+    def test_a_MATURED_forward_is_PV_ZERO_invariant_6(self) -> None:
+        """`ForwardPeriod.maturity` drives this check, and a mutation returning the *split*
+        instead of the end survived until this existed — it would have reported PV 0 for a live
+        seasoned contract."""
+        past = tuple(VAL - timedelta(days=round(182.5 * i)) for i in range(6, 0, -1))
+        schedule = CouponSchedule(past, DC)
+        out = price(
+            ForwardCDS(ForwardPeriod(schedule, past[2]), 0.0180, NOTIONAL,
+                       ProtectionDirection.BUYER, ACME),
+            _credit())
+        assert isinstance(out, PricingResult), out
+        assert out.pv.amount == 0.0
+
+
+def _seasoned_annuity(dates: tuple, live_only: bool = False) -> float:
+    """The far annuity the engine builds, and the same thing computed here from live periods."""
+    from pricebook.market.credit_legs import risky_pv01
+
+    model = _credit()
+    discount = model.market.curves.discount(EUR)
+    periods = CouponSchedule(dates, DC).periods()
+    if live_only:
+        periods = tuple(p for p in periods if p[1] > VAL)
+        return risky_pv01(periods, discount, model.survival(ACME))
+    from pricebook.engine.forward_cds import forward_quote
+
+    product = ForwardCDS(
+        ForwardPeriod(CouponSchedule(dates, DC), dates[3]), 0.0180, NOTIONAL,
+        ProtectionDirection.BUYER, ACME)
+    return forward_quote(product, model)[1]
+
+
 class TestTheForwardSpreadReductions:
     def test_a_FORWARD_START_at_the_first_schedule_date_reduces_to_the_SPOT_par_spread(
         self) -> None:

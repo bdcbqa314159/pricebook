@@ -51,13 +51,28 @@ from pricebook.engine.credit_default_swap import _DEFAULT_PER_SEGMENT
 
 
 def _legs_to(dates: tuple, day_count, model, product) -> legs.CdsLegs:
-    """The spot legs to `dates[-1]`, per unit notional, from the shared L1 functional."""
+    """The spot legs to `dates[-1]`, per unit notional, from the shared L1 functional.
+
+    **Historical periods are excluded here, and omitting that was a real defect.** Until tranche
+    41b this summed `schedule.periods()` whole, so a seasoned contract's already-paid premiums
+    entered the annuity and were "discounted" at a negative `t` — giving factors **above 1**, which
+    compounds a settled payment forward. On a schedule straddling the valuation date by two years
+    the annuity read 4.81 against a correct 2.78, a **73% overstatement**. Invariant 6 says a flow
+    on or before `valuation_date` is excluded and never discounted with non-positive `t`, and
+    `is_historical` is the one atom every pay-boundary site must use
+    (`docs/conventions_register.md` C10) — this site was not using it.
+
+    It was invisible because every tranche-40 fixture begins *at* the valuation date, so no
+    schedule had a historical period to drop: the filter had nothing to filter.
+    """
     discount = model.market.curves.discount(product.notional.currency)
     survival = model.survival(product.reference_entity)
     schedule = CouponSchedule(dates, day_count)
+    live = [period for period in schedule.periods()
+            if not is_historical(period[1], model.market.valuation_date)]
     horizon = discount.time_measure.year_fraction(dates[-1])
     return legs.CdsLegs(
-        annuity=legs.risky_pv01(schedule.periods(), discount, survival),
+        annuity=legs.risky_pv01(live, discount, survival),
         protection=legs.protection_leg(
             discount, survival, model.recovery, horizon, _DEFAULT_PER_SEGMENT))
 
