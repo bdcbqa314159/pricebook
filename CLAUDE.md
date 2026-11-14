@@ -573,7 +573,14 @@ unconditionally only for the fraction.)*
   it.** A gate that CI never calls cannot fail, which is the same empty-gate defect one level up from the
   §9 "a gate that can't fail" rule: it degrades to a lint someone must remember to run by hand, exactly
   the *guarded*-vs-*folklore* line §7 draws for conventions. So the charter's gate list and `ci.yml` must
-  agree, and the agreement is itself checked. *(T38: `verify.py references`, built at T26b and celebrated
+  agree, and the agreement is itself checked by **`verify.py gates`** — listed here and invoked in
+  `ci.yml`, so it covers itself — which rejects a gate named-but-never-invoked (T38's defect),
+  invoked-but-never-named, and the shape a set comparison misses: a name both sides agree on that
+  `verify.py` does not implement. *(The clause as first ruled ended "the agreement is itself checked"
+  while nothing checked it — a charter asserting a practice that did not exist, the very defect it names;
+  Code built the gate rather than soften the wording, since the violation is statically decidable and so
+  gateable by §9's own boundary. The clause and its enforcement landed in one merge, so the charter never
+  shipped the false practice.)* *(T38: `verify.py references`, built at T26b and celebrated
   in §7 as "the gate's first run caught the other two", was wired only locally and **never in CI** — it
   caught `OKANE-2008` at `in-hand` only because Code ran `verify.py all` by hand. Twelve tranches a cited
   key could have merged green. Now in `ci.yml`; the §7 boast was true of a local run, not a CI run, until
