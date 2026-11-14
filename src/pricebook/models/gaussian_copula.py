@@ -138,6 +138,15 @@ class GaussianCopula:
         8's known-curve round trip.
         """
         name = self.names[index]
+        if 1.0 - name.beta * name.beta <= 0.0:
+            # At |β| = 1 the conditional probability is an indicator in `Z`, and Gauss-Hermite
+            # **cannot integrate a step**: the nodes are fixed, so refining does not converge —
+            # measured 13%, 18%, 19%, 5% wrong at 16, 64, 256, 370 nodes, non-monotone and never
+            # right. The expectation is elementary instead: for β = +1 the event `C − Z > 0` is
+            # `Z < C`, so `E = Φ(C)`; for β = −1 it is `Z > −C`, so `E = 1 − Φ(−C) = Φ(C)`. Either
+            # way it is `Φ(C_i) = 1 − Q_i`, the marginal itself. Returning the quadrature's answer
+            # here would be a silent 18% error in a configuration the ρ = ±1 limits make natural.
+            return name.default_probability(horizon)
         return standard_normal_expectation(
             lambda z: name.conditional_default(horizon, z), nodes=nodes)
 

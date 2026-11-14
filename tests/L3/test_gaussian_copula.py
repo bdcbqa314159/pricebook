@@ -104,14 +104,19 @@ class TestTheThresholdAndTheMarginalRecovery:
             assert norm_cdf(copula.threshold(index, HORIZON)) == pytest.approx(
                 _default_probability(hazard), rel=1e-12)
 
-    def test_the_MARKET_FACTOR_INTEGRAL_recovers_the_marginal_half_b_is_the_anchor(self) -> None:
+    @pytest.mark.parametrize("index", range(len(HAZARDS)))
+    def test_the_MARKET_FACTOR_INTEGRAL_recovers_the_marginal_half_b_is_the_anchor(
+        self, index: int) -> None:
         """`E_Z[p_i(T|Z)] = 1 − Q_i(T)` — the factor model must not distort the single-name
         defaults it was calibrated to. A different computation from the threshold, so a sign or a
-        weight error in `p_i(T|Z)` cannot cancel."""
+        weight error in `p_i(T|Z)` cannot cancel.
+
+        Parametrised per name rather than looped, so a mutation that integrates **name 0 for every
+        index** fails two cases instead of one: a single looping test is one deletion away from
+        reopening the hole (§9's single-point-of-failure flag)."""
         copula = _copula()
-        for index, hazard in enumerate(HAZARDS):
-            assert copula.marginal_from_factor(index, HORIZON) == pytest.approx(
-                _default_probability(hazard), rel=1e-10)
+        assert copula.marginal_from_factor(index, HORIZON) == pytest.approx(
+            _default_probability(HAZARDS[index]), rel=1e-10)
 
     def test_the_integral_CONVERGES_in_the_node_count_on_a_moderate_beta(self) -> None:
         """A rate, on a fixture where the integrand is smooth enough for one."""
@@ -143,6 +148,39 @@ class TestTheThresholdAndTheMarginalRecovery:
         assert coarse > 1e-02, coarse
         assert committed < 1e-09, committed
         assert coarse / committed > 1e07, (coarse, committed)
+
+
+class TestTheMarginalRecoveryAtUNITBeta:
+    """The configuration the `ρ = ±1` limits make natural, and where the quadrature is invalid.
+
+    At `|β| = 1` the conditional default probability is an **indicator** in `Z`, and Gauss-Hermite
+    cannot integrate a step — the nodes are fixed, so refining does not help. Measured on this
+    fixture: 13%, 18%, 19% and 5% wrong at 16, 64, 256 and 370 nodes, non-monotone and never
+    right. So the expectation is taken analytically, and these tests are what make that necessary
+    rather than a preference.
+    """
+
+    @pytest.mark.parametrize("beta", [1.0, -1.0])
+    @pytest.mark.parametrize("index", range(len(HAZARDS)))
+    def test_the_marginal_is_recovered_EXACTLY_at_unit_beta(
+        self, index: int, beta: float) -> None:
+        """`E_Z[1{C − βZ > 0}] = Φ(C) = 1 − Q_i`, for β = +1 (`Z < C`) and β = −1 (`Z > −C`)."""
+        copula = _copula(betas=(beta,) * len(BETAS))
+        assert copula.marginal_from_factor(index, HORIZON) == pytest.approx(
+            _default_probability(HAZARDS[index]), rel=1e-14)
+
+    def test_THE_COMPANION_the_QUADRATURE_would_be_MATERIALLY_WRONG_here(self) -> None:
+        """Proving the special case necessary, not assumed (§4): the naive route is ~18% out and
+        does not converge, which is why it is not taken."""
+        copula = _copula(betas=(1.0,) * len(BETAS))
+        name = copula.names[0]
+        truth = _default_probability(HAZARDS[0])
+        errors = [
+            abs(standard_normal_expectation(
+                lambda z: name.conditional_default(HORIZON, z), nodes=n) / truth - 1.0)
+            for n in (16, 64, 256)]
+        assert min(errors) > 0.04, f"the quadrature must be materially wrong here: {errors}"
+        assert errors[-1] > errors[0], f"and refining must not rescue it: {errors}"
 
 
 class TestTheThreeExactReductions:
