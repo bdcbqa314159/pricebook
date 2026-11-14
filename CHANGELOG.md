@@ -6,6 +6,85 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-11-14
+
+### Added — tranche 38, the credit default swap (project five opens: O'Kane credit)
+
+- `products/credit_default_swap.py` — `CreditDefaultSwap(schedule, spread, notional, direction)`.
+  Recovery is deliberately *not* a product field: `R` is a market/model assumption, not a term of
+  the contract, so it lives on `CreditModel` where two counterparties pricing the same contract
+  may disagree about it.
+- `models/credit.py` — `CreditModel(market, recovery)`; refuses a recovery outside `[0,1]`, a
+  snapshot with no survival curve, and a survival curve on a different clock than the snapshot.
+- `engine/credit_default_swap.py` — O'Kane eq 6.2/6.4: `risky_pv01` (premium plus
+  accrual-on-default, per unit notional), `protection_leg`, `riemann_bracket`, `par_spread`, and
+  the registered `price(CreditDefaultSwap, CreditModel)`.
+- `market/curve_set.py` — survival curves are keyed **in the curve set**, with their own typed
+  accessor and their own backing store.
+
+### Oracles
+
+- **Rung 1, the credit triangle**: `par_spread → λ(1−R)` in the continuous flat-hazard limit,
+  with a companion proving a term-structured hazard *breaks* the triangle (so the reduction is
+  not vacuous).
+- **Rung 1, the protection leg**: against the elementary closed form
+  `(1−R)λ(1−e^{−(r+λ)T})/(r+λ)` under flat hazard and flat rates — 5.7e-10 relative at the
+  committed 2000 steps, where a right-Riemann rule reads 4.1e-05, plus the second-order
+  convergence *rate*.
+- **Pointwise, eq 6.4**: the risky annuity term by term against a transcription whose survivals
+  are summed from the hazard pillars, on an aligned *and* a straddling schedule (1e-13).
+- **Cross-arc**: the protection leg reconciles against tranche 25's `unilateral_cva` on a flat
+  unit exposure, both sides converging to the same integral — different code each side.
+- **Measured, not toleranced**: the trapezoid sits inside O'Kane's explicit Riemann bracket, the
+  bracket tightens at `O(1/M)`, and the committed step count resolves its own error (~2e-05).
+
+### Changed
+
+- `MarketSnapshot` keeps **five** fields. Survival curves went to `CurveSet` rather than becoming
+  a sixth: tranche 1 predicted survival would arrive as a `CurveRole` key, but `SurvivalCurve`
+  answers `survival`/`default_density` and not `df_at`, so keying it as a role would have made a
+  hazard curve answer a discounting question (§6, a shared word and not a shared shape). It gets
+  its own store in the same frozen value object — §7's remedy, not an exemption, and the tree
+  still has no `fields-exempt`.
+- `engine/credit_default_swap.py` — the `PricingFailure` guard wraps the whole computation rather
+  than probing the discount curve alone. The probe front-loaded one missing-curve failure and let
+  the survival lookup escape as a raw `KeyError`, against invariant 4. Found by the new
+  wrong-currency oracle; pre-existing in this tranche, never shipped.
+- `market/survival_curve.py` is now the single owner of the negative-time clamp; the engine's
+  duplicate `max(·, 0)` is gone (§4/T30 — consolidate a duplicated guard rather than multiply
+  fixtures). Proved redundant, bit-identical over 399 negative times.
+- `.github/workflows/ci.yml` runs `verify.py references`. The gate was built at tranche 26b and
+  listed in charter §9 but **never wired into CI** — so it has been firing only when run locally,
+  which is how it caught `OKANE-2008` left at `in-hand` today. A gate that is not run is not a
+  gate.
+
+### Added — `verify.py gates`, closing the clause this tranche ratified
+
+Charter §9 now says a gate named there "is not live until `ci.yml` invokes it… the charter's gate
+list and `ci.yml` must agree, **and the agreement is itself checked**." Nothing checked it, so the
+clause asserted a practice that did not exist — the defect §9 itself names about the merge-method
+clause. `verify.py gates` parses §9's gate list and the workflow's `verify.py` invocations and
+rejects three divergences: a gate named but never invoked (T38's actual defect), one invoked but
+never named, and — the shape a set comparison is blind to — a name the two sides **agree** on that
+`verify.py` does not implement. It is listed in §9 and invoked in `ci.yml`, so it covers itself.
+Statically decidable, which is what makes it gateable where T37's τ=1 fixture guard was not.
+
+Seeded-drift tests in `tests/tooling/test_gates_gate.py` (the T26b references-gate pattern):
+removing the `references` line from a copy of the real workflow reproduces the T38 defect and the
+gate rejects it. Five mutations of the gate, all killed.
+
+### Mutation sweep
+
+18 mutants, full suite each, no `-x`. Two first-pass survivors, both test gaps and no `src/`
+defect: the **accrual-on-default term** (`(Q(tₙ₋₁)+Q(tₙ))` → `2Q(tₙ)`, −0.59% on the annuity,
+invisible because every existing oracle asserted presence and sign but never magnitude), and the
+negative-time clamp, which turned out to be a **proved equivalent** mutant — the loop's own
+`break` already covers `t ≤ 0`, bit-identical over 8 probes including zero. Four single-killer
+oracles were hardened or recorded: the quadrature rule 1→3 killers, the direction factor 1→2; the
+recovery-range and shared-clock refusals stay at one killer each, which is inherent to a guard
+with one behaviour to assert. Recorded for re-audit #4.
+
+
 ## [0.44.1] - 2026-11-13
 
 Tranche 37 — **accrual-oracle hardening.** Test-only; **no `src/` change**. Remediates re-audit #3,

@@ -280,6 +280,41 @@ created the drift rather than five tranches later.)*
 
 ---
 
+### `OKANE-2008` — `worked-from`
+
+O'Kane, D., *Modelling Single-name and Multi-name Credit Derivatives*, Wiley Finance Series, 2008.
+~450 pp. Held at `_stock/NewDocuments/Modelling Single-name and Multi-name Credit Derivatives …
+(Dominic OKane).pdf` (gitignored — copyrighted; only this record is tracked).
+
+**The dedicated credit-derivatives authority — project five (Bernardo, 2026-11-14).** The canonical
+practitioner text for the CDS and the correlation products. It pulls the credit work the XVA arc left
+deferred: the **CDS survival-curve bootstrap** T25 explicitly parked ("inverting CDS quotes for λ is a
+curve bootstrap, arriving with the product that needs it"), the CDS premium/protection legs, and the
+multi-name Gaussian-copula/tranche machinery. A **second source** for objects we already hold — the
+survival curve (its ch 3 vs `CAPINSKI-ZASTAWNIAK` ch 2) and the CDS par spread (its ch 6 vs CZ ch 4) —
+so a cross-source independence check is available where the two render the same formula (§4's
+same-formula caveat applies: confirm they agree before treating one as the other's transcription).
+
+Candidate map (ruled per-tranche at build; the arc plan is `docs/okane_credit_arc.md`):
+
+| ch | what | reuse / status |
+|---|---|---|
+| 2 | Libor discount curve | our discount curves (T1/T8) |
+| 3 | hazard / Cox / **credit triangle** `S=λ(1−R)` | our `SurvivalCurve` (T25); the triangle is a new closed-form anchor |
+| 5–6 | the **CDS**: premium leg `S·RPV01`, protection leg `(1−R)∫Z·λQ dt` | the protection leg **is** the CVA integral shape (T25) — cross-product reuse |
+| 7 | **CDS survival-curve bootstrap** | the T8 nominal-bootstrap round-trip pattern, applied to CDS |
+| 8–9 | CDS risk (CS01), forward CDS, **CDS swaption** | Black (T5) on the forward spread, RPV01 the annuity |
+| 13 | the **one-factor Gaussian copula** / latent-variable model | Φ/`norm_cdf`; conditional independence |
+| 15–16 | default baskets, the **LHP tranche** closed form | Φ, Φ₂ (T36b); the Jäckel MC (T15–22) for baskets |
+| 18, 20 | the recursive loss distribution, **base correlation** | the market-standard tranche machinery |
+| 4, 10–11, 19, 21–23 | bonds/asset swaps, indices + index options, implied/compound corr, copula-skew models, CPPI/CPDO/CDO², dynamic models | `to_go_deeper`; ch 23 (intensity-gamma, affine-jump) a possible `out_of_method` candidate |
+
+**Status `worked-from`** since T38 (v0.45.0): ch 3's credit triangle and ch 6's
+premium leg / risky PV01 (eqs 6.2/6.4) are built and oracled in
+`engine/credit_default_swap.py`.
+
+---
+
 ## Named-but-not-in-hand — NOT citable as `source:` until obtained
 
 Transcribed verbatim from `BERHAN-2012`'s reference list (p. 49), so they are grounded in a held

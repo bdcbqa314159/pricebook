@@ -288,7 +288,11 @@ STOCK = ROOT / "_stock"
 # The committed test floor (the floor rule, CLAUDE.md 6 second clause; ruling:
 # docs/handoffs/rulings_floor_rule.md). CI is RED below it. A slice that adds a test
 # tier raises this in the same commit. First value = the restart's measured 366.
-TEST_FLOOR = 1437
+TEST_FLOOR = 1482
+
+#: The commands `verify.py` actually implements, so §9 and `ci.yml` cannot agree on a typo.
+_KNOWN_GATES = frozenset({"acyclic", "layers", "fields", "debt", "provenance",
+                          "references", "version", "slow", "tests", "gates"})
 
 #: A `stock:` value naming no path — a module built fresh, with no stock ancestor. The
 #: common case under the new model, so it must be expressible rather than fudged.
@@ -559,6 +563,37 @@ def _report(name: str, errs: list[str]) -> bool:
     return True
 
 
+def gates() -> list[str]:
+    """Charter §9's gate list and `ci.yml`'s invocations must name the same set.
+
+    The clause this enforces was ratified at tranche 38, after `references` — built at 26b, named
+    in §9, and celebrated in §7 — turned out never to have been wired into CI: it ran only when
+    someone remembered `verify.py all` by hand, which is a lint, not a gate. A gate CI never calls
+    cannot fail, so the charter's list and the workflow are checked against each other. Statically
+    decidable, which is why this one is gateable where the τ=1 fixture guard was not (§9).
+    """
+    charter = (ROOT / "CLAUDE.md").read_text()
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+
+    match = re.search(r"- \*\*`verify\.py`\*\*:(.*?)\. CI runs", charter, re.S)
+    if match is None:
+        return ["CLAUDE.md §9 no longer opens its gate list with '- **`verify.py`**: …. CI runs'"]
+    listed = set(re.findall(r"`([a-z]+)`", match.group(1)))
+    invoked = set(re.findall(r"python verify\.py ([a-z]+)", workflow)) - {"all"}
+
+    problems = []
+    for name in sorted(listed - invoked):
+        problems.append(f"CLAUDE.md §9 names `{name}` but ci.yml never invokes it — a gate CI "
+                        "does not call cannot fail")
+    for name in sorted(invoked - listed):
+        problems.append(f"ci.yml invokes `{name}` but CLAUDE.md §9 does not name it — the charter "
+                        "must state every gate that can reject a push")
+    for name in sorted(listed & invoked):
+        if name not in _KNOWN_GATES:
+            problems.append(f"`{name}` is named and invoked but verify.py has no such command")
+    return problems
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -572,6 +607,7 @@ def main() -> int:
     sub.add_parser("references")
     sub.add_parser("slow")
     sub.add_parser("version")
+    sub.add_parser("gates")
     sub.add_parser("all")
     args = ap.parse_args()
 
@@ -580,7 +616,7 @@ def main() -> int:
     checks = {
         "acyclic": acyclic, "fields": fields, "layers": layers, "debt": debt,
         "provenance": provenance, "references": references, "version": version,
-        "slow": slow_tests,
+        "slow": slow_tests, "gates": gates,
     }
     if args.cmd == "all":
         # `slow` re-runs every file separately, so it is NOT in `all` — CI calls it once,
