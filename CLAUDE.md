@@ -569,6 +569,15 @@ unconditionally only for the fraction.)*
   read 902 against a floor of 911 while the suite was green — §4's "contain the failure in its domain"
   applied to the gate that enforces every other gate's floor, and visible only because that tranche
   added the first test there; a tranche adding none would have left the directory unfloored forever.)*
+  **A gate named here is not live until `ci.yml` invokes it — listing it in the charter is not running
+  it.** A gate that CI never calls cannot fail, which is the same empty-gate defect one level up from the
+  §9 "a gate that can't fail" rule: it degrades to a lint someone must remember to run by hand, exactly
+  the *guarded*-vs-*folklore* line §7 draws for conventions. So the charter's gate list and `ci.yml` must
+  agree, and the agreement is itself checked. *(T38: `verify.py references`, built at T26b and celebrated
+  in §7 as "the gate's first run caught the other two", was wired only locally and **never in CI** — it
+  caught `OKANE-2008` at `in-hand` only because Code ran `verify.py all` by hand. Twelve tranches a cited
+  key could have merged green. Now in `ci.yml`; the §7 boast was true of a local run, not a CI run, until
+  here.)*
 - **Periodic whole-tree re-audit — every 11 tranches, and at each arc close.** The gates above run on
   every push and catch *structural* drift (layering, fields, debt balance, provenance), so the
   re-audit targets only what they cannot: **(1) oracle power** — a full-tree mutation sweep, because

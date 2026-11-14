@@ -107,4 +107,58 @@ one vanilla CDS: two legs, a mark, a par spread, off a reused survival curve.
 
 ---
 
-## 5. Cowork's ruling on T38 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T38 — PR #52 (§10 step 4, 2026-11-14)
+
+Accepted — v0.45.0, 1474 green, nine gates, draft held for review. The credit-derivatives arc opens;
+`OKANE-2008` flips to `worked-from`. The CDS marks and par-quotes off the reused `SurvivalCurve`, and
+the capstone seam is real: the protection leg reconciles against T25's CVA integral.
+
+**Finding 1 (survival curves in `CurveSet`, not a 6th `MarketSnapshot` field) — RULED: correct §7
+bundling, not abstraction-by-container. Ratified, and the refusal of an exemption is the headline.**
+`MarketSnapshot` hitting six fields is precisely §7's "un-bundled vocabulary, never a reason to raise
+the limit — group into a value object, never suppress." Code took **no** `fields-exempt` (the tree has
+none, and an exemption *is* the suppression §7 forbids) and instead put survival curves in `CurveSet` —
+the frozen value object whose single job is *the market's curves, reached by typed accessor*. A survival
+curve **is** a curve, so it belongs there; the taxonomy stays consistent (curve-shaped market data →
+`CurveSet`; non-curve data — fixings, equity quotes, vol skews — their own mapping fields). The two
+backing stores (`curves` keyed by `CurveKey`, `survivals` by `Currency`) are **two concrete shapes**,
+not polymorphism: a `CurveHandle` answers `df_at`, a `SurvivalCurve` answers `survival`/`default_density`,
+so a shared `CurveRole` key would be §6's shared-word-not-shared-shape — rightly rejected. This is not
+abstraction-by-container: `CurveSet` is cohesive and named for exactly what it holds, not a grab-bag
+opened to dodge the limit. T1's header predicted survival would arrive as a `CurveRole`; the type did
+not fit when the product actually pulled it, and correcting that prediction at the pull (rather than
+forcing the wrong key) is §5's "our own docs are not authority" working. **No change.**
+
+**Finding 2 (`verify.py references` never wired into CI) — real, and it earns a §9 clause.** The gate
+built at T26b and celebrated in §7 as "the gate's first run caught the other two" was running **only
+locally** — confirmed: the `ci.yml` line was added in T38's own feat commit. For twelve tranches a cited
+key could have merged green; it caught `OKANE-2008` at `in-hand` today only because Code ran
+`verify.py all` by hand. This is the empty-gate defect one level up from the τ=1 guard ruling: **a gate
+CI never invokes cannot fail.** Charter §9 edited — a gate named in the charter is not live until
+`ci.yml` invokes it, and the list and the workflow must agree. Wiring it in is ratified; the §7 boast
+was true of a local run, not a CI run, until here (noted in the §9 clause rather than rewriting §7).
+
+**Finding 3 (invariant-4 violation: a missing survival curve escaped as a raw `KeyError`) — ratified.**
+The `PricingFailure` guard probed only the discount curve, so §3 invariant 4 ("failure is a value, never
+raise-and-hope") leaked on the survival side. Fixed and oracled — correct, and the kind of thing that
+is invisible until a product reads a second curve.
+
+**The mutation sweep — both survivors ruled.** The accrual-on-default term surviving (−0.59%, invisible
+because `risky_pv01` carried **only property oracles**) is the §4 magnitude trap exactly — the T12b
+lesson that properties are blind to a term they still tolerate; closed with a **pointwise transcription**
+of eq 6.4, which is the required companion. The negative-time clamp is a **proved** equivalent mutant
+(it duplicated the loop's own `break`), and Code did the §6-right thing — **consolidated** the duplicated
+clamp into `SurvivalCurve` rather than leaving two copies (a dropped-guard-copy degeneracy avoided, the
+T30 eighth-shape lesson applied pre-emptively).
+
+**The two spec open-asks — confirmed.** Recovery `R` on `CreditModel` (not the product or the snapshot):
+yes — it is an assumption, not a quote, so it rides with the model (§3). The ISDA premium-schedule
+conventions (standardised coupon, business-day/accrual detail) stay **out of scope** until a product
+pulls them (T40's forward CDS / swaption, or a later conventions tranche) — not speculative plumbing now
+(§6).
+
+**Charter: one edit (the §9 CI-wiring clause).** Finding 1 is existing §7 applied well; finding 3 and the
+mutation survivors are existing §4/§6 working. Only the gate-must-run-in-CI gap is new.
+
+**Next:** T39 (the CDS survival-curve bootstrap — the L1 piece T25 deferred, the T8 round-trip pattern),
+mine to spec. **Mark #52 ready (step 6) → Bernardo merges.**
