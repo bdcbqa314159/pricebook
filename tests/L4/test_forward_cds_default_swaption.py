@@ -223,17 +223,22 @@ class TestASEASONEDForwardWhoseStartHasPASSED:
         assert len(historical) >= 3, historical
         assert self.SEASONED[3] < VAL < self.SEASONED[-1], "and the split is in the past"
 
-    def test_a_SEASONED_forward_cds_IS_the_spot_cds_on_the_same_schedule(self) -> None:
+    @pytest.mark.parametrize("direction", list(ProtectionDirection))
+    @pytest.mark.parametrize("spread", [0.0180, 0.0320])
+    def test_a_SEASONED_forward_cds_IS_the_spot_cds_on_the_same_schedule(
+        self, spread: float, direction: ProtectionDirection) -> None:
+        """Parametrised, so this is also the second killer for `ForwardPeriod.maturity`: a mutation
+        returning the *split* instead of the end makes invariant 6 fire on a live contract and
+        report PV 0, and only a seasoned fixture can see it."""
         schedule = CouponSchedule(self.SEASONED, DC)
-        spread = 0.0180
         forward = price(
             ForwardCDS(ForwardPeriod(schedule, self.SEASONED[3]), spread, NOTIONAL,
-                       ProtectionDirection.BUYER, ACME),
+                       direction, ACME),
             _credit())
         spot = price(
-            CreditDefaultSwap(schedule, spread, NOTIONAL, ProtectionDirection.BUYER, ACME),
-            _credit())
+            CreditDefaultSwap(schedule, spread, NOTIONAL, direction, ACME), _credit())
         assert forward.pv.amount == pytest.approx(spot.pv.amount, rel=1e-14)
+        assert abs(forward.pv.amount) > 1.0, "and the premise: it is not trivially zero"
 
     def test_no_period_is_discounted_at_a_NEGATIVE_time(self) -> None:
         """The specific thing invariant 6 forbids, asserted directly: a discount factor above 1
