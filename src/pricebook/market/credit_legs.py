@@ -12,20 +12,23 @@ discount curve and a survival curve (L1), and a scalar recovery. It never touche
 product stays in the engine. It sits beside `nominal_bootstrap.py` for the same reason that does:
 a piece the bootstrap needs, expressible in curves alone.
 
-**`risky_pv01` is shared; `protection_leg` is NOT yet.** Pulling `risky_pv01` out of tranche 38's
-engine was a pure refactor, proved bit-identical over 324 fixtures. The protection leg is a
-different story: the integration here is **not** the engine's, because the engine's is less
-accurate, and correcting it would move a shipped number by 1.8e-05. That is a ruling, not a
-refactor, so the engine keeps its own loop until Cowork answers `OPEN.md` OI-4, and this is the
-one knowingly duplicated formula in the tree — ledgered, with that answer as its re-open trigger.
+**Both are shared, and the protection leg's arrival here was a ruling.** Pulling `risky_pv01` out
+of tranche 38's engine was a pure refactor, proved bit-identical over 324 fixtures. The protection
+leg was not: the engine's own integration was *less accurate* — pointwise in `default_density` on a
+uniform grid, losing an order at every hazard pillar — so unifying meant moving a shipped number by
+1.846e-05. Cowork ruled the engine adopts this one (`OPEN.md` OI-4, closed), because the move is
+provably toward an independent reference and because leaving the two apart meant a bootstrapped
+curve did not reprice its own calibrating quote. The agreement is now a guarded convention,
+`docs/conventions_register.md` C11.
 
 Provenance:
   stock:  none — the archived predecessor had no CDS
   source: OKANE-2008 ch 6 (eqs 6.2, 6.4); `risky_pv01` extracted unchanged from tranche 38
   oracle: tests/L1/test_credit_legs.py — `risky_pv01` is proved bit-identical to the tranche-38
           engine's arithmetic over 324 fixtures; `protection_leg` is anchored by the bootstrap's
-          known-curve round trip and by agreeing with the engine's closed form where the two
-          integrations provably coincide (a flat hazard has no interior pillars)
+          known-curve round trip, by tranche 38's flat-hazard closed form, and by C11's guard —
+          the engine's leg is bit-identical to this one on a term-structured curve, and a
+          bootstrapped curve reprices through the engine to -5.8e-18 of notional
   crosscheck: quantlib CreditDefaultSwap couponLegNPV / defaultLegNPV — deferred, dev-only
   slice:  tranche 39 — the CDS survival bootstrap pulls the leg arithmetic out of the engine
 """
@@ -37,6 +40,17 @@ from datetime import date
 
 from pricebook.market.curve import CurveHandle
 from pricebook.market.survival_curve import SurvivalCurve
+
+
+def segment_breaks(survival: SurvivalCurve, horizon: float) -> list[float]:
+    """`[0, …pillars inside (0, horizon)…, horizon]` — where the protection integral must break.
+
+    Named surface rather than a line inside `protection_leg`, because the engine's Riemann bracket
+    has to break in exactly the same places: a bracket computed on a uniform grid would bracket a
+    *different* integral from the trapezoid it is asserting about, since `λQ` jumps at a pillar.
+    One definition, two consumers (§6).
+    """
+    return sorted({0.0, horizon} | {t for t in survival.times if 0.0 < t < horizon})
 
 
 def risky_pv01(
@@ -93,7 +107,7 @@ def protection_leg(
     if horizon <= 0.0:
         return 0.0
 
-    breaks = sorted({0.0, horizon} | {t for t in survival.times if 0.0 < t < horizon})
+    breaks = segment_breaks(survival, horizon)
     area = 0.0
     for lo, hi in zip(breaks, breaks[1:]):
         # The midpoint, not `lo`, though the two are bit-identical here: `breaks` is built

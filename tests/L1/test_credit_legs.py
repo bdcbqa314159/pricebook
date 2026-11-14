@@ -53,6 +53,20 @@ def _model(survival: SurvivalCurve, recovery: float = RECOVERY) -> CreditModel:
     return CreditModel(snapshot, recovery)
 
 
+def _committed() -> DiscountCurve:
+    """The discount curve every comparison here uses — named so the identity tests read as one
+    fixture rather than repeating `SLOPED` and inviting a silent divergence."""
+    return SLOPED
+
+
+def _per_segment() -> int:
+    """The engine's committed count, read from the engine rather than restated — a copy here
+    would let the two drift and still pass."""
+    from pricebook.engine.credit_default_swap import _DEFAULT_PER_SEGMENT
+
+    return _DEFAULT_PER_SEGMENT
+
+
 def _cds(spread: float = 0.01) -> CreditDefaultSwap:
     return CreditDefaultSwap(
         CouponSchedule(SEMI, DC), spread, Money(1.0, EUR), ProtectionDirection.BUYER)
@@ -81,45 +95,93 @@ class TestRiskyPv01IsAPureRefactorOfTheEngines:
         assert 1.0 < value < 10.0, value
 
 
-class TestProtectionLegVersusTheEngines:
-    """No purity claim — the honest statement of where they agree and where they do not."""
+class TestTheEngineAndTheBootstrapShareONEProtectionLeg:
+    """`docs/conventions_register.md` C11, guarded — this class is the guard.
+
+    Until tranche 39 the engine integrated the protection leg itself, pointwise in
+    `default_density` on a uniform grid, while the bootstrap used the per-segment form here. The
+    two differed by 1.846e-05 on a term-structured curve, which meant a bootstrapped curve
+    repriced its own calibrating CDS to *not quite* zero. OI-4 ruled the engine adopts this one,
+    so the agreement is now structural — and what follows asserts that it is structural rather
+    than coincidental, because a convention shared by two modules with nothing comparing them is
+    folklore (§7).
+    """
 
     def _engine_leg(self, survival: SurvivalCurve) -> float:
         from pricebook.engine.credit_default_swap import protection_leg as engine_leg
 
         return engine_leg(_cds(), _model(survival))
 
-    def test_they_COINCIDE_when_there_is_no_interior_pillar(self) -> None:
-        """A flat hazard has nothing to break at, so per-segment and pointwise are one integral.
+    @pytest.mark.parametrize("survival", [TERM, FLAT], ids=["term_structured", "flat"])
+    def test_the_engine_leg_IS_this_function_to_the_last_bit(self, survival) -> None:
+        """A unit notional, so the engine's only remaining job is the scaling — and `× 1.0` is
+        exact. Any difference at all would mean a second integration had reappeared."""
+        shared = protection_leg(SHARED_DEFAULT := _committed(), survival, RECOVERY, HORIZON,
+                                _per_segment())
+        assert shared.hex() == self._engine_leg(survival).hex(), (shared, SHARED_DEFAULT)
 
-        This is the premise behind tranche 38's rung-1 closed-form oracle reading 5.7e-10 — and
-        equally the reason that oracle is structurally blind to the term-structured error below."""
-        assert [t for t in FLAT.times if 0.0 < t < HORIZON] == []
-        shared = protection_leg(SLOPED, FLAT, RECOVERY, HORIZON, 2000)
-        assert shared == pytest.approx(self._engine_leg(FLAT), rel=1e-12)
-
-    def test_they_DIFFER_by_a_measured_amount_when_pillars_are_interior(self) -> None:
-        """1.8e-05, the figure OI-4 is about. Asserted so the gap cannot drift unnoticed."""
+    def test_THE_PREMISE_the_term_fixture_HAS_interior_pillars(self) -> None:
+        """Without this the parametrised case above is one fixture twice: a flat hazard has no
+        pillar to break at, so per-segment and pointwise coincide there and the identity would
+        hold even if the engine had kept its own loop. The term curve is what discriminates."""
         assert [t for t in TERM.times if 0.0 < t < HORIZON] == [1.0, 2.0]
-        shared = protection_leg(SLOPED, TERM, RECOVERY, HORIZON, 2000)
-        gap = shared / self._engine_leg(TERM) - 1.0
-        assert gap == pytest.approx(1.846e-05, rel=0.05), gap
+        assert [t for t in FLAT.times if 0.0 < t < HORIZON] == []
 
-    def test_the_SHARED_one_is_the_more_accurate_side(self) -> None:
-        """Against a far finer reference of each: the gap is the engine's error, not a difference
-        of opinion. Refining the shared integration barely moves it; refining the engine's walks
-        it toward the shared value."""
-        reference = protection_leg(SLOPED, TERM, RECOVERY, HORIZON, 40000)
-        shared = protection_leg(SLOPED, TERM, RECOVERY, HORIZON, 2000)
-        assert abs(shared / reference - 1.0) < 1e-08
-        assert abs(self._engine_leg(TERM) / reference - 1.0) > 1e-05
-
-    def test_the_integration_is_SECOND_ORDER(self) -> None:
-        reference = protection_leg(SLOPED, TERM, RECOVERY, HORIZON, 40000)
-        errors = [abs(protection_leg(SLOPED, TERM, RECOVERY, HORIZON, n) / reference - 1.0)
+    def test_the_integration_is_SECOND_ORDER_on_a_TERM_STRUCTURED_curve(self) -> None:
+        """The rate is the detector the flat anchor cannot be: breaking at the pillars is what
+        makes this `O(1/M²)`, and a return to pointwise density would read `O(1/M)` here while
+        leaving tranche 38's flat closed-form oracle at its exact 5.7e-10 (charter §4, the
+        reduction-anchor blind spot)."""
+        reference = protection_leg(_committed(), TERM, RECOVERY, HORIZON, 40000)
+        errors = [abs(protection_leg(_committed(), TERM, RECOVERY, HORIZON, n) / reference - 1.0)
                   for n in (25, 50, 100)]
         for coarse, fine in zip(errors, errors[1:]):
             assert 3.5 < coarse / fine < 4.5, errors
+
+    def test_a_bootstrapped_curve_REPRICES_its_own_calibrating_quote_through_the_ENGINE(
+        self) -> None:
+        """The consequence C11 exists for, end to end across three layers — and it is EXACT.
+
+        The bootstrap (L1) calibrates to `V = 0`; the engine (L4) prices the same contract. Before
+        OI-4 the two used different quadratures, so this round trip could not have been asserted at
+        all: it is an oracle that only became available once the convention was unified. Given the
+        **same** grid the agreement is not approximate but exact to rounding — `-5.8e-18` of
+        notional, which is the sense in which C11 is *guarded* rather than merely documented.
+        """
+        from pricebook.engine import price
+        from pricebook.market.cds_bootstrap import bootstrap_survival_curve
+
+        schedule, quote = CouponSchedule(SEMI, DC), 0.0120
+        curve = bootstrap_survival_curve(
+            ((schedule, quote),), SLOPED, RECOVERY, per_segment=_per_segment())
+        product = CreditDefaultSwap(
+            schedule, quote, Money(10_000_000.0, EUR), ProtectionDirection.BUYER)
+        pv = price(product, _model(curve)).pv.amount
+        assert abs(pv) < 1e-08, pv
+
+    def test_a_COARSER_bootstrap_grid_leaves_only_DISCRETISATION_shrinking_at_second_order(
+        self) -> None:
+        """Why the test above fixes the grid, and why that is not rigging it.
+
+        At its own default (50 per segment) the bootstrap is 40x coarser than the engine, so the
+        reprice leaves 4.2e-08 of notional. That residual is grid resolution, not a disagreement
+        about the formula — proved by its converging at **second order** toward zero as the
+        bootstrap's grid approaches the engine's. A formula mismatch would plateau instead, which
+        is the T25 rate-detector: the rate distinguishes a discretisation from a defect where no
+        single value can."""
+        from pricebook.engine import price
+        from pricebook.market.cds_bootstrap import bootstrap_survival_curve
+
+        schedule, quote = CouponSchedule(SEMI, DC), 0.0120
+        product = CreditDefaultSwap(
+            schedule, quote, Money(10_000_000.0, EUR), ProtectionDirection.BUYER)
+        residuals = []
+        for per_segment in (50, 200, 800):
+            curve = bootstrap_survival_curve(
+                ((schedule, quote),), SLOPED, RECOVERY, per_segment=per_segment)
+            residuals.append(abs(price(product, _model(curve)).pv.amount))
+        for coarse, fine in zip(residuals, residuals[1:]):
+            assert 12.0 < coarse / fine < 20.0, f"4x the grid must cut it ~16x: {residuals}"
 
 
 class TestTheGuardsAreReachable:

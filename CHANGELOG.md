@@ -51,24 +51,42 @@ single source of truth and CI asserts it matches the top entry.
 - `engine/credit_default_swap.py` delegates `risky_pv01` to the shared L1 function. Its protection
   leg does **not** delegate — see below.
 
-### Known defect, ledgered rather than fixed — `OPEN.md` OI-4
+### Ruled and fixed in this tranche — `OPEN.md` OI-4, closed
 
-`λ(t)Q(t)` is **discontinuous at every hazard pillar**. The engine integrates `default_density(t)`
-pointwise on a uniform grid, so a trapezoid straddles those jumps and loses an order — and at a
+`λ(t)Q(t)` is **discontinuous at every hazard pillar**. The engine integrated `default_density(t)`
+pointwise on a uniform grid, so a trapezoid straddled those jumps and **lost an order** — and at a
 segment's end `default_density` returns the hazard of the segment *starting* there, the wrong one
-for the piece ending there. The L1 version reads the hazard once per pillar segment, exact between
-pillars, and recovers second order: on the round trip, `O(1/M²)` and 4.8e-07 against `O(1/M)` and
-2.9e-03 — ~800× better for ~3× fewer evaluations.
+for the piece ending there. The shared L1 functional reads the hazard once per pillar segment,
+exact between pillars, and recovers second order.
 
-Correcting the engine would move a **shipped** number (+1.846e-05 on a term-structured protection
-leg) and supersede v0.45.0's "the committed step count resolves its own error (~2e-05)". That is a
-ruling, not a refactor, so the engine keeps its loop, the duplication is ledgered as OI-4, and
-`tests/L1/test_credit_legs.py` pins the 1.8e-05 gap so it cannot drift.
+Code raised this rather than ruling it, since correcting the engine moves a **shipped** number.
+**Cowork ruled the engine adopts the per-segment integration** (thread 0214): the +1.846e-05 move
+is provably *toward* an independent 20k/segment reference, so it is a ruled correctness change and
+not the silent reordering §4's pure-refactor rule forbids. Measured after the switch, at the same
+committed count:
 
-**And a finding about tranche 38's own oracle:** its rung-1 closed-form anchor uses a **flat**
-hazard, which has no interior pillars, so the two integrations provably coincide there (asserted).
-That anchor is structurally blind to this error — §4's "an oracle must contain the failure in its
-domain", landing on the anchor added one tranche earlier.
+- the engine's term-structured protection leg: **1.8e-05 → 6.3e-11** against a 200k/segment
+  reference, and the test band tightened by five orders with it (a band left at 3e-05 would have
+  gone on passing while asserting nothing);
+- the **flat**-hazard closed-form anchor: **unchanged at +5.672e-10**, bit for bit — a flat hazard
+  has no interior pillars, so one segment of 2000 points *is* the quadrature v0.45.0 shipped, which
+  is why that version's published figure stays exactly reproducible;
+- `riemann_bracket` breaks at the same pillars, since on a uniform grid it would bracket a
+  *different* integral from the trapezoid it asserts about;
+- the duplication **collapsed** — `credit_legs.protection_leg` is the one formula the engine and
+  the bootstrap call — so OI-4 closed rather than persisting, and the agreement became a guarded
+  convention, `docs/conventions_register.md` **C11**;
+- a new oracle became available that could not exist while the two disagreed: a bootstrapped curve
+  reprices its own calibrating CDS **through the engine** to **−5.8e-18 of notional** on the same
+  grid, with the residual on a coarser grid falling at second order (the rate distinguishes a
+  discretisation from a defect where no single value can).
+
+**The finding that outlived the defect.** Tranche 38's rung-1 closed-form anchor uses a **flat**
+hazard — which has no interior pillars, so it is exact *because* it degenerates the very parameter
+this error lives in, and was structurally blind to a first-vs-second-order integration defect.
+That earned a charter §4 clause on the reduction-anchor blind spot: the companion must be
+non-degenerate in the specific parameter the reduction zeroes, checked by convergence **rate**
+where the error is an order loss rather than a value.
 
 ### Mutation sweep
 
@@ -118,6 +136,10 @@ domain", landing on the anchor added one tranche earlier.
   unit exposure, both sides converging to the same integral — different code each side.
 - **Measured, not toleranced**: the trapezoid sits inside O'Kane's explicit Riemann bracket, the
   bracket tightens at `O(1/M)`, and the committed step count resolves its own error (~2e-05).
+  **Superseded at v0.46.0** — that ~2e-05 was the *uniform-grid* quadrature's resolution. Tranche
+  39 found it loses an order at every hazard pillar and ruled the engine onto the per-segment
+  integration (`OPEN.md` OI-4, closed); the same committed count now resolves **6.3e-11**. The
+  figure above is left as published, with the correction beside it, rather than quietly edited.
 
 ### Changed
 
