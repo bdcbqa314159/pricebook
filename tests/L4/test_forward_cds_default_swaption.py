@@ -195,22 +195,84 @@ class TestTheForwardSpreadReductions:
         want = par_spread(_spot_cds(MATURITY_YEARS, STRIKE), _credit())
         assert got == pytest.approx(want, rel=1e-12), (got, want)
 
-    def test_a_FLAT_hazard_makes_the_forward_spread_EQUAL_the_spot_one(self) -> None:
-        """O'Kane 9.2.1, exact — and the degenerate case the companion above exists for: a flat
-        hazard is precisely where the forward-annuity difference stops discriminating."""
+    @pytest.mark.parametrize("spread", [0.0001, 0.0180, 0.25])
+    @pytest.mark.parametrize("annuities", [(1.9, 4.3), (0.5, 9.5), (1.0, 2.0)])
+    def test_EQUAL_par_spreads_make_the_forward_spread_EQUAL_them(
+        self, annuities: tuple[float, float], spread: float) -> None:
+        """O'Kane 9.2.1's reduction, stated as the condition that actually makes it exact.
+
+        If `S(t,tF) = S(t,T) = S` then `Prot = S·RPV01` on both legs, so the ratio collapses to
+        `S(a_far − a_near)/(a_far − a_near) = S` — **exact in ℝ**. Not bit-exact, and the first
+        draft of this test wrongly asserted that it was: the two products round separately before
+        subtracting, so the result sits within a couple of ULP (charter §4 — an exact-arithmetic
+        identity with a named reordering, not bit-identity). Constructed legs rather than curves,
+        because the hypothesis is about the spread curve being flat and not about any particular
+        pair of curves producing it."""
+        annuity_near, annuity_far = annuities
+        near = CdsLegs(annuity=annuity_near, protection=spread * annuity_near)
+        far = CdsLegs(annuity=annuity_far, protection=spread * annuity_far)
+        assert abs(forward_spread(near, far) - spread) <= 4.0 * math.ulp(spread)
+
+    def test_the_formula_LOSES_PRECISION_as_the_forward_WINDOW_NARROWS(self) -> None:
+        """The validity regime, measured rather than discovered later (§4 — a reference is code).
+
+        `S(t,tF,T)` divides by `RPV01(t,T) − RPV01(t,tF)`, so a forward start close to the maturity
+        is a cancellation: with annuities 2.42 and 2.43 the exact-in-ℝ identity above is off by
+        **69 ULP** against ~1 ULP for well-separated ones. Harmless at any realistic forward start
+        and fatal as `tF → T`, so it is asserted here and named in the function's docstring —
+        a degenerate window is refused outright by `forward_annuity`, but a *nearly* degenerate one
+        is not, and silently returns a noisy spread."""
+        spread = 0.0180
+        wide = (1.9, 4.3)
+        narrow = (2.42, 2.43)
+        errors = []
+        for annuity_near, annuity_far in (wide, narrow):
+            near = CdsLegs(annuity=annuity_near, protection=spread * annuity_near)
+            far = CdsLegs(annuity=annuity_far, protection=spread * annuity_far)
+            errors.append(abs(forward_spread(near, far) - spread) / math.ulp(spread))
+        assert errors[0] <= 4.0, errors
+        assert errors[1] > 20.0, f"the narrow window must be measurably worse: {errors}"
+
+    def test_a_flat_hazard_AND_a_flat_discount_curve_reach_that_reduction(self) -> None:
+        """The curve-level version, and it needs **both** curves flat — measured at 3e-08."""
         from pricebook.market.credit_legs import protection_leg
 
-        flat = SurvivalCurve.flat(VAL, 0.03, DC)
+        flat_hazard = SurvivalCurve.flat(VAL, 0.03, DC)
+        flat_curve = DiscountCurve.flat(VAL, 0.025, DC)
 
         def legs(end_years: float) -> CdsLegs:
             return CdsLegs(
                 annuity=risky_pv01(
-                    CouponSchedule(_dates(0.0, end_years), DC).periods(), CURVE, flat),
-                protection=protection_leg(CURVE, flat, RECOVERY, end_years, 2000))
+                    CouponSchedule(_dates(0.0, end_years), DC).periods(), flat_curve, flat_hazard),
+                protection=protection_leg(flat_curve, flat_hazard, RECOVERY, end_years, 2000))
 
         near, far = legs(EXPIRY_YEARS), legs(MATURITY_YEARS)
-        spot = far.protection / far.annuity
-        assert forward_spread(near, far) == pytest.approx(spot, rel=2e-04)
+        assert far.par_spread == pytest.approx(near.par_spread, rel=1e-06), "the premise"
+        assert forward_spread(near, far) == pytest.approx(far.par_spread, rel=1e-06)
+
+    def test_a_flat_HAZARD_ALONE_is_NOT_the_reduction_and_this_pins_why(self) -> None:
+        """The trap this suite walked into, asserted so it cannot be re-added as a wrong test.
+
+        A flat hazard does **not** give a flat spread curve: with a non-flat discount curve the par
+        spread still drifts with maturity (measured 1.35e-03 between 2y and 5y here), because the
+        protection leg and the risky annuity discount differently. So the forward spread is
+        legitimately 1.06e-03 away from the 5y spot spread, and an oracle asserting they match at
+        any tight tolerance is asserting something false — the first draft of this file did, and
+        the band would have had to be loosened to 2e-03 to hide it."""
+        from pricebook.market.credit_legs import protection_leg
+
+        flat_hazard = SurvivalCurve.flat(VAL, 0.03, DC)
+
+        def legs(end_years: float) -> CdsLegs:
+            return CdsLegs(
+                annuity=risky_pv01(
+                    CouponSchedule(_dates(0.0, end_years), DC).periods(), CURVE, flat_hazard),
+                protection=protection_leg(CURVE, flat_hazard, RECOVERY, end_years, 2000))
+
+        near, far = legs(EXPIRY_YEARS), legs(MATURITY_YEARS)
+        assert far.par_spread / near.par_spread - 1.0 == pytest.approx(1.35e-03, rel=0.1)
+        assert forward_spread(near, far) / far.par_spread - 1.0 == pytest.approx(
+            1.06e-03, rel=0.1)
 
     def test_the_forward_ANNUITY_matches_an_INDEPENDENT_sum_over_the_forward_periods(self) -> None:
         """Genuinely independent: a difference of two sums versus one sum over the tail periods."""
