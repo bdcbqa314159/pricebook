@@ -66,3 +66,54 @@ separable than the §9 list suggests.
 
 **Next due (superseded — re-audit #2 ran at the T29 arc close; see its result above):** re-arms at
 whichever of {next arc close, 11 tranches since **re-audit #2** at T29 ≈ **T40**} comes first.
+
+---
+
+## Re-audit #3 — equity & hybrids arc close (v0.44.0, T36b, 2026-11-13)
+
+Fired by the **arc-close trigger** (the eleven-tranche cadence counter is at nine since re-audit #2 at
+T29: T30, 31, 32, 33, 33b, 34, 35, 36a, 36b — so arc-close fires first, as at #2). Findings:
+`docs/audit/reaudit_03_findings.md`.
+
+- **Register-accuracy + charter-staleness passes (Cowork): clean.** One stale `to_go_deeper` header
+  fixed (BROCKHAUS arc marked closed; the 13.1.2-for-the-stock route added); one overdue code-hygiene
+  route re-flagged (the dividend-filter consolidation, `dividends_before(T)`, never done across the
+  arc). `references.md`, `OPEN.md` (zero suppressions), the arc plan all current. No charter clause
+  stale or in tension — the arc's lessons were ruled instances of existing clauses, so the charter
+  covered new cases rather than growing.
+- **Oracle-power mutation sweep (Code): DONE — 31 mutations, 30 killed, ONE survivor.** **F-3.1**: the
+  T8 nominal bootstrap drops the accrual `ψ` and survives all 1430 tests — the `τ=1` degeneracy (every
+  fixture ψ=1.0 on annual ACT/365F), **F-1.2's exact shape in a second, pre-Jäckel instrument**. The
+  `src/` code is correct; the oracle is blind. **Ruled a real oracle-power hole → T37** (test-only:
+  semi-annual fixture + `ψ≠1` premise, the T23 remedy; **plus a proactive τ=1 sweep of all
+  accrual-bearing fixtures**, since the degeneracy has now bitten twice; plus a second killer for the
+  thinnest single-point-of-failure oracle, the Sobol Gray code). The **oldest-first scoping was
+  vindicated** — all eight T30–T36b mutations died; the only hole was pre-Jäckel. Re-audit #3 **logged
+  complete**; the arc boundary opens once T37 lands.
+- ~~**Oracle-power mutation sweep (Code): PENDING**, scope set~~ — full-tree, **oldest-first** (§9's
+  binding emphasis; re-audit #1's only hole was in the oldest instrument), single-point-of-failure
+  oracles flagged, the new L0 `Φ₂` and the equity closed forms swept for the first time. Survivors
+  ruled by Cowork, appended to the findings doc.
+
+**Addendum (T37 build, same day):** the proactive τ=1 sweep ordered above immediately found the
+**third** instance — **F-3.2**, the T9 implied-vol surface dropping `ψ` (annual fixture, measured 9.00%→
+5.80% vol understatement semi-annually). τ=1 has now bitten three pre-Jäckel instruments (F-1.2 linker,
+F-3.1 bootstrap, F-3.2 vol surface) from one fixture convention. Ruled: fold F-3.2 into T37 (same class,
+same remedy), make the sweep exhaustive (fix same-class survivors in-tranche, raise only different-class),
+and — the T26b "gate a thrice-drifted discipline" precedent — **assess a mechanical guard** for the
+all-unit-accrual fixture convention, building it in T37 if a clean mechanism exists. Four single-killer
+oracles recorded (Gray code, MM-I denominator, YoY ψ, T26 Leg B); second killers added to the thinnest.
+See `reaudit_03_findings.md`.
+
+**CLOSED (T37, v0.44.1, 2026-11-14).** Remediation landed, test-only: F-3.1 and F-3.2 fixed (semi-annual
+fixtures + `ψ≠1` premise, mutants die); the τ=1 sweep was exhaustive (every accrual multiplication in
+`src/` mutated — no third same-class and no different-class survivor); the Gray-code second killer added
+(a different method); MM-I/YoY recorded for re-audit #4. The **mechanical guard was assessed with two
+built prototypes and declined** — τ=1 load-bearing-ness is a dynamic property no static gate can see
+(7-of-14 false positives), so it stays the mutation sweep's job; charter §9 gained the gateability
+boundary, guard → `to_go_deeper`. Re-audit #3 is complete; no `src/` defect was ever present (all holes
+were blind oracles), no new debt, one charter edit (the §9 gateability boundary).
+
+**Next due:** re-arms at whichever of {next arc close, 11 tranches since **re-audit #3**} comes first.
+(The "≈ T40" in re-audit #2's note was the cadence-counter estimate; the arc-close trigger fired first,
+as it has every time — the counter has never been the firing trigger.)

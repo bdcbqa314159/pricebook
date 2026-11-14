@@ -41,9 +41,26 @@ DC = DayCountConvention.ACT_365_FIXED
 MEASURE = TimeMeasure(ANCHOR, DC)
 DATES = tuple(ANCHOR + timedelta(days=365 * k) for k in range(6))   # anchor + 5 annual payments
 
+#: **SEMI-ANNUAL dates, and the reason they exist (re-audit #3, F-3.1).**
+#:
+#: Every period in `DATES` is exactly 365 days on ACT/365F, so **every accrual is exactly 1.0** and
+#: the annuity's `ψ · df` is `df` identically. Dropping the accrual from the bootstrap's annuity
+#: therefore **survived all 1430 tests** — the `src/` code was right, the oracle was blind. That is
+#: the charter's *first* recorded §4 degeneracy (`τ = 1`), biting a second pre-Jäckel instrument
+#: after it bit the linker at re-audit #1 (F-1.2).
+#:
+#: These periods are 182 and 183 days, so `ψ ≈ 0.4986 / 0.5014` — neither 1, and not equal to each
+#: other, so a mutant substituting any single constant fails too. On this schedule each annuity term
+#: is overstated ~2.01× without the accrual.
+SEMI_DATES = tuple(ANCHOR + timedelta(days=d) for d in (0, 182, 365, 547, 730, 912))
 
-def _schedule(n_periods: int) -> CouponSchedule:
-    return CouponSchedule(DATES[: n_periods + 1], DC)
+
+def _schedule(n_periods: int, dates: tuple = ()) -> CouponSchedule:
+    return CouponSchedule((dates or DATES)[: n_periods + 1], DC)
+
+
+def _semi_schedule(n_periods: int) -> CouponSchedule:
+    return CouponSchedule(SEMI_DATES[: n_periods + 1], DC)
 
 
 def _known_curve(pillars: tuple[tuple[float, float], ...]) -> DiscountCurve:
@@ -255,3 +272,54 @@ def test_the_annuity_of_a_one_period_schedule_is_psi_times_one_df():
     schedule = _schedule(1)
     _, pay, psi = next(iter(schedule.periods()))
     assert swap_annuity(SLOPED, schedule) == pytest.approx(psi * SLOPED.df(pay), rel=1e-15)
+
+
+# ── F-3.1: the accrual made visible (re-audit #3) ───────────────────────────────────────────────
+def test_the_SEMI_ANNUAL_fixtures_accruals_are_NOT_degenerate() -> None:
+    """The premise every test below rests on: `ψ ≠ 1`, and the two accruals differ from each other.
+
+    Asserted rather than assumed, because the whole hole was a fixture whose accruals were silently
+    1.0 — and a premise that is merely believed is exactly what re-audit #3 found.
+    """
+    accruals = [psi for _, _, psi in _semi_schedule(4).periods()]
+    assert all(abs(psi - 1.0) > 0.4 for psi in accruals), accruals
+    assert len({round(psi, 6) for psi in accruals}) > 1, (
+        f"the accruals must also differ from EACH OTHER, else a single wrong constant survives: "
+        f"{accruals}"
+    )
+
+
+def test_the_bootstrap_ANNUITY_is_accrual_weighted_on_a_NON_UNIT_schedule() -> None:
+    """The oracle F-3.1 was missing: round-trip a known curve through SEMI-ANNUAL par quotes.
+
+    The test computes the par rates itself from the known curve (eq 5.1.1, the forward map) and the
+    bootstrap inverts them; with `ψ ≠ 1` the annuity's accrual weighting is load-bearing on both
+    sides, so dropping it from the code no longer reproduces the input curve.
+    """
+    semi_pillars = tuple(MEASURE.year_fraction(d) for d in SEMI_DATES[1:])
+
+    def par_rate(n_periods: int) -> float:
+        schedule = _semi_schedule(n_periods)
+        annuity = sum(psi * SLOPED.df(pay) for _, pay, psi in schedule.periods())
+        return (1.0 - SLOPED.df(SEMI_DATES[n_periods])) / annuity
+
+    quotes = [ParSwapQuote(_semi_schedule(n), par_rate(n)) for n in range(1, 6)]
+    built = nominal_curve_from_par_swaps(MEASURE, quotes)
+    for date_, t in zip(SEMI_DATES[1:], semi_pillars):
+        assert built.df(date_) == pytest.approx(SLOPED.df(date_), rel=1e-12), f"at t={t}"
+
+
+def test_the_SEMI_ANNUAL_round_trip_REPRICES_its_own_quotes_to_par() -> None:
+    """The self-consistency companion, on the non-degenerate schedule."""
+    def par_rate(n_periods: int) -> float:
+        schedule = _semi_schedule(n_periods)
+        annuity = sum(psi * SLOPED.df(pay) for _, pay, psi in schedule.periods())
+        return (1.0 - SLOPED.df(SEMI_DATES[n_periods])) / annuity
+
+    quotes = [ParSwapQuote(_semi_schedule(n), par_rate(n)) for n in range(1, 6)]
+    built = nominal_curve_from_par_swaps(MEASURE, quotes)
+    for quote in quotes:
+        annuity = swap_annuity(built, quote.schedule)
+        maturity = list(quote.schedule.periods())[-1][1]
+        implied = (1.0 - built.df(maturity)) / annuity
+        assert implied == pytest.approx(quote.par_rate, rel=1e-12)

@@ -170,12 +170,23 @@ Routes recorded as the arc runs; the full set lands at the checkpoint `CP_xva_sp
 
 ---
 
-## `BROCKHAUS-2016` — *Equity Derivatives and Hybrids* (the equity arc: T30–, in progress)
+## `BROCKHAUS-2016` — *Equity Derivatives and Hybrids* (the equity arc: T30–T36b, **CLOSED** v0.44.0)
 
-Routes recorded as the arc runs; the full set (the exotic zoo — barriers/cliquets/asians/autocallables
-ch 3, implied-vol dynamics ch 7, correlation & copulas / multi-asset ch 8–9, FX & quanto ch 15,
-local-stochastic & jump-diffusion ch 6.3–6.4, portfolio credit ch 12.4) lands at the checkpoint
-`CP_equity_hybrids.md`. So far:
+Arc closed 2026-11-13 at the capstone; the full deferred set is in `CP_equity_hybrids.md`'s honest
+completion ratio — the exotic zoo (barriers/cliquets/asians/autocallables ch 3), implied-vol dynamics
+(ch 7), correlation & copulas / multi-asset (ch 8–9), FX & quanto (ch 15), local-stochastic &
+jump-diffusion (ch 6.3–6.4), portfolio credit (ch 12.4), Heston calibration + Carr-Madan FFT,
+portfolio/collateralised equity CVA, and structural/asset-barrier WWR (ch 14.4). The specific
+oracle-able routes recorded as the arc ran:
+
+0. **Correlated-default defaultable equity for the STOCK itself (Brockhaus 13.1.2).** T36b built the
+   13.1.2 apparatus (`Φ₂`, the `a_T` solve, the correlated Gaussian hazard) for the *counterparty's*
+   default in wrong-way risk; the correlated defaultable-*equity* vanilla — the stock's own
+   jump-to-default skew, `ρ` between the default and the diffusion — was never pulled (T35 built only
+   the independent-default 13.1.1). **Route:** now cheap, since `Φ₂` exists at L0 and the apparatus is
+   in the tree; a defaultable-equity model gains the `ρ` and reuses the bivariate-normal four-term call.
+   Oracle: `ρ→0` reduces to T35's independent default, `h→0` to T30. Pulled when a skew-from-credit
+   product wants it.
 
 1. **Consolidate the `tᵢ ≤ T` dividend-date filter into one `dividends_before(T)` (code hygiene, not a
    capability).** T30 writes the pre-expiry dividend filter once per convention (continuous/proportional/
@@ -184,3 +195,20 @@ local-stochastic & jump-diffusion ch 6.3–6.4, portfolio credit ch 12.4) lands 
    guard is single-point and a single fixture suffices — rule-of-two is well past its trigger (§6).
    **Do it at the next touch of the dividend/forward code** (likely T32's local-vol or a later equity
    tranche), not a tranche of its own. Oracle-able trivially (the extraction is a pure refactor, §4).
+
+---
+
+## Tooling — the τ=1 accrual-fixture guard (declined at T37, 2026-11-14)
+
+A CI guard that would flag an accrual-bearing test fixture whose accruals are all unit (`τ=1`), to catch
+a *future* annual-dates fixture at commit rather than at a re-audit. **Assessed and declined at T37**, not
+deferred for lack of interest: both prototypes were built and tested. A **textual** scan (annual date
+arithmetic) false-flags `test_inflation_capfloor.py`, whose accrual is killed by two tests — it cannot
+see load-bearing-ness. A **behavioural** instrument of `CouponSchedule.periods()` is clean on discovery
+but, as a gate, flags 7 of 14 modules with zero real holes (four — `index_ratio`, `jy_calibration`,
+`jy_full_calibration`, `seasoned` — have no accrual multiplication in their subject code at all). The
+missing half — *does the subject code use the accrual?* — is a dynamic property only mutation testing
+answers, which is the periodic re-audit's job (§9, now carrying the gateability boundary). **Route to
+revive:** a static type/effect marker on accrual-consuming code that a gate could read without running
+it (none exists today). Until then the periodic sweep + §4's premise rule are the backstop — they caught
+all three `τ=1` instances (F-1.2, F-3.1, F-3.2).
