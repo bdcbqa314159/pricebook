@@ -83,3 +83,5 @@ swaption) → T41 (the one-factor Gaussian copula) → **T41b (survival re-keyed
 → T44 (recursive loss distribution + base correlation) → `CP_okane_credit.md` (closes the arc, fires
 re-audit #4). Cowork writes each per-tranche spec before its build (§10); this is the queue, not the
 specs. **T38 is specced** (`docs/tranches/38_credit_default_swap.md`); the rest follow in turn.
+
+**T41c inserted (2026-11-14):** `verify.py conventions` — the register-integrity gate (unique ids + resolving citations), earned by T41b's duplicate-`C11` finding that two review passes (incl. a Cowork by-name ratification) missed. Statically decidable → gateable per §9. Runs before T42.
