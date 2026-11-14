@@ -26,7 +26,7 @@ from pricebook.foundation.day_count import DayCountConvention
 from pricebook.foundation.time_measure import TimeMeasure
 from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
 from pricebook.market.credit_legs import protection_leg, risky_pv01
-from pricebook.market.survival_curve import SurvivalCurve
+from pricebook.market.survival_curve import ReferenceEntity, SurvivalCurve
 from pricebook.models.credit import CreditModel
 from pricebook.products.credit_default_swap import CreditDefaultSwap, ProtectionDirection
 
@@ -36,6 +36,9 @@ TM = TimeMeasure(VAL, DC)
 EUR = Currency("EUR")
 DISCOUNT_KEY = CurveKey(CurveRole.DISCOUNT, EUR)
 RECOVERY = 0.40
+#: Tranche 41b: survival curves are keyed by the name, not the currency.
+ACME = ReferenceEntity("ACME")
+
 
 SLOPED = DiscountCurve(TM, (0.0, 1.0, 2.0, 3.0), (0.020, 0.026, 0.030, 0.033))
 #: pillars at 1 and 2, INSIDE the 3y horizon — so the two integrations must differ
@@ -49,7 +52,7 @@ HORIZON = (SEMI[-1] - VAL).days / 365.0
 def _model(survival: SurvivalCurve, recovery: float = RECOVERY) -> CreditModel:
     snapshot = MarketSnapshot(
         valuation_date=VAL,
-        curves=CurveSet({DISCOUNT_KEY: SLOPED}, survivals={EUR: survival}))
+        curves=CurveSet({DISCOUNT_KEY: SLOPED}, survivals={ACME: survival}))
     return CreditModel(snapshot, recovery)
 
 
@@ -69,7 +72,8 @@ def _per_segment() -> int:
 
 def _cds(spread: float = 0.01) -> CreditDefaultSwap:
     return CreditDefaultSwap(
-        CouponSchedule(SEMI, DC), spread, Money(1.0, EUR), ProtectionDirection.BUYER)
+        CouponSchedule(SEMI, DC), spread, Money(1.0, EUR), ProtectionDirection.BUYER,
+        ACME)
 
 
 class TestRiskyPv01IsAPureRefactorOfTheEngines:
@@ -84,7 +88,7 @@ class TestRiskyPv01IsAPureRefactorOfTheEngines:
                 model = _model(survival, recovery)
                 product = _cds()
                 shared = risky_pv01(
-                    product.schedule.periods(), SLOPED, model.survival(EUR))
+                    product.schedule.periods(), SLOPED, model.survival(ACME))
                 if shared.hex() != engine_rpv01(product, model).hex():
                     mismatches.append((survival.hazards, recovery, shared))
         assert mismatches == [], mismatches
@@ -155,7 +159,7 @@ class TestTheEngineAndTheBootstrapShareONEProtectionLeg:
         curve = bootstrap_survival_curve(
             ((schedule, quote),), SLOPED, RECOVERY, per_segment=_per_segment())
         product = CreditDefaultSwap(
-            schedule, quote, Money(10_000_000.0, EUR), ProtectionDirection.BUYER)
+            schedule, quote, Money(10_000_000.0, EUR), ProtectionDirection.BUYER, ACME)
         pv = price(product, _model(curve)).pv.amount
         assert abs(pv) < 1e-08, pv
 
@@ -174,7 +178,7 @@ class TestTheEngineAndTheBootstrapShareONEProtectionLeg:
 
         schedule, quote = CouponSchedule(SEMI, DC), 0.0120
         product = CreditDefaultSwap(
-            schedule, quote, Money(10_000_000.0, EUR), ProtectionDirection.BUYER)
+            schedule, quote, Money(10_000_000.0, EUR), ProtectionDirection.BUYER, ACME)
         residuals = []
         for per_segment in (50, 200, 800):
             curve = bootstrap_survival_curve(

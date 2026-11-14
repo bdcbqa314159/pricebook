@@ -26,7 +26,8 @@ from datetime import date
 from enum import Enum
 
 from pricebook.foundation.money import Money
-from pricebook.foundation.schedule import CouponSchedule
+from pricebook.market.survival_curve import ReferenceEntity
+from pricebook.products.forward_cds import ForwardPeriod
 
 
 class SwaptionDirection(Enum):
@@ -50,22 +51,13 @@ class SwaptionDirection(Enum):
 class CreditDefaultSwaption:
     """An option expiring at `expiry` on a CDS running from `expiry` to the schedule's end."""
 
-    schedule: CouponSchedule
-    expiry: date
+    period: ForwardPeriod
     strike: float
     notional: Money
     direction: SwaptionDirection
+    reference_entity: ReferenceEntity
 
     def __post_init__(self) -> None:
-        if self.expiry not in self.schedule.dates:
-            raise ValueError(
-                f"the expiry {self.expiry} must be a schedule date, so the underlying forward "
-                f"CDS's near and far premium legs share period boundaries; the schedule runs "
-                f"{self.schedule.dates[0]} → {self.schedule.dates[-1]}")
-        if self.expiry >= self.schedule.dates[-1]:
-            raise ValueError(
-                f"the expiry {self.expiry} must fall before the maturity "
-                f"{self.schedule.dates[-1]}, or the option is on an empty CDS")
         if self.strike <= 0.0:
             raise ValueError(
                 f"the strike spread must be positive, got {self.strike}: Black takes log(F/K), so "

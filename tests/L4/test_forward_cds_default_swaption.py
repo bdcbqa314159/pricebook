@@ -38,12 +38,12 @@ from pricebook.foundation.day_count import DayCountConvention
 from pricebook.foundation.time_measure import TimeMeasure
 from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
 from pricebook.market.credit_legs import CdsLegs, forward_annuity, forward_spread, risky_pv01
-from pricebook.market.survival_curve import SurvivalCurve
+from pricebook.market.survival_curve import ReferenceEntity, SurvivalCurve
 from pricebook.models.credit import CreditModel
 from pricebook.models.credit_swaption import CreditSwaptionModel
 from pricebook.products.credit_default_swap import CreditDefaultSwap, ProtectionDirection
 from pricebook.products.credit_default_swaption import CreditDefaultSwaption, SwaptionDirection
-from pricebook.products.forward_cds import ForwardCDS
+from pricebook.products.forward_cds import ForwardCDS, ForwardPeriod
 
 VAL = date(2026, 1, 1)
 DC = DayCountConvention.ACT_365_FIXED
@@ -53,6 +53,8 @@ DISCOUNT = CurveKey(CurveRole.DISCOUNT, EUR)
 RECOVERY = 0.40
 NOTIONAL = Money(10_000_000.0, EUR)
 VOL = 0.45
+#: Tranche 41b: survival curves are keyed by the name, not the currency.
+ACME = ReferenceEntity("ACME")
 
 #: NON-FLAT, read well beyond its first segment.
 CURVE = DiscountCurve(TM, (0.0, 1.0, 2.0, 3.0, 5.0), (0.020, 0.026, 0.030, 0.033, 0.036))
@@ -76,7 +78,7 @@ EXPIRY = FULL_DATES[round(EXPIRY_YEARS * 2)]
 def _market() -> MarketSnapshot:
     return MarketSnapshot(
         valuation_date=VAL,
-        curves=CurveSet({DISCOUNT: CURVE}, survivals={EUR: HAZARD}))
+        curves=CurveSet({DISCOUNT: CURVE}, survivals={ACME: HAZARD}))
 
 
 def _credit() -> CreditModel:
@@ -90,24 +92,25 @@ def _swaption_model(volatility: float = VOL) -> CreditSwaptionModel:
 def _spot_cds(end_years: float, spread: float) -> CreditDefaultSwap:
     return CreditDefaultSwap(
         CouponSchedule(_dates(0.0, end_years), DC), spread, NOTIONAL,
-        ProtectionDirection.BUYER)
+        ProtectionDirection.BUYER, ACME)
 
 
 def _spot_cds_with(
     end_years: float, spread: float, direction: ProtectionDirection
 ) -> CreditDefaultSwap:
     return CreditDefaultSwap(
-        CouponSchedule(_dates(0.0, end_years), DC), spread, NOTIONAL, direction)
+        CouponSchedule(_dates(0.0, end_years), DC), spread, NOTIONAL, direction, ACME)
 
 
 def _forward_cds(spread: float, expiry: date = EXPIRY) -> ForwardCDS:
     return ForwardCDS(
-        CouponSchedule(FULL_DATES, DC), expiry, spread, NOTIONAL, ProtectionDirection.BUYER)
+        ForwardPeriod(CouponSchedule(FULL_DATES, DC), expiry), spread, NOTIONAL,
+        ProtectionDirection.BUYER, ACME)
 
 
 def _swaption(strike: float, direction: SwaptionDirection) -> CreditDefaultSwaption:
     return CreditDefaultSwaption(
-        CouponSchedule(FULL_DATES, DC), EXPIRY, strike, NOTIONAL, direction)
+        ForwardPeriod(CouponSchedule(FULL_DATES, DC), EXPIRY), strike, NOTIONAL, direction, ACME)
 
 
 def _legs(end_years: float) -> CdsLegs:
@@ -171,7 +174,8 @@ class TestTheForwardCdsAgainstTheSpotEngine:
         assert isinstance(far, PricingResult) and isinstance(near, PricingResult)
         want = far.pv.amount - near.pv.amount
         got = price(
-            ForwardCDS(CouponSchedule(FULL_DATES, DC), EXPIRY, spread, NOTIONAL, direction),
+            ForwardCDS(ForwardPeriod(CouponSchedule(FULL_DATES, DC), EXPIRY), spread,
+                       NOTIONAL, direction, ACME),
             model)
         assert isinstance(got, PricingResult)
         assert got.pv.amount == pytest.approx(want, rel=1e-12, abs=1e-06), (got.pv.amount, want)
@@ -192,8 +196,8 @@ class TestTheForwardCdsAgainstTheSpotEngine:
     def test_the_SELLER_is_the_exact_negative_of_the_BUYER(self) -> None:
         buyer = price(_forward_cds(STRIKE), _credit())
         seller = price(
-            ForwardCDS(CouponSchedule(FULL_DATES, DC), EXPIRY, STRIKE, NOTIONAL,
-                       ProtectionDirection.SELLER), _credit())
+            ForwardCDS(ForwardPeriod(CouponSchedule(FULL_DATES, DC), EXPIRY), STRIKE,
+                       NOTIONAL, ProtectionDirection.SELLER, ACME), _credit())
         assert seller.pv.amount == pytest.approx(-buyer.pv.amount, rel=1e-14)
 
 
@@ -383,8 +387,8 @@ class TestTheDefaultSwaption:
         errors = []
         for volatility in (0.02, 0.04, 0.08):
             at_the_money = CreditDefaultSwaption(
-                CouponSchedule(FULL_DATES, DC), EXPIRY, forward, NOTIONAL,
-                SwaptionDirection.PAYER)
+                ForwardPeriod(CouponSchedule(FULL_DATES, DC), EXPIRY), forward, NOTIONAL,
+                SwaptionDirection.PAYER, ACME)
             got = price(at_the_money, _swaption_model(volatility)).pv.amount / scale
             want = volatility * math.sqrt(expiry_years) / math.sqrt(2.0 * math.pi)
             errors.append(abs(got / want - 1.0))
@@ -399,20 +403,21 @@ class TestTheDefaultSwaption:
 
 
 class TestTheGuardsAreReachable:
-    def test_a_FORWARD_START_that_is_not_a_schedule_date_is_refused(self) -> None:
-        with pytest.raises(ValueError, match="schedule date"):
-            ForwardCDS(CouponSchedule(FULL_DATES, DC), VAL + timedelta(days=7), STRIKE,
-                       NOTIONAL, ProtectionDirection.BUYER)
+    @pytest.mark.parametrize("split", ["not-a-schedule-date", "at-the-maturity"])
+    def test_a_BAD_FORWARD_WINDOW_is_refused_before_either_product_exists(
+        self, split: str) -> None:
+        """The guard moved to `ForwardPeriod` at tranche 41b, and these assert it is still
+        reachable from the products' construction path.
 
-    def test_a_FORWARD_START_at_or_after_maturity_is_refused(self) -> None:
-        with pytest.raises(ValueError, match="before the maturity"):
-            ForwardCDS(CouponSchedule(FULL_DATES, DC), FULL_DATES[-1], STRIKE, NOTIONAL,
-                       ProtectionDirection.BUYER)
-
-    def test_an_EXPIRY_that_is_not_a_schedule_date_is_refused(self) -> None:
-        with pytest.raises(ValueError, match="schedule date"):
-            CreditDefaultSwaption(CouponSchedule(FULL_DATES, DC), VAL + timedelta(days=7),
-                                  STRIKE, NOTIONAL, SwaptionDirection.PAYER)
+        It used to be written out **twice** — once in `ForwardCDS` and once in
+        `CreditDefaultSwaption`, with near-identical messages — which is the duplicated-guard shape
+        §4 warns about: a fixture exercising one copy leaves the other unguarded, and dropping
+        either survived. Consolidating it means one definition, one fixture, and a bad window
+        cannot reach *either* product because the period itself refuses to exist."""
+        bad = VAL + timedelta(days=7) if split == "not-a-schedule-date" else FULL_DATES[-1]
+        expected = "schedule date" if split == "not-a-schedule-date" else "before the maturity"
+        with pytest.raises(ValueError, match=expected):
+            ForwardPeriod(CouponSchedule(FULL_DATES, DC), bad)
 
     def test_a_NEGATIVE_vol_is_refused(self) -> None:
         with pytest.raises(ValueError, match="volatility"):
@@ -422,8 +427,9 @@ class TestTheGuardsAreReachable:
         """Black takes `log(F/K)`, so a zero or negative strike is not a wide answer but an
         undefined one — refused in the product's vocabulary rather than raised by `math.log`."""
         with pytest.raises(ValueError, match="strike"):
-            CreditDefaultSwaption(CouponSchedule(FULL_DATES, DC), EXPIRY, 0.0, NOTIONAL,
-                                  SwaptionDirection.PAYER)
+            CreditDefaultSwaption(
+                ForwardPeriod(CouponSchedule(FULL_DATES, DC), EXPIRY), 0.0, NOTIONAL,
+                SwaptionDirection.PAYER, ACME)
 
     def test_a_PAR_SPREAD_on_a_ZERO_annuity_is_refused(self) -> None:
         """`CdsLegs.par_spread` divides by the annuity, and the `tF → t` reduction constructs

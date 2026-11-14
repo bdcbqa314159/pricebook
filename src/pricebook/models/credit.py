@@ -27,7 +27,7 @@ import math
 from dataclasses import dataclass
 
 from pricebook.market.snapshot import MarketSnapshot
-from pricebook.market.survival_curve import SurvivalCurve
+from pricebook.market.survival_curve import ReferenceEntity, SurvivalCurve
 
 
 @dataclass(frozen=True)
@@ -45,16 +45,17 @@ class CreditModel:
                 "a credit model needs a survival curve in the snapshot; none was supplied"
             )
         anchor = self.market.valuation_date
-        for currency, curve in self.market.curves.survivals.items():
+        for entity, curve in self.market.curves.survivals.items():
             if curve.time_measure.anchor != anchor:
                 raise ValueError(
-                    f"the survival curve for {currency} and the snapshot must share one time "
+                    f"the survival curve for {entity} and the snapshot must share one time "
                     f"measure anchor: {curve.time_measure.anchor} vs {anchor}"
                 )
 
-    def survival(self, currency) -> SurvivalCurve:
-        """`Q` for `currency` - reached through the snapshot, never passed alongside it (§3)."""
+    def survival(self, entity: ReferenceEntity) -> SurvivalCurve:
+        """`Q` for `entity` - reached through the snapshot, never passed alongside it (§3)."""
         try:
-            return self.market.curves.survival(currency)
+            return self.market.curves.survival(entity)
         except KeyError as exc:
-            raise KeyError(f"no survival curve for {currency} in the snapshot") from exc
+            raise KeyError(
+                f"no survival curve for {entity} in the snapshot") from exc

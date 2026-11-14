@@ -50,10 +50,10 @@ from pricebook.products.forward_cds import ForwardCDS
 from pricebook.engine.credit_default_swap import _DEFAULT_PER_SEGMENT
 
 
-def _legs_to(dates: tuple, day_count, model, currency) -> legs.CdsLegs:
+def _legs_to(dates: tuple, day_count, model, product) -> legs.CdsLegs:
     """The spot legs to `dates[-1]`, per unit notional, from the shared L1 functional."""
-    discount = model.market.curves.discount(currency)
-    survival = model.survival(currency)
+    discount = model.market.curves.discount(product.notional.currency)
+    survival = model.survival(product.reference_entity)
     schedule = CouponSchedule(dates, day_count)
     horizon = discount.time_measure.year_fraction(dates[-1])
     return legs.CdsLegs(
@@ -68,12 +68,9 @@ def forward_quote(product, model) -> tuple[float, float]:
     Works for both products: each carries a schedule spanning `[t, T]` and a date on it (the
     forward start, or the option expiry) that splits it.
     """
-    currency = product.notional.currency
-    split = product.forward_start if isinstance(product, ForwardCDS) else product.expiry
-    index = product.schedule.dates.index(split)
-    near = _legs_to(product.schedule.dates[: index + 1], product.schedule.day_count,
-                    model, currency)
-    far = _legs_to(product.schedule.dates, product.schedule.day_count, model, currency)
+    period = product.period
+    near = _legs_to(period.near_dates(), period.schedule.day_count, model, product)
+    far = _legs_to(period.schedule.dates, period.schedule.day_count, model, product)
     return legs.forward_spread(near, far), legs.forward_annuity(near, far)
 
 
@@ -83,7 +80,7 @@ def price_forward_cds(
 ) -> PricingResult | PricingFailure:
     """`ω·(S(t,tF,T) − S₀)·RPV01(t,tF,T)·N`."""
     currency = product.notional.currency
-    if is_historical(product.schedule.dates[-1], model.market.valuation_date):
+    if is_historical(product.period.maturity, model.market.valuation_date):
         # Invariant 6: a matured contract is the shell's business, PV 0 before any market lookup.
         return PricingResult(pv=Money(0.0, currency))
     try:
@@ -103,7 +100,7 @@ def price_credit_default_swaption(
 ) -> PricingResult | PricingFailure:
     """`RPV01(0,tE,T)·Black(S(0,tE,T), K, σ²tE, ω)·N` — eq 9.3."""
     currency = product.notional.currency
-    if is_historical(product.expiry, model.market.valuation_date):
+    if is_historical(product.period.start, model.market.valuation_date):
         # An expired option is the shell's business: exercise or lapse already happened.
         return PricingResult(pv=Money(0.0, currency))
     try:
@@ -112,7 +109,7 @@ def price_credit_default_swaption(
     except KeyError as exc:
         return PricingFailure(f"cannot price the default swaption: {exc}")
 
-    expiry_years = discount.time_measure.year_fraction(product.expiry)
+    expiry_years = discount.time_measure.year_fraction(product.period.start)
     total_variance = model.volatility * model.volatility * expiry_years
     # `SwaptionDirection` already satisfies Black's `OptionDirection` protocol — payer is a call
     # on the spread (ω=+1), receiver a put (ω=−1) — so it is passed straight through rather than

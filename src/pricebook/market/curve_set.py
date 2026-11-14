@@ -21,7 +21,7 @@ from enum import Enum
 
 from pricebook.foundation.money import Currency
 from pricebook.market.curve import CurveHandle
-from pricebook.market.survival_curve import SurvivalCurve
+from pricebook.market.survival_curve import ReferenceEntity, SurvivalCurve
 
 
 class CurveRole(Enum):
@@ -49,14 +49,15 @@ class CurveSet:
     """Curves, reached through accessors that state the narrowing once.
 
     Two backing stores, not one, because a survival curve is a different *kind* of curve,
-    not another `CurveRole` key. Tranche 1 predicted survival would arrive as a role; when
+    not another `CurveRole` key, and it is keyed by `ReferenceEntity` rather than by currency
+    (tranche 41b). Tranche 1 predicted survival would arrive as a role; when
     the CDS actually pulled it at tranche 38 the type did not fit: `CurveHandle` answers
     `df_at`, while a hazard curve answers `survival` and `default_density`. Keying it as a
     role would have made a hazard curve answer a discounting question — a shared word, not
     a shared shape (charter §6) — so it gets its own store and its own typed accessor."""
 
     curves: Mapping[CurveKey, CurveHandle]
-    survivals: Mapping[Currency, SurvivalCurve] = field(default_factory=dict)
+    survivals: Mapping[ReferenceEntity, SurvivalCurve] = field(default_factory=dict)
 
     def real(self, currency: Currency) -> CurveHandle:
         """The real (inflation-linked) discount curve `Pr` for `currency`.
@@ -82,11 +83,13 @@ class CurveSet:
         except KeyError:
             raise KeyError(f"no discount curve for {currency} in the curve set") from None
 
-    def survival(self, currency: Currency) -> SurvivalCurve:
-        """The survival curve for `currency`. Raises on an unknown key rather than defaulting to a
+    def survival(self, entity: ReferenceEntity) -> SurvivalCurve:
+        """The survival curve for `entity`. Raises on an unknown key rather than defaulting to a
         never-defaults curve: survival ≡ 1 zeroes the protection leg and prices a CDS at minus
-        its premium, which is a wrong number that looks plausible."""
+        its premium, which is a wrong number that looks plausible. Equally, it never falls back to
+        *another* name's curve, which would be a wrong number wearing the right shape."""
         try:
-            return self.survivals[currency]
+            return self.survivals[entity]
         except KeyError:
-            raise KeyError(f"no survival curve for {currency} in the curve set") from None
+            raise KeyError(
+                f"no survival curve for {entity} in the curve set") from None

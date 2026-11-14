@@ -43,7 +43,7 @@ from pricebook.foundation.bivariate_normal import bivariate_normal_cdf
 from pricebook.foundation.distributions import inverse_norm_cdf, norm_cdf
 from pricebook.foundation.quadrature import standard_normal_expectation
 from pricebook.market.snapshot import MarketSnapshot
-from pricebook.market.survival_curve import SurvivalCurve
+from pricebook.market.survival_curve import ReferenceEntity, SurvivalCurve
 
 #: Gauss-Hermite nodes for the market-factor integral. Measured: the marginal recovery reads 1e-08
 #: by 16 nodes on a moderate `β`, and the committed 64 clears 1e-09 even at `β = 0.9` with a
@@ -64,6 +64,7 @@ class CreditName:
     exist to expose. Pairing them here makes it unrepresentable instead of merely tested.
     """
 
+    entity: ReferenceEntity
     beta: float
     survival: SurvivalCurve
 
