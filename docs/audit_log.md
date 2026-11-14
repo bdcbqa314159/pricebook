@@ -117,3 +117,22 @@ were blind oracles), no new debt, one charter edit (the §9 gateability boundary
 **Next due:** re-arms at whichever of {next arc close, 11 tranches since **re-audit #3**} comes first.
 (The "≈ T40" in re-audit #2's note was the cadence-counter estimate; the arc-close trigger fired first,
 as it has every time — the counter has never been the firing trigger.)
+
+### Accumulating for re-audit #4
+
+Single-killer oracles recorded as they are found, so the sweep has its re-run targets ready rather
+than rediscovering them:
+
+| from | mutant killed by exactly one test | note |
+|---|---|---|
+| re-audit #3 | MM-I's `τ/(1+τ)` denominator | load-bearing; second killer still owed |
+| re-audit #3 | the YoY leg's first `ψ` | already-shipped hole (F-1.2); given a second killer at T37 |
+| re-audit #3 | tranche 26's Leg B numéraire divisor | single **by design** — one leg, one identity |
+| T38 | `CreditModel`'s recovery-range refusal | a guard with one behaviour; single killer is inherent |
+| T38 | `CreditModel`'s shared-clock refusal | same shape |
+
+T38's two load-bearing single killers were **hardened in-tranche** rather than recorded: the
+protection-leg quadrature rule (1 → 3 killers, via a closed-form anchor) and the direction factor
+(1 → 2, via a zero-spread sign asymmetry). The two that remain are refusal guards, where one
+assertion is the whole behaviour — distinct from a numerical coefficient, which can be wrong by a
+factor no single test pins.
