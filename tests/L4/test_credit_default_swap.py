@@ -399,6 +399,23 @@ class TestTheDiscretisationIsMeasuredNotToleranced:
         assert lower <= value <= upper, f"{value} outside [{lower}, {upper}]"
         assert upper > lower, "the bracket must be non-degenerate at this step count"
 
+    def test_the_bracket_CONTAINS_the_true_value_which_is_what_a_bracket_is_FOR(self) -> None:
+        """The claim that is not nearly-automatic, and the one the bracket exists to make.
+
+        "The trapezoid sits inside the bracket" is close to arithmetically necessary — the
+        trapezoid *is* the mean of the left and right sums, differing only in summation order — so
+        on its own it is a weak assertion. Containing an independently computed fine reference is
+        the real property, and it is the one that discriminates: with a bracket on a uniform grid
+        the sums apply a single hazard across the whole span and the interval **excludes** the
+        truth by ~6% at every refinement, so it brackets nothing. Pillar-aware, it contains it at
+        every count — which is also the second independent killer for that mutation."""
+        from pricebook.engine.credit_default_swap import protection_leg, riemann_bracket
+
+        reference = protection_leg(_cds(), _model(), per_segment=200_000)
+        for per_segment in (24, 96, 384):
+            lower, upper = riemann_bracket(_cds(), _model(), per_segment=per_segment)
+            assert lower <= reference <= upper, (per_segment, lower, reference, upper)
+
     def test_the_bracket_TIGHTENS_and_the_error_falls_at_the_stated_rate(self) -> None:
         """`O(1/M)` for the bracket width; the trapezoid itself converges faster. Asserting the
         *rate* rather than a flat band — the T25 convergence-plateau lesson."""
