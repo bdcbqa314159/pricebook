@@ -36,6 +36,7 @@ Provenance:
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import date
 
 from pricebook.market.curve import CurveHandle
@@ -124,3 +125,66 @@ def protection_leg(
             area += 0.5 * (previous + current) * step * hazard
             previous = current
     return (1.0 - recovery) * area
+
+
+@dataclass(frozen=True)
+class CdsLegs:
+    """The two legs of a spot CDS to one maturity, per unit notional.
+
+    Vocabulary, not abstraction (§7): `forward_annuity` and `forward_spread` both take a *near* and
+    a *far* pair, which is two present consumers for the bundle. Keeping them together also stops
+    four same-typed floats being passed in the wrong order — the annuity and the protection leg
+    cannot be swapped silently once they are named fields.
+    """
+
+    annuity: float
+    protection: float
+
+    @property
+    def par_spread(self) -> float:
+        """`S(t,M) = Prot(t,M)/RPV01(t,M)` — the spread making this spot CDS worth zero."""
+        if self.annuity <= 0.0:
+            raise ValueError(
+                f"a par spread needs a positive risky annuity, got {self.annuity}")
+        return self.protection / self.annuity
+
+
+def forward_annuity(near: CdsLegs, far: CdsLegs) -> float:
+    """`RPV01(t,tF,T) = RPV01(t,T) − RPV01(t,tF)` — O'Kane ch 9.2, the forward risky annuity.
+
+    This is also the numéraire the default swaption is priced under, and the knockout `1{τ>tE}`
+    lives inside it: both annuities weight by survival from `t`, so their difference already
+    carries "and the name has not defaulted by `tF`". That is why the standard default swaption is
+    exactly Black on the forward spread scaled by this quantity, with no separate indicator.
+    """
+    difference = far.annuity - near.annuity
+    if difference <= 0.0:
+        raise ValueError(
+            f"a forward annuity must be positive: RPV01 to the far maturity ({far.annuity}) must "
+            f"exceed RPV01 to the forward start ({near.annuity}). A non-positive difference means "
+            f"the forward window is empty or inverted, and the forward spread would divide by it.")
+    return difference
+
+
+def forward_spread(near: CdsLegs, far: CdsLegs) -> float:
+    """`S(t,tF,T) = [Prot(t,T) − Prot(t,tF)] / [RPV01(t,T) − RPV01(t,tF)]` — O'Kane eq 9.2.
+
+    Written as the **protection difference** over the annuity difference, which is the form
+    O'Kane's 9.2.1 derivation produces. The printed 9.2 is
+    `[S(t,T)·RPV01(t,T) − S(t,tF)·RPV01(t,tF)] / [...]` and is the *same expression*: `S` there is
+    the par spread `Prot/RPV01`, so substituting gives this identically (the suite asserts the two
+    agree exactly, and records that this is an algebraic identity rather than the transcription
+    independence it resembles). This form is preferred because it does not route through a
+    division and back.
+
+    **`tF → t` reduces to the spot par spread** exactly, since the near legs vanish — the §4
+    reduction anchor, checked against tranche 38's `par_spread` with different code each side.
+
+    **Validity regime.** The denominator is a difference of two annuities, so a forward start close
+    to the maturity is a cancellation: with annuities 2.42 and 2.43 the reduction identity holds to
+    only ~69 ULP against ~1 ULP for well-separated ones. An empty or inverted window is refused by
+    `forward_annuity`; a *nearly* empty one is not, and returns a spread whose last digits are
+    noise. Harmless at any realistic forward start, and stated because a formula's conditioning is
+    part of its contract.
+    """
+    return (far.protection - near.protection) / forward_annuity(near, far)

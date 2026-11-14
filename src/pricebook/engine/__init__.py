@@ -22,6 +22,10 @@ from pricebook.engine.inflation import price_inflation_linked_bond, price_zc_inf
 from pricebook.engine.registry import dispatch as price
 from pricebook.engine.yoy import price_yoy_inflation_swap
 from pricebook.engine.mc_path_engine import PathGrid, mc_caplet_price, simulate_terminal_forwards
+from pricebook.engine.forward_cds import (
+    price_credit_default_swaption,
+    price_forward_cds,
+)
 from pricebook.engine.registry import register
 
 __all__ = [

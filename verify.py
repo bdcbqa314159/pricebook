@@ -288,7 +288,7 @@ STOCK = ROOT / "_stock"
 # The committed test floor (the floor rule, CLAUDE.md 6 second clause; ruling:
 # docs/handoffs/rulings_floor_rule.md). CI is RED below it. A slice that adds a test
 # tier raises this in the same commit. First value = the restart's measured 366.
-TEST_FLOOR = 1515
+TEST_FLOOR = 1560
 
 #: The commands `verify.py` actually implements, so §9 and `ci.yml` cannot agree on a typo.
 _KNOWN_GATES = frozenset({"acyclic", "layers", "fields", "debt", "provenance",

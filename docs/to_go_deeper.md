@@ -212,3 +212,21 @@ answers, which is the periodic re-audit's job (§9, now carrying the gateability
 revive:** a static type/effect marker on accrual-consuming code that a gate could read without running
 it (none exists today). Until then the periodic sweep + §4's premise rule are the backstop — they caught
 all three `τ=1` instances (F-1.2, F-3.1, F-3.2).
+
+
+---
+
+## `OKANE-2008` — *Modelling Single-name and Multi-name Credit Derivatives* (the credit arc: T38–, in progress)
+
+Routes recorded as the arc runs; the full deferred set (bonds & asset swaps ch 4, CDS indices + index
+options ch 10–11, CMDS ch 9.4, implied/compound correlation ch 19, the copula-skew zoo ch 21, CPPI/
+CPDO/CDO²/tranchelets ch 22, and the ch 23 dynamic models as a possible `out_of_method` candidate) lands
+at the checkpoint `CP_okane_credit.md`. So far:
+
+1. **The non-knockout default swaption (ch 9.3).** T40 built the **knockout** swaption (the standard
+   contract). The non-knockout variant is, by O'Kane's own decomposition, **knockout + front-end
+   protection** — and the front-end protection is a short protection leg over `[0, tE]`, which
+   `credit_legs.protection_leg` already computes. **Route:** a new `NonKnockoutDefaultSwaption` product
+   (not a flag on the knockout one, §6) whose engine adds the front-end protection term; oracle by the
+   decomposition (`non-knockout = knockout + front-end`, different code each side) and the `R→1` /
+   `h→0` reductions to the knockout. Cheap; unpulled (nothing needs it), so deferred by the §1 pull gate.

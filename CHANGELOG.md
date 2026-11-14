@@ -6,6 +6,85 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-11-14
+
+### Added — tranche 40, the forward CDS and the knockout default swaption
+
+Closes the single-name CDS vertical (`OKANE-2008` ch 9.2/9.3).
+
+- `market/credit_legs.py` (extended) — `CdsLegs(annuity, protection)`, `forward_annuity`,
+  `forward_spread`. The forward spread is written as the **protection difference** over the annuity
+  difference, which is what O'Kane's 9.2.1 derivation produces.
+- `products/forward_cds.py`, `products/credit_default_swaption.py` — frozen data, each carrying one
+  schedule spanning `[t, T]` plus a date **on** it that splits it. That makes period alignment a
+  property of the representation: a separate near-schedule field could be handed two unaligned
+  grids, which is a wrong number nothing would catch.
+- `models/credit_swaption.py` — `CreditSwaptionModel(credit, volatility)`, **composing** the
+  tranche-38 `CreditModel` rather than restating `(market, recovery)`, so a forward CDS and the
+  swaption written on it cannot disagree about the curves or the recovery.
+- `engine/forward_cds.py` — both pricers. `SwaptionDirection` already satisfies Black's
+  `OptionDirection` protocol (payer is a call on the spread), so it passes straight through.
+- The **knockout needs no indicator**: `1{τ>tE}` is already inside `RPV01(0,tE,T)`, since both
+  annuities weight by survival from today. A separate factor would double-count it.
+
+### Oracles
+
+- **The anchor is a cross-product, not a formula restatement**: the forward CDS equals
+  `price(CDS to T, S₀) − price(CDS to tF, S₀)` through tranche 38's engine, for every contractual
+  spread **and both directions** — 1e-12, different code each side.
+- **Put-call parity** `VPay − VRec = (S(0,tE,T) − K)·RPV01(0,tE,T)` tied back to the forward CDS,
+  at every vol — survives any slip in Black's `d±`.
+- **`tF → t` reduces to tranche 38's `par_spread`** (cross-product, different code).
+- **Black's ATM asymptotic** `price/(annuity·N·F) → σ√tE/√(2π)`, asserted as a *rate*: the error is
+  3.3e-05 / 1.3e-04 / 5.3e-04 at σ = 0.02/0.04/0.08, exactly quadratic in σ.
+- A pointwise transcription of the 9.3 composition against `norm_cdf` directly, plus the zero-vol
+  intrinsic and monotonicity in σ.
+
+### Three oracles the spec proposed that turned out to be weaker than they looked
+
+Reported rather than quietly adjusted, since two of them are the kind that pass while asserting
+little:
+
+1. **Eq 9.2 and the 9.2.1 derivation are the same expression.** The par spread *is*
+   `Prot/RPV01`, so substituting gives one from the other identically — measured relative gap
+   exactly `0.0`. That is an algebraic tautology, not the transcription independence it resembles;
+   it is kept and **labelled as an identity**, with the real independence coming from the
+   cross-product.
+2. **"At `S₀ = S(0,tF,T)` the forward CDS is worth zero" telescopes** — the forward spread is
+   *defined* as the ratio that zeroes it. Kept as a guard; the non-telescoping version is the same
+   statement asserted through the engine difference, where nothing was constructed to cancel.
+3. **A flat *hazard* is not a flat *spread curve*.** The spec's flat-curve reduction was asserted
+   against a flat hazard, and it fails: with a non-flat discount curve the par spread still drifts
+   with maturity (1.35e-03 between 2y and 5y here), so the forward spread is legitimately 1.06e-03
+   from the 5y spot. Hiding that would have meant loosening the band to 2e-03. Replaced by the
+   condition that actually makes 9.2.1 exact — **equal par spreads**, asserted on constructed legs
+   to within a few ULP — plus the curve-level version requiring **both** curves flat (3e-08), and
+   the misleading case asserted as a *non*-reduction so it cannot be re-added as a wrong test.
+
+### Validity regime
+
+`forward_spread` divides by a difference of annuities, so a forward start close to the maturity is
+a cancellation: the reduction identity holds to ~69 ULP with annuities 2.42 and 2.43 against ~1 ULP
+for well-separated ones. An empty or inverted window is refused; a *nearly* empty one is not, and
+returns a spread whose last digits are noise. Measured, asserted, and named in the docstring.
+
+### Mutation sweep
+
+23 mutants, full suite each, no `-x`. One survivor and three load-bearing single-killers, all
+closed in-tranche:
+
+- dropping `CdsLegs.par_spread`'s annuity guard **survived** — the `tF → t` reduction constructs
+  exactly the degenerate leg, so the guard is reachable and simply had no test;
+- the forward CDS's **direction factor** was killed by one test; the cross-product anchor is now
+  parametrised over both directions (1 → 4 killers);
+- the swaption's **total variance** was killed only by the pointwise transcription, so `σ²` alone
+  and `σ·tE` both had a single killer each. Black's ATM asymptotic separates them independently —
+  they read `0.707×` and `4.98×` of it — taking both to 2 killers.
+
+The remaining single-killers are refusal guards with one condition each, which is inherent;
+recorded in `docs/audit_log.md` for re-audit #4.
+
+
 ## [0.46.0] - 2026-11-14
 
 ### Added — tranche 39, the CDS survival-curve bootstrap
