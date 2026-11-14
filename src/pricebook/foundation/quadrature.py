@@ -48,12 +48,34 @@ import numpy as np
 _DEFAULT_NODES = 64
 
 
+#: The rule's own normalisation, `Σwᵢ = E[1] = 1`, verified at construction. Not decoration: above
+#: ~370 nodes `numpy.polynomial.hermite.hermgauss` loses the weights to underflow and returns a
+#: rule that **silently integrates to the wrong answer** rather than failing. Measured on numpy
+#: 2.4.3: correct to 370; at **371 every weight is 0.0, so `E[1]` is `0.0`** — a finite,
+#: plausible-looking, 100%-wrong number, which is the worst of the three outcomes; from ~380 it is
+#: `NaN`. A caller asking for a finer rule than the library can build must be refused, never handed
+#: a zero (charter §3.4 — failure is a value, never a silent NaN or a quiet zero).
+#:
+#: The check is **derived, not a hard-coded 370**: it asserts the invariant this module's docstring
+#: already names as its oracle, so a future numpy change moves the usable range without moving the
+#: guard. Found while building tranche 41, whose market-factor integral wanted 256 nodes at high
+#: factor loadings — within range, but one refinement away from the cliff.
+_NORMALISATION_TOLERANCE = 1e-12
+
+
 @lru_cache(maxsize=16)
 def _rule(nodes: int) -> tuple[tuple[float, ...], tuple[float, ...]]:
     """The scaled nodes and normalised weights, cached — they depend only on the count."""
     raw_nodes, raw_weights = np.polynomial.hermite.hermgauss(nodes)
     scaled = tuple(float(x) * math.sqrt(2.0) for x in raw_nodes)
     normalised = tuple(float(w) / math.sqrt(math.pi) for w in raw_weights)
+    total = math.fsum(normalised)
+    if not abs(total - 1.0) < _NORMALISATION_TOLERANCE:
+        raise ValueError(
+            f"a {nodes}-point Gauss-Hermite rule does not normalise: its weights sum to {total}, "
+            f"not 1. The underlying `hermgauss` loses the weights to underflow above roughly 370 "
+            f"nodes, so it cannot build a rule this fine; use fewer nodes. Returning the rule "
+            f"anyway would integrate everything to zero or NaN without saying so.")
     return scaled, normalised
 
 

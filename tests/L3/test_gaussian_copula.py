@@ -123,20 +123,26 @@ class TestTheThresholdAndTheMarginalRecovery:
         assert errors[0] > errors[-1], errors
         assert errors[-1] < 1e-08, errors
 
-    def test_the_REGIME_a_high_beta_needs_more_nodes_and_is_NOT_monotone(self) -> None:
-        """Measured, and asserted so the committed node count is defensible.
+    def test_the_REGIME_a_high_beta_needs_the_COMMITTED_node_count(self) -> None:
+        """Measured, so the committed count is defensible rather than inherited.
 
-        As `β → 1` the integrand approaches a step in `Z`, and Gauss-Hermite convergence stops
-        being monotone: at `β = 0.9` with a far-out threshold the error *rises* from 8 to 16 nodes
-        before collapsing. The committed 64 nodes clear it by orders; a test asserting monotone
-        improvement here would flake across platforms."""
+        As `β → 1` the integrand approaches a step in `Z` and a coarse rule is badly wrong: at
+        `β = 0.9` with a far-out threshold the relative error is 4.5e-02 at 8 nodes and 1.8e-03 at
+        16, against 4.8e-12 at the committed 64. So the node count is doing real work here, which
+        the moderate-`β` test above cannot show.
+
+        **An earlier draft of this test asserted the convergence was non-monotone** — measured at
+        one fixture (`C = −2.5`), where the error does rise from 8 to 16 nodes. It does not at this
+        fixture (`C = −2.33`), so the non-monotonicity is real but fixture-sensitive, and asserting
+        it would have pinned an accident. What is robust is the gap between a coarse rule and the
+        committed one, which is what is asserted."""
         sharp = _copula(betas=(0.9, 0.6, 0.45), hazards=(0.002, 0.030, 0.019))
         truth = _default_probability(0.002)
         coarse = abs(sharp.marginal_from_factor(0, HORIZON, nodes=8) / truth - 1.0)
-        worse = abs(sharp.marginal_from_factor(0, HORIZON, nodes=16) / truth - 1.0)
         committed = abs(sharp.marginal_from_factor(0, HORIZON) / truth - 1.0)
-        assert worse > coarse, f"the non-monotone step must be present: {coarse} -> {worse}"
+        assert coarse > 1e-02, coarse
         assert committed < 1e-09, committed
+        assert coarse / committed > 1e07, (coarse, committed)
 
 
 class TestTheThreeExactReductions:
@@ -192,13 +198,34 @@ class TestTheJointByTwoMethods:
         assert copula.joint_default(i, j, HORIZON) == pytest.approx(
             copula.joint_default_from_factor(i, j, HORIZON), rel=1e-08)
 
-    def test_the_integral_is_the_REFERENCE_where_PHI2_degrades(self) -> None:
-        """Φ₂'s tranche-36b regime is `|ρ| ≤ 0.99`; past it the market-factor integral is the
-        better side. Asserted as a *disagreement* so the boundary is recorded rather than assumed:
-        the two must agree inside the regime and are allowed to part outside it."""
-        inside = _copula(betas=(0.99, 0.99, 0.45))
-        assert inside.joint_default(0, 1, HORIZON) == pytest.approx(
-            inside.joint_default_from_factor(0, 1, HORIZON), rel=1e-05)
+    def test_at_HIGH_correlation_PHI2_is_the_accurate_side_NOT_the_integral(self) -> None:
+        """The spec expected the opposite, and the measurement settles it the other way.
+
+        Against `scipy.stats.multivariate_normal` as an independent high-precision reference, at
+        `ρ = 0.9801` **Φ₂ is accurate to 8.9e-16** while the market-factor integral at the
+        committed 64 nodes is **1.8e-02** out — the integrand `p_i(T|Z)p_j(T|Z)` approaches a step
+        as `β → 1`, so it is the quadrature that degrades, not Φ₂. (Φ₂ is exact at `ρ = ±1` by
+        construction, being derived from Plackett's identity rather than a quadrature in `ρ`;
+        tranche 36b's `|ρ| ≤ 0.99` regime is about deep-tail *values*, `Φ₂ ≳ 1e-8`, and these
+        probabilities are ≈0.05, well inside it.)
+
+        So the two-method cross-check is asserted where the *integral* is accurate, and the
+        divergence at high `ρ` is pinned as a property of the integral with its own refinement
+        path — 6.4e-06 at 256 nodes."""
+        from scipy.stats import multivariate_normal
+
+        high = _copula(betas=(0.99, 0.99, 0.45))
+        closed = high.joint_default(0, 1, HORIZON)
+        reference = float(multivariate_normal.cdf(
+            [high.threshold(0, HORIZON), high.threshold(1, HORIZON)],
+            mean=[0.0, 0.0],
+            cov=[[1.0, high.asset_correlation(0, 1)], [high.asset_correlation(0, 1), 1.0]]))
+        assert closed == pytest.approx(reference, rel=1e-12), "Phi2 is the accurate side"
+
+        coarse = high.joint_default_from_factor(0, 1, HORIZON)
+        fine = high.joint_default_from_factor(0, 1, HORIZON, nodes=256)
+        assert abs(coarse / reference - 1.0) > 1e-03, "the integral must visibly degrade here"
+        assert abs(fine / reference - 1.0) < 1e-04, "and recover when refined"
 
     def test_the_conditional_probability_matches_an_INDEPENDENT_transcription_of_13_4(
         self) -> None:
