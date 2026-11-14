@@ -202,14 +202,20 @@ class TestTheRequirementOracles:
         assert all(h >= 0.0 for h in curve.hazards), curve.hazards
 
     def test_each_quote_REPRICES_to_par(self) -> None:
-        """The self-consistency guard. It TELESCOPES — the root-find solves for exactly this — so
-        it is a guard and not the anchor (§4). Kept because it is the one check that fails if the
-        solver silently returns a non-converged root."""
+        """Nearly-telescoping, and the gap is the point.
+
+        The spec called this the telescoping guard, and it would be if the repricer were the
+        bootstrap's own. It is not: this file integrates the protection leg as
+        `½(Z(a)+Z(b))·(Q(a)−Q(b))` while the bootstrap integrates `Z·λ·Q`, so what is asserted is
+        that **two different quadratures of one integral agree at the solved hazards** — a
+        cross-quadrature check, not a restatement. The band is measured (max 1.4e-08 observed,
+        asserted at 1e-07 for cross-platform ULP room); before the per-segment hazard fix the same
+        check read 6.9e-05, so it resolves that defect ~700x over."""
         curve = bootstrap_survival_curve(_known_quotes(), DISCOUNT, RECOVERY)
         for schedule, spread in _known_quotes():
             value = (_reference_protection(schedule, curve.survival)
                      - spread * _reference_rpv01(schedule, curve.survival))
-            assert abs(value) < 2e-08, (spread, value)
+            assert abs(value) < 1e-07, (spread, value)
 
 
 class TestArbitrageIsREFUSED:

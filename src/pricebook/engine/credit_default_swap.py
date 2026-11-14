@@ -51,6 +51,7 @@ from __future__ import annotations
 from pricebook.engine.registry import register
 from pricebook.foundation.money import Money
 from pricebook.foundation.results import PricingFailure, PricingResult
+from pricebook.market import credit_legs as legs
 from pricebook.foundation.time_measure import is_historical
 from pricebook.models.credit import CreditModel
 from pricebook.products.credit_default_swap import CreditDefaultSwap
@@ -85,25 +86,10 @@ def risky_pv01(product: CreditDefaultSwap, model: CreditModel) -> float:
     """
     market = model.market
     currency = product.notional.currency
-    discount = market.curves.discount(currency)
-    survival = model.survival(currency)
-
-    total = 0.0
-    for start, pay, accrual in _live_periods(product, market.valuation_date):
-        # No clamp here: a period straddling the valuation date gives a negative start, and
-        # `SurvivalCurve.cumulative_hazard` already returns 0 for t <= 0, so Q(t<0) is
-        # exactly 1. A second `max(., 0)` was a duplicated guard (§4/T30) - proved
-        # bit-identical over 399 negative times - and the clamp belongs to the curve,
-        # where tests/L1/test_survival_curve.py reaches it directly.
-        start_years = discount.time_measure.year_fraction(start)
-        pay_years = discount.time_measure.year_fraction(pay)
-        total += (
-            0.5
-            * accrual
-            * discount.df_at(pay_years)
-            * (survival.survival(start_years) + survival.survival(pay_years))
-        )
-    return total
+    return legs.risky_pv01(
+        _live_periods(product, market.valuation_date),
+        market.curves.discount(currency),
+        model.survival(currency))
 
 
 def protection_leg(
@@ -115,6 +101,12 @@ def protection_leg(
     so the *same* function supplies both this leg and the CVA integral it is checked against, which
     is what makes the cross-arc oracle a check on the composition rather than on the density.
     """
+    # This loop is NOT market/credit_legs.protection_leg, deliberately. That one reads the
+    # hazard once per pillar segment, which is exact and second-order; this one reads
+    # `default_density` pointwise on a uniform grid, which loses an order at a hazard
+    # discontinuity and sits 1.8e-05 below the truth on a term-structured curve. Adopting
+    # the better integration would MOVE a shipped number, which is a ruling and not a
+    # refactor — OPEN.md OI-4. Until Cowork answers, the duplication is ledgered.
     if steps < 1:
         raise ValueError(f"the protection leg needs at least one step, got {steps}")
     market = model.market
