@@ -95,4 +95,60 @@ inverted triangle as anchors.
 
 ---
 
-## 5. Cowork's ruling on T39 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T39 — PR #53 (§10 step 4, 2026-11-14)
+
+Accepted with one change request (OI-4, below) — v0.46.0, 1512 green, ten gates. The bootstrap the XVA
+arc deferred is in; the known-curve round trip recovers a term-structured hazard, and the inverted
+credit triangle is the independent closed-form cross-check.
+
+**The §1 leg-functional Ask — resolved exactly right.** The grep settled it: the arithmetic touches no
+L2 type (`CouponSchedule` is L0, the curves L1, `R` a scalar), so `market/credit_legs.py` is L1, beside
+`nominal_bootstrap`. `risky_pv01` extracted as a **pure refactor, bit-identical over 324 fixtures** —
+the §4 exact-arithmetic identity met.
+
+**Your self-correction on the grid argument — ratified, and it is the better call.** Your 0212 proposed
+a `LegGrid` argument so the engine stays bit-identical and the bootstrap gets the aligned grid; your
+0213 retracted it because the two are **structurally different integrands** (per-segment constant hazard,
+exact between pillars, vs a pointwise `default_density` that loses an order at a jump), so a grid mode
+would be a **false abstraction over two formulas** — §6 exactly. Deleting it rather than shipping it is
+right, and catching it by measuring rather than reasoning is the discipline.
+
+**OI-4 — RULED: the engine adopts the per-segment integration, in T39. Close OI-4; do not carry it.**
+Three reasons, and the move is a correctness fix, not a forbidden silent refactor:
+1. **The project does not knowingly ship a worse number when the better one is known and cheap.** The
+   per-segment integrand is exact between pillars (second order; 3.6e-07 at 50 pts/segment vs 2.9e-04 at
+   500 uniform), and the engine's uniform trapezoid loses an order at every pillar. The +1.846e-05 move
+   is **toward** an independent 20k/segment reference — provably toward truth, so it is a ruled
+   correctness improvement, and the §4 pure-refactor rule (which forbids *silent* reorderings) does not
+   bar a *deliberate, ruled* numerics change. Correct the v0.45.0 CHANGELOG "~2e-05 resolution" note in
+   the same commit (a doc describing the worse quadrature, §5/§8).
+2. **It collapses the duplication.** OI-4 exists only because the engine kept the inferior formula;
+   adopting per-segment makes `credit_legs.protection_leg` the **one** formula both the engine and the
+   bootstrap call — §6 rule-of-two satisfied, no knowingly-duplicated formula in the tree.
+3. **It removes a latent engine/bootstrap inconsistency.** Today the bootstrap calibrates a curve with
+   per-segment integration while the engine prices the same CDS with the uniform trapezoid — so a
+   bootstrapped curve reprices its own calibrating CDS to *not quite* zero through the engine. Unifying
+   is the structural guarantee. **Add a `docs/conventions_register.md` row (guarded):** the engine and
+   the bootstrap integrate the protection leg by one shared functional — now true by construction.
+
+**The §4 line this earned — added (the reduction-anchor blind spot).** T38's flat-hazard anchor was
+exact *because* a flat hazard has no interior pillars, so it was structurally blind to the pillar
+integration error — the "contain the failure in its domain" / T16 "exact-where-the-quantity-is-zero"
+lessons, now sharpened for the *reduction anchor*: the companion must be non-degenerate in the specific
+parameter the reduction zeroes, checked by convergence **rate**. One sentence on the reduction bullet.
+
+**Oracle 2 restructured to a premium-frequency convergence — ratified.** The inverted triangle's gap is
+the **premium discretisation** (first order in the premium period: 1.0e-02 → 5.5e-05 at 2 → 365/yr), not
+the integration grid; a measured-rate convergence oracle is strictly stronger than a band at semi-annual
+(T21/T25 spirit). Good.
+
+**The two test-side survivors — ratified, and one names a reusable discipline.** A refusal oracle whose
+`pytest.raises(match="recovery")` matched an *unrelated* failure sharing the word is "contain the failure
+in its domain" applied to a refusal test: **a refusal oracle must pin the condition it refuses, narrowly
+enough to exclude a different error** — carry it as discipline (not a charter line yet; flag again if it
+recurs). The arbitrage `>`/`>=` boundary reachable only at a 0bp quote is the C10-style boundary case;
+closed. Both good catches, and both in the tests — the sweep earning its keep on the suite's own domain.
+
+**Next:** T40 (forward CDS + the default swaption — Black on the forward spread, RPV01 the annuity),
+mine to spec. **Implement OI-4's adoption on this branch, re-oracle, correct the CHANGELOG, then mark
+#53 ready (step 6) → Bernardo merges.**
