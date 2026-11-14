@@ -100,7 +100,7 @@ class TestRiskyPv01IsAPureRefactorOfTheEngines:
 
 
 class TestTheEngineAndTheBootstrapShareONEProtectionLeg:
-    """`docs/conventions_register.md` C11, guarded — this class is the guard.
+    """`docs/conventions_register.md` C13, guarded — this class is the guard.
 
     Until tranche 39 the engine integrated the protection leg itself, pointwise in
     `default_density` on a uniform grid, while the bootstrap used the per-segment form here. The
@@ -144,13 +144,13 @@ class TestTheEngineAndTheBootstrapShareONEProtectionLeg:
 
     def test_a_bootstrapped_curve_REPRICES_its_own_calibrating_quote_through_the_ENGINE(
         self) -> None:
-        """The consequence C11 exists for, end to end across three layers — and it is EXACT.
+        """The consequence C13 exists for, end to end across three layers — and it is EXACT.
 
         The bootstrap (L1) calibrates to `V = 0`; the engine (L4) prices the same contract. Before
         OI-4 the two used different quadratures, so this round trip could not have been asserted at
         all: it is an oracle that only became available once the convention was unified. Given the
         **same** grid the agreement is not approximate but exact to rounding — `-5.8e-18` of
-        notional, which is the sense in which C11 is *guarded* rather than merely documented.
+        notional, which is the sense in which C13 is *guarded* rather than merely documented.
         """
         from pricebook.engine import price
         from pricebook.market.cds_bootstrap import bootstrap_survival_curve

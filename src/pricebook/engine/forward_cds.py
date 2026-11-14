@@ -15,7 +15,7 @@ weight by survival from today, so their difference carries "and the name has not
 `tE`". A separate factor would double-count it.
 
 **Both legs come from the shared L1 functional, so a forward CDS and a spot CDS cannot disagree
-about what a protection leg is** (`docs/conventions_register.md` C11). The composition here is the
+about what a protection leg is** (`docs/conventions_register.md` C13). The composition here is the
 only new arithmetic, which is why the suite transcribes *it* pointwise and anchors the rest on a
 cross-product: the forward CDS must equal the difference of two spot CDS prices through tranche
 38's engine, for every contractual spread — different code on each side.

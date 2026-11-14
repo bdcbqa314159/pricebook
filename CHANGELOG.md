@@ -303,7 +303,9 @@ committed count:
   *different* integral from the trapezoid it asserts about;
 - the duplication **collapsed** — `credit_legs.protection_leg` is the one formula the engine and
   the bootstrap call — so OI-4 closed rather than persisting, and the agreement became a guarded
-  convention, `docs/conventions_register.md` **C11**;
+  convention, `docs/conventions_register.md` **C11** (**renumbered to C13 at
+  v0.48.1** — the id was already held by the `model.market` row; left as published
+  with the correction beside it, per the v0.45.0 precedent);
 - a new oracle became available that could not exist while the two disagreed: a bootstrapped curve
   reprices its own calibrating CDS **through the engine** to **−5.8e-18 of notional** on the same
   grid, with the residual on a coarser grid falling at second order (the rate distinguishes a

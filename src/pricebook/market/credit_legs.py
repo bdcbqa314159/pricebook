@@ -19,14 +19,14 @@ uniform grid, losing an order at every hazard pillar — so unifying meant movin
 1.846e-05. Cowork ruled the engine adopts this one (`OPEN.md` OI-4, closed), because the move is
 provably toward an independent reference and because leaving the two apart meant a bootstrapped
 curve did not reprice its own calibrating quote. The agreement is now a guarded convention,
-`docs/conventions_register.md` C11.
+`docs/conventions_register.md` C13.
 
 Provenance:
   stock:  none — the archived predecessor had no CDS
   source: OKANE-2008 ch 6 (eqs 6.2, 6.4); `risky_pv01` extracted unchanged from tranche 38
   oracle: tests/L1/test_credit_legs.py — `risky_pv01` is proved bit-identical to the tranche-38
           engine's arithmetic over 324 fixtures; `protection_leg` is anchored by the bootstrap's
-          known-curve round trip, by tranche 38's flat-hazard closed form, and by C11's guard —
+          known-curve round trip, by tranche 38's flat-hazard closed form, and by C13's guard —
           the engine's leg is bit-identical to this one on a term-structured curve, and a
           bootstrapped curve reprices through the engine to -5.8e-18 of notional
   crosscheck: quantlib CreditDefaultSwap couponLegNPV / defaultLegNPV — deferred, dev-only

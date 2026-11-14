@@ -108,7 +108,7 @@ def protection_leg(
     **toward** an independent reference — a ruled correctness fix (`OPEN.md` OI-4, closed), not a
     silent reordering — and it makes this the single formula the engine and the bootstrap share,
     so a bootstrapped curve now reprices its own calibrating CDS to zero through the engine
-    (`docs/conventions_register.md` C11, guarded).
+    (`docs/conventions_register.md` C13, guarded).
     """
     market = model.market
     currency = product.notional.currency
