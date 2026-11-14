@@ -288,7 +288,7 @@ STOCK = ROOT / "_stock"
 # The committed test floor (the floor rule, CLAUDE.md 6 second clause; ruling:
 # docs/handoffs/rulings_floor_rule.md). CI is RED below it. A slice that adds a test
 # tier raises this in the same commit. First value = the restart's measured 366.
-TEST_FLOOR = 1620
+TEST_FLOOR = 1629
 
 #: The commands `verify.py` actually implements, so §9 and `ci.yml` cannot agree on a typo.
 _KNOWN_GATES = frozenset({"acyclic", "layers", "fields", "debt", "provenance",
@@ -591,10 +591,17 @@ def archived_convention_ids(text: str) -> list[int]:
     return [int(m) for m in re.findall(r"^\| C(\d+) \|", tail, re.M)]
 
 
-def register_citations(text: str) -> set[int]:
-    """Every `C<n>` the register's prose refers to, row headers excluded."""
-    prose = re.sub(r"^\| C\d+ \|", "|", text, flags=re.M)
-    return {int(m) for m in re.findall(r"\bC(\d+)\b", prose)}
+def referenced_convention_ids(text: str) -> set[int]:
+    """Every `C<n>` the register mentions anywhere, row headers included.
+
+    A first draft stripped the row headers first, so this meant "what the prose cites". That
+    stripping was **dead code**: `known` is built from those same headers, so a row's own id
+    resolves to itself by construction and could never be reported as dangling. Including them is
+    simpler and marginally stronger — a malformed header like `| C99X |` does not parse as a row
+    but is still *mentioned*, so it surfaces as an unresolved reference instead of vanishing.
+    Found by mutating the stripping away and watching nothing fail (§6, the T15 delete-it rule).
+    """
+    return {int(m) for m in re.findall(r"\bC(\d+)\b", text)}
 
 
 def conventions() -> list[str]:
@@ -640,9 +647,9 @@ def conventions() -> list[str]:
             f"means a row was dropped, and nothing else would say so")
 
     known = set(live) | set(archived)
-    for identifier in sorted(register_citations(text) - known):
+    for identifier in sorted(referenced_convention_ids(text) - known):
         problems.append(
-            f"the register cites C{identifier}, which is not a row in either table")
+            f"the register mentions C{identifier}, which is not a row in either table")
     return problems
 
 

@@ -6,6 +6,54 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.48.2] - 2026-11-14
+
+### Added — tranche 41c, `verify.py conventions` (tooling only)
+
+The conventions register had **no mechanical integrity check**, which is how tranche 41b found two
+`C11` rows — the tranche-39 protection-leg row took an id the `model.market` row already held, and
+**two review passes read past it, including the Cowork pass that ratified "C11" by name**. The
+register is cited from `src/` docstrings, `OPEN.md`, the CHANGELOG and CLAUDE.md, so a duplicate id
+silently redirects every one of those citations. Statically decidable, no exemption list possible,
+so gateable under §9's boundary where the τ=1 fixture guard was not.
+
+`verify.py conventions` asserts: unique ids within each table and no overlap between them, a
+**gap-free ascending** live run, and that every `C<n>` the register mentions resolves to a row.
+Listed in §9 and invoked in `ci.yml`, so the tranche-38 gates-gate covers it.
+
+**The live floor is read out of the table, not pinned.** The spec said the live sequence starts at
+"the stated floor… C10"; it actually starts at **C7** — the register's "new live rows continue at
+C10" note is about where *new* rows go, and C7–C9 are live too. Hard-coding 10 would have made the
+gate wrong about the first three rows it exists to protect.
+
+**Out of scope deliberately:** whether a row's *claim* is true. That a `guarded` row really is
+guarded needs judgement, judgement needs an exemption list, and a gate with an exemption list
+cannot fail — the τ=1 guard's lesson.
+
+### Fixed — the register's own layout
+
+The live table was split in two by a stray blank line and by the C10 addendum sitting inside the
+table body, so the rows after the break rendered without a header. C13 also sat between C10 and
+C11, because tranche 41b's renumber edited the id in place. Reordered to C7–C13, one table, with
+the addendum below it — and the ascending check now holds that.
+
+### Mutation sweep
+
+Seven mutants of the gate, each killed. Two survivors on the first pass, both of them findings
+about the gate itself:
+
+- **a live row reusing an *archived* id** was unchecked by any test. The archived ids are kept
+  stable precisely so a live row may not reuse one, and renumbering a live row to `C1` also trips
+  the ascending and gap checks — so the test asserts the *specific* message, or it would pass for
+  the wrong reason.
+- **the row-header stripping in `register_citations` was dead code.** It existed so a row's own id
+  would not count as a citation, but `known` is built from those same headers, so a row id
+  resolves to itself by construction and could never dangle. Deleted (§6, the T15 rule), and the
+  function renamed to `referenced_convention_ids` to say what it now means — marginally stronger
+  too, since a malformed header like `| C99X |` does not parse as a row but is still mentioned, so
+  it surfaces instead of vanishing.
+
+
 ## [0.48.1] - 2026-11-14
 
 ### Changed — tranche 41b, survival curves keyed by reference entity

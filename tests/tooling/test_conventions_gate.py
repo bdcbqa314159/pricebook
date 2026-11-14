@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from verify import conventions, live_convention_ids, register_citations
+from verify import conventions, live_convention_ids, referenced_convention_ids
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTER = ROOT / "docs" / "conventions_register.md"
@@ -48,9 +48,9 @@ class TestTheRealRegisterIsSound:
     def test_every_CITATION_in_the_register_resolves(self) -> None:
         """Including citations to the **archived** C1–C6 rows, which are legitimate references to
         a documented past and must not be reported as dangling."""
-        problems = [p for p in conventions() if "cites" in p]
+        problems = [p for p in conventions() if "mentions" in p]
         assert problems == []
-        assert 1 in register_citations(REGISTER.read_text())
+        assert 1 in referenced_convention_ids(REGISTER.read_text())
 
 
 class TestTheGateREJECTSEachCorruptionShape:
@@ -102,6 +102,15 @@ class TestTheGateREJECTSEachCorruptionShape:
         seeded = seeded.replace("| C99X |", "| C13 |", 1)
         problems = self._run(monkeypatch, seeded)
         assert any("ascending" in p or "gap" in p for p in problems), problems
+
+    def test_a_LIVE_row_reusing_an_ARCHIVED_id_is_rejected(self, monkeypatch) -> None:
+        """The archived ids are kept stable precisely so a live row may not reuse one — the
+        register says so, and `docs/handoffs/` and CLAUDE.md cite them. Asserted on the specific
+        message, because renumbering a live row to `C1` also breaks the ascending and gap checks,
+        and a test that merely counted problems would pass for the wrong reason."""
+        seeded = REGISTER.read_text().replace("| C13 |", "| C1 |", 1)
+        problems = self._run(monkeypatch, seeded)
+        assert any("both a live and an archived row" in p for p in problems), problems
 
     def test_an_UNPARSEABLE_register_is_rejected_rather_than_read_as_empty(
         self, monkeypatch) -> None:
