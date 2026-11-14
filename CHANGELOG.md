@@ -6,6 +6,87 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-11-14
+
+### Added — tranche 39, the CDS survival-curve bootstrap
+
+- `market/cds_bootstrap.py` — `bootstrap_survival_curve(quotes, discount, recovery)`: a par CDS
+  strip to a piecewise-flat forward hazard curve, solved maturity by maturity, shortest first
+  (`OKANE-2008` ch 7.4/7.5). L1 because of what it **produces** — market data from quotes, using
+  only L0+L1, never the L4 engine. A quote is `(schedule, spread)`, not maturity → spread, because
+  the schedule carries the premium frequency as well as the maturity; a mapping would silently
+  assume one frequency across the curve.
+- A **root-find**, unlike tranche 8's closed-form bootstrap: `λₘ` enters the protection integral
+  inside `exp(−∫λ)` *and* the premium leg's survivals, so `V = 0` is genuinely implicit. `V` is
+  strictly increasing in `λₘ`, which is what makes a bracketed solve right and gives the arbitrage
+  test its exact form.
+- **Arbitrage is refused by a sign test, not a tolerance** (ch 7.7): since `V` increases in `λₘ`, a
+  root with `λₘ ≥ 0` exists iff `V(λₘ=0) ≤ 0`, so a quote too low to be consistent with the shorter
+  maturities is detected exactly and refused in domain vocabulary rather than surfacing as a
+  solver bracket failure.
+- `market/credit_legs.py` — the CDS leg arithmetic at L1, shared by the bootstrap and the engine.
+
+### Oracles
+
+- **The known-curve round trip** (tranche 8's anchor): an independently constructed
+  term-structured hazard curve → par spreads computed in the test → bootstrapped back → hazards
+  recovered to **4.8e-07**, converging second order (1.9e-06 / 4.8e-07 / 1.2e-07 at 25/50/100
+  points per segment). Independent in its **quadrature**, not only its code: the test integrates
+  `½(Z(a)+Z(b))·(Q(a)−Q(b))`, exact in the survival differences, where the implementation
+  integrates `Z·λ·Q`.
+- **The credit triangle, inverted** — and restructured from the spec. The gap to `λ = S/(1−R)` is
+  **not** the integration grid (identical at 50 and 400 points per segment): it is the premium
+  discretisation, and it is first order in the premium period — 1.015e-02, 5.065e-03, 1.687e-03,
+  3.89e-04, 5.54e-05 at 2, 4, 12, 52, 365 periods a year. So it is asserted as a **convergence in
+  the premium frequency** with that measured rate, which is sharper than a band at any one
+  frequency.
+- **The extraction is proved pure by bit-identity**: `risky_pv01` lifted out of the engine leaves
+  its values unchanged to the last bit across **324 fixtures × 5 values**. Nothing was reordered,
+  so the strong claim was available and is the one made.
+- Requirement oracles: `Q` monotone non-increasing, every hazard non-negative, each quote
+  repricing to par across **two different quadratures** (max 1.4e-08).
+
+### Changed
+
+- `engine/credit_default_swap.py` delegates `risky_pv01` to the shared L1 function. Its protection
+  leg does **not** delegate — see below.
+
+### Known defect, ledgered rather than fixed — `OPEN.md` OI-4
+
+`λ(t)Q(t)` is **discontinuous at every hazard pillar**. The engine integrates `default_density(t)`
+pointwise on a uniform grid, so a trapezoid straddles those jumps and loses an order — and at a
+segment's end `default_density` returns the hazard of the segment *starting* there, the wrong one
+for the piece ending there. The L1 version reads the hazard once per pillar segment, exact between
+pillars, and recovers second order: on the round trip, `O(1/M²)` and 4.8e-07 against `O(1/M)` and
+2.9e-03 — ~800× better for ~3× fewer evaluations.
+
+Correcting the engine would move a **shipped** number (+1.846e-05 on a term-structured protection
+leg) and supersede v0.45.0's "the committed step count resolves its own error (~2e-05)". That is a
+ruling, not a refactor, so the engine keeps its loop, the duplication is ledgered as OI-4, and
+`tests/L1/test_credit_legs.py` pins the 1.8e-05 gap so it cannot drift.
+
+**And a finding about tranche 38's own oracle:** its rung-1 closed-form anchor uses a **flat**
+hazard, which has no interior pillars, so the two integrations provably coincide there (asserted).
+That anchor is structurally blind to this error — §4's "an oracle must contain the failure in its
+domain", landing on the anchor added one tranche earlier.
+
+### Mutation sweep
+
+19 mutants, full suite each, no `-x`. Three first-pass survivors, two of them real and both in the
+**tests**:
+
+- A refusal oracle **passed with its guard deleted**: `match="recovery"` was satisfied by an
+  unrelated bracket-expansion failure whose message also contained the word. A refusal oracle must
+  name the condition it refuses, or it only asserts that *something* went wrong. Both paths now
+  pinned separately.
+- The arbitrage test's `>` versus `>=` boundary is reached only at `V(λ=0) = 0` **exactly**, which
+  happens only for a **0bp quote** — where zero hazard is the right answer, not an arbitrage. No
+  fixture reached it until one was added.
+- Reading the hazard at a segment's start rather than its midpoint is a **proved equivalent**
+  mutant: `breaks` is built from the pillars and `hazard` is right-continuous at one, so both reads
+  land in the same constant piece — bit-identical over 32 curve/horizon combinations.
+
+
 ## [0.45.0] - 2026-11-14
 
 ### Added — tranche 38, the credit default swap (project five opens: O'Kane credit)
