@@ -336,6 +336,102 @@ class TestTheTranchePrices:
         assert tranche_annuity(_tranche(), model) == risky_pv01(live, CURVE, survival)
 
 
+class TestTheAbsOLUTELevelsTheSweepFound:
+    """Three mutants survived the first sweep, each because every oracle was *relative*.
+
+    The par reprice, the linearity in the spread and the equity/mezzanine/senior ordering all
+    survive a uniform rescaling of either leg — so between them they pinned the **shape** of the
+    tranche's economics and nothing about its **level**. That is §4's magnitude trap in a new
+    place: a complete set of assertions about the wrong aspect.
+    """
+
+    def _discount(self, t: float) -> float:
+        return CURVE.df_at(t)
+
+    def test_the_tranche_SURVIVAL_is_normalised_by_the_tranche_WIDTH(self) -> None:
+        """`Q = 1 − EL/(K₂−K₁)`, and the division was unpinned.
+
+        Dropping it leaves `Q` in `[0,1]` and still decreasing, and the premium-leg test compares
+        the engine against `risky_pv01` fed **the same** curve, so it telescopes. The fix is an
+        independent statement: the tranche's lost *fraction* is its expected loss over its width,
+        which two tranches of different width but equal absolute loss must disagree about."""
+        model = _model()
+        for attach, detach in ((0.03, 0.07), (0.03, 0.30), (0.0, 1.0)):
+            width = detach - attach
+            expected_loss = model.tranche_expected_loss(attach, detach, HORIZON)
+            assert model.tranche_survival(attach, detach, HORIZON) == pytest.approx(
+                1.0 - expected_loss / width, rel=1e-14)
+        # and the normalisation bites: the 3–7% and 3–30% tranches have different widths, so the
+        # same absolute loss leaves different fractions outstanding
+        narrow = model.tranche_survival(0.03, 0.07, HORIZON)
+        wide = model.tranche_survival(0.03, 0.30, HORIZON)
+        assert narrow < wide, (narrow, wide)
+        assert wide / narrow - 1.0 > 0.10, "and materially so"
+
+    def test_the_PROTECTION_leg_matches_an_INDEPENDENT_discounted_loss_sum(self) -> None:
+        """The absolute level, which no relative oracle could see.
+
+        A mutation applying `(1−R)` a *second* time — the recovery is already inside the expected
+        tranche loss — rescales the protection leg by 0.6 and survives the par reprice (which
+        rescales with it), the linearity check and the spread ordering. Only an independent
+        computation of `∫Z(−dQ)` pins it."""
+        from pricebook.engine.synthetic_cdo_tranche import tranche_protection
+
+        model = _model()
+        survival = model.tranche_survival_curve(ATTACH, DETACH)
+        horizon = (SCHEDULE.dates[-1] - VAL).days / 365.0
+        steps = 800
+        step = horizon / steps
+        want = 0.0
+        previous_time, previous = 0.0, survival.survival(0.0)
+        for index in range(1, steps + 1):
+            t = step * index
+            current = survival.survival(t)
+            want += 0.5 * (self._discount(previous_time) + self._discount(t)) * (
+                previous - current)
+            previous_time, previous = t, current
+        got = tranche_protection(_tranche(), model)
+        assert got == pytest.approx(want, rel=1e-14), (got, want)
+        assert got > 1e-03, "the premise: the leg is materially non-zero"
+
+    def test_applying_the_RECOVERY_twice_would_be_MATERIALLY_wrong(self) -> None:
+        """Proving the test above necessary rather than additional: the wrong version is 40% off,
+        and every relative oracle in this file accepts it."""
+        from pricebook.engine.synthetic_cdo_tranche import tranche_protection
+        from pricebook.market.credit_legs import protection_leg_from_survival
+
+        model = _model()
+        survival = model.tranche_survival_curve(ATTACH, DETACH)
+        horizon = (SCHEDULE.dates[-1] - VAL).days / 365.0
+        correct = tranche_protection(_tranche(), model)
+        doubled = protection_leg_from_survival(CURVE, survival, RECOVERY, horizon, 800)
+        assert doubled == pytest.approx((1.0 - RECOVERY) * correct, rel=1e-12)
+        assert abs(doubled / correct - 1.0) > 0.35, (doubled, correct)
+
+    def test_a_tranche_on_a_DIFFERENT_pool_than_the_model_is_REFUSED(self) -> None:
+        """The case the entity check uniquely guards, which the unknown-entity test cannot reach.
+
+        An entity *absent* from the snapshot already fails on the curve lookup, so dropping the
+        explicit mismatch check survived that test. What it guards is an entity that **is** in the
+        snapshot but is not the model's pool — where the model would otherwise price its own pool
+        under another portfolio's name, a plausible number for the wrong trade."""
+        other_index = ReferenceEntity("ITRAXX-XO")
+        other_pool = SurvivalCurve(TM, (0.0, 1.0, 3.0), (0.030, 0.045, 0.070))
+        both = MarketSnapshot(
+            valuation_date=VAL,
+            curves=CurveSet(
+                {DISCOUNT_KEY: CURVE}, survivals={INDEX: POOL, other_index: other_pool}))
+        model = LHPModel(both, INDEX, BETA, RECOVERY)
+        assert both.curves.survival(other_index) is other_pool, "the premise: it IS in the snapshot"
+
+        out = price(
+            SyntheticCDOTranche(
+                TrancheBounds(ATTACH, DETACH), SCHEDULE, SPREAD, NOTIONAL, other_index),
+            model)
+        assert not isinstance(out, PricingResult), out
+        assert "ITRAXX-XO" in out.reason and "CDX-IG" in out.reason
+
+
 class TestTheGuardsAreReachable:
     def test_an_INVERTED_tranche_is_refused(self) -> None:
         with pytest.raises(ValueError, match="detachment"):
