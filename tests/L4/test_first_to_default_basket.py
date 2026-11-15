@@ -361,6 +361,75 @@ class TestTheMonteCarloCrossCheck:
             assert variance == pytest.approx(1.0, abs=0.03), (i, variance)
 
 
+class TestTheFixtureBlindSPOTSTheSweepFound:
+    """Four mutants survived the first sweep, every one of them a fixture gap rather than a bug.
+
+    The most instructive is the last: **the premium schedule began at the valuation date**, so no
+    period was historical and the invariant-6 filter had nothing to filter — which is *precisely*
+    the blind spot that hid tranche 40's 73% annuity overstatement, found in tranche 41b. Having
+    fixed that one tranche earlier, this tranche's fixture reproduced its shape. The convention
+    ("schedules start today") is systemic, not per-tranche, and the sweep is what catches it.
+    """
+
+    SEASONED = tuple(VAL + timedelta(days=round(182.5 * i)) for i in range(-4, 7))
+
+    def test_the_PV_SCALES_with_the_notional(self) -> None:
+        """Nothing pinned the notional: the par reprice is ~0 at any scale and the linearity check
+        compares differences, so dropping the factor entirely survived."""
+        model = _model()
+        small = FirstToDefaultBasket(ENTITIES, SCHEDULE, SPREAD, Money(1_000_000.0, EUR))
+        large = FirstToDefaultBasket(ENTITIES, SCHEDULE, SPREAD, Money(10_000_000.0, EUR))
+        small_pv = price(small, model).pv.amount
+        large_pv = price(large, model).pv.amount
+        assert abs(small_pv) > 1.0, "the premise: the value is materially non-zero"
+        assert large_pv == pytest.approx(10.0 * small_pv, rel=1e-12)
+
+    def test_the_basket_uses_ONLY_the_names_the_CONTRACT_protects(self) -> None:
+        """The copula may carry a wider universe than any one basket trades.
+
+        The first fixture gave the basket *exactly* the copula's three names, so selecting the
+        contract's subset and taking all of them were the same operation — a mutation ignoring the
+        contract's entity list survived. A fourth name in the copula separates them."""
+        extra = CreditName(
+            ReferenceEntity("DELTA"), 0.55,
+            SurvivalCurve(TM, (0.0, 1.0, 3.0), (0.050, 0.070, 0.090)))
+        wider = GaussianCopula(_copula().market, (*_copula().names, extra))
+        assert len(wider.names) == len(ENTITIES) + 1, "the premise: the copula is wider"
+
+        on_three = price(_basket(), BasketModel(wider, RECOVERY)).pv.amount
+        on_all = price(
+            FirstToDefaultBasket((*ENTITIES, extra.entity), SCHEDULE, SPREAD, NOTIONAL),
+            BasketModel(wider, RECOVERY)).pv.amount
+        assert on_three != on_all
+        # and the three-name basket must match the three-name copula exactly: the extra name is
+        # ignored, not merely down-weighted
+        assert on_three == pytest.approx(price(_basket(), _model()).pv.amount, rel=1e-12)
+
+    def test_a_SEASONED_basket_excludes_its_SETTLED_premiums(self) -> None:
+        """Invariant 6, with a schedule that straddles the valuation date — the case the original
+        fixture could not express."""
+        schedule = CouponSchedule(self.SEASONED, DC)
+        historical = [pay for _, pay, _ in schedule.periods() if pay <= VAL]
+        assert len(historical) >= 3, "the premise: there are settled periods to drop"
+
+        from pricebook.engine.first_to_default_basket import basket_annuity
+        from pricebook.market.credit_legs import risky_pv01
+
+        product = FirstToDefaultBasket(ENTITIES, schedule, SPREAD, NOTIONAL)
+        live = [p for p in schedule.periods() if p[1] > VAL]
+        want = risky_pv01(live, CURVE, BasketSurvival(_copula()))
+        assert basket_annuity(product, _model()) == pytest.approx(want, rel=1e-14)
+        # the whole-schedule annuity is materially larger, so this is not a vacuous equality
+        whole = risky_pv01(schedule.periods(), CURVE, BasketSurvival(_copula()))
+        assert whole / want - 1.0 > 0.5, (whole, want)
+
+    def test_a_NON_POSITIVE_horizon_has_no_protection_left(self) -> None:
+        """L1 surface reachable by direct call, so the guard gets a test rather than deletion."""
+        basket = BasketSurvival(_copula())
+        assert protection_leg_from_survival(CURVE, basket, RECOVERY, 0.0, 800) == 0.0
+        assert protection_leg_from_survival(CURVE, basket, RECOVERY, -1.0, 800) == 0.0
+
+
 class TestTheGuardsAreReachable:
     def test_a_basket_of_ONE_name_is_refused(self) -> None:
         with pytest.raises(ValueError, match="at least two"):
