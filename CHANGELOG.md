@@ -6,6 +6,86 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-11-15
+
+### Added — tranche 43, the LHP synthetic-CDO tranche
+
+Vasicek's infinite-homogeneous-pool limit of the one-factor Gaussian copula — the model that
+defined the correlation market (`OKANE-2008` ch 16.2, 16.7.1). The law of large numbers collapses
+the conditional loss to a point mass, so the whole loss distribution is closed form.
+
+- `models/lhp.py` — `LHPModel(market, entity, beta, recovery)` with `A(K)`, `E[min(L,K)]`, the
+  tranche expected loss and survival; plus `TrancheSurvival`, which satisfies
+  `credit_legs.SurvivalFunction`.
+- `products/synthetic_cdo_tranche.py` — `SyntheticCDOTranche(bounds, schedule, spread, notional,
+  reference_entity)` and `TrancheBounds(attachment, detachment)`.
+- `engine/synthetic_cdo_tranche.py` — `@register(SyntheticCDOTranche, LHPModel)`. **A tranche is a
+  CDS on its own survival**, so both legs are reused unchanged: the premium leg paying its spread
+  on the amortising outstanding notional *is* `risky_pv01(Q)`, and the protection leg is tranche
+  42's `−dQ` form.
+
+### Eq 16.1 is our `Φ₂`, and the correlation argument is `−β` — verified, not assumed
+
+The check Cowork asked for, and it was not cosmetic. Against an independently computed market-factor
+integral, **`−β` agrees to 1e-14 while `+β` is 62% to 240% wrong**. A companion test asserts the
+wrong sign *is* materially wrong, so the check is proven to have power rather than merely passing.
+
+### The closed form is undefined at exactly the two points its headline identity needs
+
+`A(K)` takes `Φ⁻¹(K/(1−R))`, so it needs `0 < K < 1−R` **strictly**, and `inverse_norm_cdf` refuses
+the endpoints rather than returning `±∞`. But the capital-structure partition
+`Σ EL([aₖ₋₁,aₖ]) = (1−R)p` runs from `K = 0` to `K = 1`. So the two branches — `K ≤ 0 → 0` and
+`K ≥ 1−R → (1−R)p`, the cap being unable to bind because **the maximum portfolio loss is `1−R`, not
+1** — are load-bearing rather than defensive. With them the partition is exact to 2e-16; without
+them it raises.
+
+### A truncation defect in my own reference, caught by a plateau
+
+The two-method cross-check needed a **kink-split** integral: `min((1−R)p(T|Z), K)` has a kink where
+the cap binds, and Gauss-Hermite is stuck near 1e-3 there at any practical node count — six orders
+worse than the split form, so using it would have forced a band wide enough to hide a real defect.
+
+The split reference then disagreed with the closed form by 2.41e-10 at one strike, and the gap
+**did not move** at 160, 400 or 900 nodes. That plateau is the tell (§4's rate detector, pointed at
+the reference itself): not quadrature error but **truncation** — the tail window was `[z*, z*+12]`,
+and where the kink sits deep in the left tail that stops short of the upper tail. With an absolute
+upper limit the worst gap over the whole grid is **1.7e-14**, so the band stayed tight instead of
+being loosened around a reference bug.
+
+### Both of the spec's `Ask:`s
+
+- **The index-handle question dissolves rather than needing a choice.** The LHP is the infinite
+  homogeneous limit, so there is no per-name structure to reference: the pool's identity *is* its
+  one default curve, which `CurveSet.survivals` already keys by `ReferenceEntity` (tranche 41b). An
+  index is a reference entity for keying purposes — no new type, and a new one would have no second
+  consumer (§6).
+- **The coupon convention** is the running-spread-on-outstanding-notional form the spec describes.
+  The standardised-coupon/upfront detail is not in scope and is raised rather than assumed.
+
+### Mutation sweep
+
+21 mutants. Three survivors, and they shared one cause worth naming: **every oracle was relative.**
+The par reprice, the linearity in the spread and the equity/mezzanine/senior ordering all survive a
+uniform rescaling of either leg, so between them they pinned the *shape* of the tranche's economics
+and nothing about its *level* — §4's magnitude trap in a new place, a complete set of assertions
+about the wrong aspect.
+
+- the tranche survival's **width division** (`Q = 1 − EL/(K₂−K₁)`) was unpinned: dropping it leaves
+  `Q` in `[0,1]` and decreasing, and the premium-leg test fed `risky_pv01` the *same* mutated curve,
+  so it telescoped;
+- the protection leg applying **`(1−R)` a second time** — the recovery is already inside the
+  expected tranche loss — rescales it by 0.6 and the par reprice rescales with it. Closed by an
+  independent discounted-loss sum, with a companion asserting the doubled version is 40% off;
+- the **pool-entity mismatch** check survived because the only fixture used an entity *absent* from
+  the snapshot, which already fails on the curve lookup. What the check guards is an entity that
+  **is** present but is not the model's pool — closed with a two-pool snapshot.
+
+An earlier draft also asserted the naive integral's error sequence was *non-monotone*. It is at some
+fixtures and not at the one the test uses, so the claim pinned an accident — the same mistake made
+at tranche 41 and recorded there. Twice is enough to state it: assert the **size** of an error, not
+the shape of its approach, unless the shape itself is the theorem.
+
+
 ## [0.49.1] - 2026-11-15
 
 ### Changed — tranche 42b, the gates-gate covers the standalone CI gates too (tooling only)
