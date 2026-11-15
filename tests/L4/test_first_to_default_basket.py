@@ -287,6 +287,80 @@ class TestTheBasketPrices:
             SCHEDULE.periods(), CURVE, basket)
 
 
+class TestTheMonteCarloCrossCheck:
+    """The non-degenerate anchor: simulate the latent variables and count first defaults.
+
+    The engine is **deterministic** — the market-factor integral prices — so this is an oracle and
+    not a pricer (the tranche-41 pattern). Two things are pinned, and the second matters more than
+    it looks:
+
+    * the simulated basket survival matches `Q_B` within the sampling error, which checks the
+      *integral*;
+    * the **realised correlation of the simulated `A_i`** reproduces `β_iβ_j`. Because `ρ_ij`
+      enters the **factorisation** of the `A_i` rather than a single scalar output, a basket-level
+      number is a weak test of it — the tranche-17 lesson: pin a factorisation where it is
+      directly observable, which is the realised covariance, not a price.
+    """
+
+    PATHS = 40_000
+    SEED = 20_261_115
+
+    def _draw(self) -> list[list[float]]:
+        """`PATHS` draws of the latent variables, one row per path."""
+        from pricebook.foundation.rng import UniformSource
+        from pricebook.foundation.variates import standard_normals
+
+        count = len(BETAS)
+        source = UniformSource(self.SEED)
+        normals = standard_normals(source.uniforms(self.PATHS * (count + 1)))
+        rows = []
+        for path in range(self.PATHS):
+            block = normals[path * (count + 1):(path + 1) * (count + 1)]
+            factor, idiosyncratic = block[0], block[1:]
+            rows.append([
+                beta * factor + math.sqrt(1.0 - beta * beta) * epsilon
+                for beta, epsilon in zip(BETAS, idiosyncratic)])
+        return rows
+
+    def test_the_SIMULATED_basket_survival_matches_Q_B_within_sampling_error(self) -> None:
+        copula = _copula()
+        thresholds = [copula.threshold(i, HORIZON) for i in range(len(BETAS))]
+        rows = self._draw()
+        survived = sum(
+            1 for row in rows if all(a >= c for a, c in zip(row, thresholds)))
+        estimate = survived / self.PATHS
+        error = math.sqrt(estimate * (1.0 - estimate) / self.PATHS)
+        want = BasketSurvival(copula).survival(HORIZON)
+        assert abs(estimate - want) < 4.0 * error, (estimate, want, error)
+        # and the band must be narrow enough to mean something: 4 SE is ~1.5% of the value here,
+        # which rules out the independence bound (4.5% away) and the widest-name bound (28% away).
+        assert 4.0 * error / want < 0.02, 4.0 * error / want
+        assert abs(_independent_product(HORIZON) - want) > 6.0 * error
+        assert abs(_widest(HORIZON) - want) > 6.0 * error
+
+    def test_the_REALISED_CORRELATION_reproduces_beta_i_times_beta_j(self) -> None:
+        """Every pair individually, which a single basket price could never pin."""
+        rows = self._draw()
+        count = len(BETAS)
+        means = [sum(row[i] for row in rows) / self.PATHS for i in range(count)]
+        for i in range(count):
+            for j in range(i + 1, count):
+                covariance = sum(
+                    (row[i] - means[i]) * (row[j] - means[j]) for row in rows) / self.PATHS
+                want = BETAS[i] * BETAS[j]
+                assert covariance == pytest.approx(want, abs=0.02), (i, j, covariance, want)
+
+    def test_THE_PREMISE_the_simulated_variables_have_UNIT_variance(self) -> None:
+        """`A_i = βZ + √(1−β²)ε` has unit variance only if the idiosyncratic weight is right — so
+        this is where a dropped `√(1−β²)` shows up, independently of any correlation."""
+        rows = self._draw()
+        for i in range(len(BETAS)):
+            values = [row[i] for row in rows]
+            mean = sum(values) / self.PATHS
+            variance = sum((v - mean) ** 2 for v in values) / self.PATHS
+            assert variance == pytest.approx(1.0, abs=0.03), (i, variance)
+
+
 class TestTheGuardsAreReachable:
     def test_a_basket_of_ONE_name_is_refused(self) -> None:
         with pytest.raises(ValueError, match="at least two"):
@@ -308,7 +382,7 @@ class TestTheGuardsAreReachable:
         """The case the quadrature gets silently wrong: a step from the unit-loading names times a
         smooth part. The all-unit case is analytic and the sub-unit case is smooth; the mixture is
         neither, nothing needs it, and a 6%-wrong probability is worse than a refusal (§3.4)."""
-        with pytest.raises(ValueError, match="mixed"):
+        with pytest.raises(ValueError, match="mixes unit and sub-unit"):
             BasketSurvival(_copula(betas=(1.0, 0.60, 0.45))).survival(HORIZON)
 
     def test_a_RECOVERY_outside_the_unit_interval_is_refused(self) -> None:
