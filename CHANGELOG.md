@@ -6,6 +6,71 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-11-15
+
+### Added — tranche 44a, the exact loss distribution by recursion
+
+The LHP (tranche 43) is the infinite-pool *approximation*; this is the exact distribution for a
+finite homogeneous pool (`OKANE-2008` ch 18). Conditional on the market factor the credits are
+independent, so adding one credit at a time convolves its loss into the buckets.
+
+- `models/loss_recursion.py` — `RecursionModel(market, entity, beta, recovery, pool_size)` with the
+  conditional and unconditional distributions, the capped expected loss and the tranche
+  composition.
+- `engine/loss_recursion.py` — **a second pricer for the same product.** A `SyntheticCDOTranche`
+  against `LHPModel` gets the approximation, against `RecursionModel` the exact answer: the
+  Black-vs-Heston shape the `(product, model)` registry key exists for, with the registry refusing
+  a duplicate pair so neither can silently replace the other.
+
+**The arithmetic is not duplicated.** A tranche is a CDS on its own survival whichever model
+produced it, so the legs and the pricer body are tranche 43's, reached through a new `TrancheModel`
+protocol — two present consumers sharing a shape, not a word.
+
+### The anchor closes the arc's loop
+
+Tranche 43's closed form is this recursion's `N → ∞` limit, and the convergence is **exactly
+`O(1/N)`** — error ratios of 1.81, 1.97, 2.00, 1.99 per doubling of the pool, measured before a
+line was implemented. So the approximation built first becomes the reference the exact model is
+checked against, by a *rate* rather than a tolerance. The conditional distribution is additionally
+pinned **pointwise against the binomial in closed form**, before any integration over `Z` — which
+is where a dropped or swapped branch is visible, since afterwards it would still sum to one.
+
+### Config moved onto the models, because cost is a model property
+
+The protection-leg step count now lives on the model rather than the engine (§3.5). A closed-form
+survival is cheap to sample, so the LHP commits 800; the recursion costs a 96-node sweep over an
+`N`-credit convolution *per step*, so it commits **100**, where the measured error is 8.1e-07 —
+four significant figures tighter than a tranche is quoted. The engine cannot know this, and one
+hard-coded number would make the LHP needlessly coarse or the recursion unusably slow.
+
+Two cost fixes beyond that, both exact: the two caps in a tranche's expected loss now share **one**
+market-factor sweep (the subtraction moves inside a linear expectation), and the whole test file
+fell from **44s to 5.3s**.
+
+### Mutation sweep
+
+12 mutants. Two survivors, and both are lessons about where an oracle *lives* rather than about the
+recursion:
+
+- **the width division in `tranche_survival` — the same hole tranche 43 had.** It was fixed there,
+  but the oracle lives in the LHP's file against the LHP model, so the recursion's own copy was
+  never covered. A second implementation of a shared composition needs the shared oracle applied to
+  **it**, not merely present somewhere in the tree. (The composition is genuinely duplicated
+  between the two models rather than shared — worth a look.)
+- **the committed step count — because the protection-leg test TELESCOPES.** That test reads
+  `model.protection_steps`, so it asserts the engine against the grid the engine actually uses:
+  honest about *which* grid and, for exactly that reason, blind to whether the grid is adequate. A
+  mutation setting the count to 2 moves both sides together and survived. Two different questions,
+  conflated — now separated, with the resolution asserted against an independent finer reference.
+
+### A third concrete annotation denying a correct reuse
+
+`TrancheSurvival` was annotated `LHPModel` while the recursion model is a legitimate consumer —
+pyright caught it. That is the **third** time in this arc a correct reuse was contradicted by a
+concrete type (tranche 42's `risky_pv01`, tranche 42's `BasketSurvival`, this): widened to a
+`TrancheLossModel` protocol, so the signature states the shape the code actually needs.
+
+
 ## [0.50.0] - 2026-11-15
 
 ### Added — tranche 43, the LHP synthetic-CDO tranche
