@@ -74,6 +74,19 @@ third makes the third dead code (the T15 rule); it was deleted and the suite now
 implication, so an out-of-order quote set is still refused, just not by the guard a reader might
 expect.
 
+### The `slow` gate again, and the third local-vs-CI miss
+
+Reported green on a 3.4s local reading; **Windows failed at 11.2s against 10.0s** while Linux
+passed. Third time this arc, and the first *since* the §9 line saying CI is the measurement went in
+— which I had written and then not applied to my own report.
+
+The fix is the number rather than a trim: a base-correlation tranche costs **two** `Φ₂` evaluations
+per step (one model per leg of the difference) where a single-correlation tranche costs one, so the
+LHP's 800 steps was simply the wrong count here. Against a 1600-step reference the par spread
+converges at second order — 2.8e-06, 7.0e-07, 1.7e-07, 3.3e-08 at 100/200/400/800 — so **200** is
+committed at **7.0e-07**, four significant figures tighter than a tranche is quoted, for 3 ms
+against 10 ms. The file runs 1.1s and projects to ~4s on Windows.
+
 ### Mutation sweep
 
 11 mutants, **no survivors**. Four single-killers, all refusal guards with one condition each —

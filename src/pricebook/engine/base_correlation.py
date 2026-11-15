@@ -58,9 +58,18 @@ from pricebook.products.synthetic_cdo_tranche import TrancheBounds, TrancheQuote
 #: must stay inside them.
 _LOWEST, _HIGHEST = 0.02, 0.98
 
-#: Steps in the base-tranche protection leg. The LHP's own committed count, so a base-correlation
-#: tranche and a single-correlation one are integrated on one grid.
-_PROTECTION_STEPS = 800
+#: Steps in the base-tranche protection leg, measured rather than inherited.
+#:
+#: A base-correlation tranche costs **two** `Φ₂` evaluations per step — one model per leg of the
+#: difference — where a single-correlation tranche costs one, so the LHP's 800 is the wrong number
+#: here. Against a 1600-step reference the par spread converges at second order: 2.8e-06, 7.0e-07,
+#: 1.7e-07, 3.3e-08 at 100, 200, 400, 800 steps. 200 is committed — **7.0e-07**, four significant
+#: figures tighter than a tranche is quoted, for 3 ms against 10 ms.
+#:
+#: The number is 200 and not 800 because the `slow` gate said so on **Windows**, at 11.2s against
+#: 10.0s while this file measured 3.4s locally: the third time this arc a local reading was not the
+#: measurement (charter §9).
+_PROTECTION_STEPS = 200
 
 
 @dataclass(frozen=True)
