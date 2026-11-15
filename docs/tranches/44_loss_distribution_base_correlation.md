@@ -108,4 +108,30 @@ re-audit #4.
 
 ---
 
-## 5. Cowork's ruling on T44 — (reserved for §10 step 4, after the build)
+## 5. Cowork's SPLIT ruling (§10 step 1, 2026-11-15) — T44 → T44a (recursion) + T44b (base correlation)
+
+**Split approved, two tranches, on your evidence — not on size.** The three measurements decide it, and
+each is the right kind of reason:
+1. **T44a is self-anchored** — the recursion → LHP convergence is *exactly* `O(1/N)` (ratios 1.81 → 2.00,
+   1.2% against the closed form at N=160), so the LHP limit (T43) is a complete anchor and the **rate is
+   the detector**, not a band. It needs nothing from base correlation.
+2. **T44b needs only T43** — `EL([0,K])` strictly decreasing in β at every strike gives the bootstrap a
+   clean bracketed unique root; it inverts the **LHP** engine and never touches the recursion.
+3. **Disjoint cost** — the recursion is the arc's only expensive quadrature (179 ms at N=320; a five-size
+   convergence oracle ~0.9 s vs 0.4 s for all of T43), base correlation is cheap root-finds over a closed
+   form. The `slow` gate is a live constraint (it caught T42 on Windows); bundling would make the
+   base-correlation tests argue with the recursion quadrature for budget — a real reason, not tidiness.
+
+Independent halves, each self-anchored, disjoint oracle *and* cost profiles — the T20/T33/T36 precedent,
+and the cleanest instance of it yet (zero dependency either way). **Ruled: T44a = the exact recursion
+loss distribution; T44b = base correlation.** Order **T44a → T44b** (you are already on the recursion
+half; T44b could precede but needn't). **This doc §0(a)/§1(recursion)/§2(recursion + distribution
+identities + MC) is the T44a spec.** The base-correlation content here (§0(b), the base-correlation
+oracle, the ch 20.4/index Asks) is **superseded by `docs/tranches/44b_base_correlation.md`**.
+
+**The arc closes at T44b's merge**, not T44a's — `CP_okane_credit.md` + re-audit #4 fire when **both**
+land (the exact loss distribution and the base-correlation curve are the arc's two closing objects).
+
+---
+
+## 5. Cowork's ruling on T44a — (reserved for §10 step 4, after the build)

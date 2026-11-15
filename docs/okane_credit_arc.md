@@ -87,3 +87,5 @@ specs. **T38 is specced** (`docs/tranches/38_credit_default_swap.md`); the rest 
 **T41c inserted (2026-11-14):** `verify.py conventions` — the register-integrity gate (unique ids + resolving citations), earned by T41b's duplicate-`C11` finding that two review passes (incl. a Cowork by-name ratification) missed. Statically decidable → gateable per §9. Runs before T42.
 
 **T42b inserted (2026-11-15):** `verify.py gates` extended to the named non-`verify.py` CI gates (pyright/ruff/pytest), earned by T42 — pyright caught a defect a local run missed and sits outside the T38 gates-gate's domain (droppable silently). Runs before T43.
+
+**T44 split (2026-11-15):** → **T44a** (exact recursion loss distribution, self-anchored by the LHP N→∞ limit) + **T44b** (base correlation, inverts the T43 LHP engine). Independent, disjoint oracle + cost profiles (the recursion carries the arc's only expensive quadrature; the slow gate is a live constraint). The arc closes — `CP_okane_credit.md` + re-audit #4 — when **both** land.
