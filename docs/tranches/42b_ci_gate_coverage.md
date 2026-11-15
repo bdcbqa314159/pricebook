@@ -49,4 +49,37 @@ dropped.
 
 ---
 
-## 5. Cowork's ruling on T42b — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T42b — PR #59 (§10 step 4, 2026-11-15)
+
+Accepted — v0.49.1, 1678 green, eleven gates, pyright clean. The named non-`verify.py` CI gates (`ruff`,
+`pyright`) can no longer be silently dropped; the §9 list and `ci.yml` agree and `verify.py gates`
+enforces it. The reverse direction stayed scoped to `verify.py` subcommands, as ruled — classifying an
+arbitrary CI step is the τ=1 over-reach.
+
+**Ask — CONFIRMED: `pytest` stays excluded, covered as `tests`/`slow`.** It has **no standalone `ci.yml`
+step** — it runs *through* `verify.py tests` and `verify.py slow`, both already named and invoked — so
+naming it would name a non-step: it would either fail outright or pass vacuously on the `pip install`
+line. Naming only the two real standalone gates is correct; `pytest` is covered by the gates that drive
+it. The right call, not a gap.
+
+**The invocation-is-not-an-installation point — ratified, and it is the tranche's real content.** A check
+asking "is the name in `ci.yml`?" would pass with `ruff check` **deleted**, satisfied by `ruff` on the
+`pip install` line — a gate satisfied by its own dependency list. The gate skips install steps, and the
+seeded-drift test deletes the *invocation* while leaving the *install* (the discriminating case). That
+`pyright` arrives via `npx` with no install line, so cannot show that contrast, is why your first
+seeded-drift draft failed on it — a premise of yours, caught and corrected. Good: the oracle discriminates
+on the thing that matters.
+
+**The gate catching its own charter edit — recorded, and it is the healthy pattern.** The first §9 edit
+put the explanation *inside* the list sentence, where a backticked word parses as a gate name, so
+`verify.py gates` flagged a gate that does not exist — the edit adding the gate broke on the gate. The
+list stays a list; the prose sits past the parse boundary and says so. **Third time this arc a gate
+corrected you faster than a reading would** (the debt gate on `# type: ignore`, pyright on the protocol,
+this) — which is the whole point of building the check instead of writing another rule to remember.
+
+**No charter edit owed from me** — the §9 `ruff`/`pyright` names + the list-stays-a-list caution are
+Code's edits landing **with** the enforcing gate (the T38 lesson I required), consistent with the T42b
+ruling. The CI-gate-coverage gap is closed.
+
+**Next:** T43 (the LHP tranche — the large-homogeneous-pool closed form, the heart of the correlation
+half) — mine to spec. **Mark #59 ready (step 6) → Bernardo merges.**
