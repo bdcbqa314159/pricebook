@@ -44,6 +44,18 @@ from pricebook.market.curve import CurveHandle
 from pricebook.market.survival_curve import SurvivalCurve
 
 
+class SurvivalFunction(Protocol):
+    """Anything that answers "what is the probability of surviving to `t`?".
+
+    `SurvivalCurve` satisfies it, and so does tranche 42's basket survival — which is *not* a
+    piecewise-constant-hazard curve and cannot be one, being an integral over the market factor.
+    Depending on the shape rather than the concrete type is what lets the premium leg below be
+    reused whole by the basket (§6, the rule-of-two met by a shared shape).
+    """
+
+    def survival(self, t: float) -> float: ...
+
+
 def segment_breaks(survival: SurvivalCurve, horizon: float) -> list[float]:
     """`[0, …pillars inside (0, horizon)…, horizon]` — where the protection integral must break.
 
@@ -58,7 +70,7 @@ def segment_breaks(survival: SurvivalCurve, horizon: float) -> list[float]:
 def risky_pv01(
     periods: Sequence[tuple[date, date, float]],
     discount: CurveHandle,
-    survival: SurvivalCurve,
+    survival: SurvivalFunction,
 ) -> float:
     """`RPV01` per unit notional — eq 6.4, premium payments plus the coupon accrued at default.
 
@@ -189,18 +201,6 @@ def forward_spread(near: CdsLegs, far: CdsLegs) -> float:
     part of its contract.
     """
     return (far.protection - near.protection) / forward_annuity(near, far)
-
-
-class SurvivalFunction(Protocol):
-    """Anything that answers "what is the probability of surviving to `t`?".
-
-    `SurvivalCurve` satisfies it, and so does tranche 42's basket survival — which is *not* a
-    piecewise-constant-hazard curve and cannot be one, being an integral over the market factor.
-    Depending on the shape rather than the concrete type is what lets the premium leg below be
-    reused whole by the basket (§6, the rule-of-two met by a shared shape).
-    """
-
-    def survival(self, t: float) -> float: ...
 
 
 def protection_leg_from_survival(
