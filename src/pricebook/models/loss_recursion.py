@@ -21,6 +21,11 @@ check than any tranche price.
 pinned: `f(m|Z) = C(N,m)q^m(1−q)^{N−m}`. Checking it *before* integrating over `Z` matters, because
 a dropped or swapped branch still yields a distribution summing to one afterwards.
 
+**The tranche composition is `models/tranche_loss.py`'s**, shared with the LHP: this model
+supplies `expected_loss_capped` and nothing about tranches. The fused two-cap sweep that lived here
+is gone with it — measured at 1.74x the shared form, which the `slow` budget affords (projected 6.4s
+on CI against a 10s gate) and which one composition is worth.
+
 **Cost is why this was split from base correlation** (tranche 44b): one `E[min(L,K)]` at 96 nodes
 runs 4 ms at `N = 40`, 44 ms at `N = 160` and 179 ms at `N = 320`, against 0.4 s for tranche 43's
 whole test file. The recursion is the arc's one expensive quadrature.
@@ -50,7 +55,6 @@ from pricebook.foundation.quadrature import (
 )
 from pricebook.market.snapshot import MarketSnapshot
 from pricebook.market.survival_curve import ReferenceEntity
-from pricebook.models.lhp import TrancheSurvival
 
 #: Gauss-Hermite nodes for the market-factor integral. The conditional distribution is a smooth
 #: function of `Z` for `|β| < 1` (it is a binomial in a `Φ` of `Z`), so convergence is fast; 96 is
@@ -193,42 +197,3 @@ class RecursionModel:
             return 0.0
         losses = np.arange(self.pool_size + 1) * self.loss_unit
         return self._capped_payoffs(np.minimum(losses, strike), horizon, nodes)
-
-    def tranche_expected_loss(
-        self, attachment: float, detachment: float, horizon: float,
-        nodes: int = _DEFAULT_FACTOR_NODES,
-    ) -> float:
-        """`EL = E[min(L,K₂)] − E[min(L,K₁)]`, in pool-notional units.
-
-        **One market-factor sweep, not two.** The two caps share the conditional distribution at
-        each `Z`, so evaluating them separately rebuilds the whole recursion twice per node — a
-        clean factor of two on the arc's most expensive quadrature, with no approximation
-        whatsoever (the subtraction simply moves inside the expectation, which is linear).
-        """
-        if horizon <= 0.0:
-            return 0.0
-        losses = np.arange(self.pool_size + 1) * self.loss_unit
-        payoff = np.minimum(losses, detachment) - np.minimum(losses, attachment)
-        return self._capped_payoffs(payoff, horizon, nodes)
-
-    def tranche_survival(
-        self, attachment: float, detachment: float, horizon: float
-    ) -> float:
-        """`Q = 1 − EL/(K₂−K₁)` — the fraction of the tranche still outstanding."""
-        width = detachment - attachment
-        if width <= 0.0:
-            raise ValueError(
-                f"a tranche needs positive width, got [{attachment}, {detachment}]")
-        return 1.0 - self.tranche_expected_loss(attachment, detachment, horizon) / width
-
-    def tranche_survival_curve(
-        self, attachment: float, detachment: float
-    ) -> TrancheSurvival:
-        """The tranche's survival, as the tranche-39 premium leg consumes it.
-
-        `TrancheSurvival` is tranche 43's and is reused rather than reimplemented: it needs only a
-        `tranche_survival(K₁, K₂, t)` on whatever model it holds, which both models provide. That
-        is a shared *shape* and not a shared word (§6) — the quantity means the same thing for the
-        approximation and for the exact distribution.
-        """
-        return TrancheSurvival(self, attachment, detachment)

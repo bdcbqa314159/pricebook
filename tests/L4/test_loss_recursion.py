@@ -39,6 +39,11 @@ from pricebook.foundation.time_measure import TimeMeasure
 from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
 from pricebook.market.survival_curve import ReferenceEntity, SurvivalCurve
 from pricebook.models.lhp import LHPModel
+from pricebook.models.tranche_loss import (
+    tranche_expected_loss,
+    tranche_survival,
+    tranche_survival_curve,
+)
 from pricebook.models.loss_recursion import RecursionModel
 from pricebook.products.synthetic_cdo_tranche import SyntheticCDOTranche, TrancheBounds
 
@@ -203,14 +208,14 @@ class TestTheLossDistributionIdentities:
         model = _model()
         edges = (0.0, 0.03, 0.07, 0.15, 0.30, 1.0)
         total = sum(
-            model.tranche_expected_loss(lower, upper, HORIZON)
+            tranche_expected_loss(model, lower, upper, HORIZON)
             for lower, upper in zip(edges, edges[1:]))
         assert total == pytest.approx((1.0 - RECOVERY) * _pool_default(), rel=1e-11)
 
     def test_the_EQUITY_tranche_bears_loss_FIRST(self) -> None:
         model = _model()
-        equity = model.tranche_expected_loss(0.0, 0.03, HORIZON) / 0.03
-        mezzanine = model.tranche_expected_loss(0.03, 0.07, HORIZON) / 0.04
+        equity = tranche_expected_loss(model, 0.0, 0.03, HORIZON) / 0.03
+        mezzanine = tranche_expected_loss(model, 0.03, 0.07, HORIZON) / 0.04
         assert equity > mezzanine > 0.0, (equity, mezzanine)
 
 
@@ -288,7 +293,7 @@ class TestTheRecursionTranchePrices:
         from pricebook.engine.loss_recursion import tranche_protection
 
         model = _model()
-        survival = model.tranche_survival_curve(ATTACH, DETACH)
+        survival = tranche_survival_curve(model, ATTACH, DETACH)
         horizon = (SCHEDULE.dates[-1] - VAL).days / 365.0
         # The model's own committed count, not a literal: the step count lives on the model
         # (§3.5 — config with the thing that makes it expensive), so a test pinning 800 here would
@@ -321,11 +326,11 @@ class TestTwoHolesTheSweepFoundInTheParallelImplementation:
         model = _model()
         for attach, detach in ((0.03, 0.07), (0.03, 0.30), (0.0, 1.0)):
             width = detach - attach
-            expected_loss = model.tranche_expected_loss(attach, detach, HORIZON)
-            assert model.tranche_survival(attach, detach, HORIZON) == pytest.approx(
+            expected_loss = tranche_expected_loss(model, attach, detach, HORIZON)
+            assert tranche_survival(model, attach, detach, HORIZON) == pytest.approx(
                 1.0 - expected_loss / width, rel=1e-13)
-        narrow = model.tranche_survival(0.03, 0.07, HORIZON)
-        wide = model.tranche_survival(0.03, 0.30, HORIZON)
+        narrow = tranche_survival(model, 0.03, 0.07, HORIZON)
+        wide = tranche_survival(model, 0.03, 0.30, HORIZON)
         assert narrow < wide and wide / narrow - 1.0 > 0.05, (narrow, wide)
 
     def test_the_COMMITTED_step_count_RESOLVES_its_own_error(self) -> None:

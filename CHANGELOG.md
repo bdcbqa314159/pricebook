@@ -72,6 +72,27 @@ Two things that fell out of doing it properly:
   worthless, so the two are asserted equal and the binomial anchor reaches the fast path
   transitively.
 
+### The duplication the sweep exposed, collapsed — `models/tranche_loss.py`
+
+`tranche_expected_loss` and `tranche_survival` were written out in **both** models, identical code
+over a differing `expected_loss_capped`. That is why the width-division hole was found twice: at
+tranche 43 (fixed there, against the LHP) and again at tranche 44a in the second copy. The lesson is
+not "apply the shared oracle to both implementations" but **stop having two implementations**.
+
+Extracted as **free functions over a `TrancheLossModel` protocol**, not a base class or mixin: a
+mixin is the template-method polymorphism §6 keeps these frozen value objects away from, and
+functions-over-a-protocol is the library's own shape (`credit_legs`, the registry, tranche 42's
+`SurvivalFunction`). *(Ruled by Cowork.)* The width oracle moved onto the shared function and is
+parametrised over both models, so **one mutation of the division now fails four tests across both**
+— the hole cannot reappear in a copy that does not exist.
+
+Proved a **pure refactor**: the shipped LHP path is **bit-identical over 24 values** (PV, par
+spread, annuity, protection leg, survival and expected loss across four tranches), which is the §4
+bar for touching tranche 43.
+
+It cost the recursion's fused two-cap sweep, measured at **1.74×** the shared form — affordable
+(projected 6.4s on CI against a 10s gate) and worth it for one composition.
+
 ### Mutation sweep
 
 12 mutants. Two survivors, and both are lessons about where an oracle *lives* rather than about the

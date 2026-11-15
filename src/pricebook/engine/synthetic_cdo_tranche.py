@@ -40,7 +40,11 @@ from pricebook.market.survival_curve import ReferenceEntity
 from pricebook.foundation.results import PricingFailure, PricingResult
 from pricebook.foundation.time_measure import is_historical
 from pricebook.market.credit_legs import protection_leg_from_survival, risky_pv01
-from pricebook.models.lhp import LHPModel, TrancheSurvival
+from pricebook.models.lhp import LHPModel
+from pricebook.models.tranche_loss import (
+    TrancheSurvival,
+    tranche_survival_curve,
+)
 from pricebook.products.synthetic_cdo_tranche import SyntheticCDOTranche
 
 class TrancheModel(Protocol):
@@ -60,9 +64,7 @@ class TrancheModel(Protocol):
     @property
     def entity(self) -> ReferenceEntity: ...
 
-    def tranche_survival_curve(
-        self, attachment: float, detachment: float
-    ) -> TrancheSurvival: ...
+    def expected_loss_capped(self, strike: float, horizon: float) -> float: ...
 
     @property
     def protection_steps(self) -> int:
@@ -98,8 +100,8 @@ def _survival(product: SyntheticCDOTranche, model: TrancheModel):
             f"this tranche is on {product.reference_entity.name} but the model carries "
             f"{model.entity.name}")
     model.market.curves.survival(product.reference_entity)
-    return model.tranche_survival_curve(
-        product.bounds.attachment, product.bounds.detachment)
+    return tranche_survival_curve(
+        model, product.bounds.attachment, product.bounds.detachment)
 
 
 def tranche_annuity(product: SyntheticCDOTranche, model: TrancheModel) -> float:
