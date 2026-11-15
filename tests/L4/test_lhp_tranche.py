@@ -115,7 +115,12 @@ def _reference_capped_loss(
     kink = (threshold - spread_factor * inverse_norm_cdf(strike / loss_given_default)) / beta
 
     raw, weights = np.polynomial.legendre.leggauss(nodes)
-    lower, upper = kink, kink + 12.0
+    # The upper limit is ABSOLUTE, not `kink + 12`. A relative window truncates whenever the kink
+    # sits deep in the left tail: at `K = 0.45, β = 0.3` the kink is near −6, so `kink + 12` stops
+    # at +6 and loses ~1e-10 of the mass above it. The tell was a **plateau** — the gap to the
+    # closed form stayed at 2.41e-10 for 160, 400 and 900 nodes, which is truncation, not
+    # quadrature error (§4's rate detector, here pointed at the reference itself).
+    lower, upper = kink, max(kink + 12.0, 10.0)
     middle, half = 0.5 * (lower + upper), 0.5 * (upper - lower)
     tail = half * sum(
         weight * loss_given_default
@@ -214,7 +219,7 @@ class TestTheClosedFormAgainstTheSplitIntegral:
         """The check Cowork asked for, and it discriminates hard: `+β` is 62%–240% wrong."""
         got = _model(beta=beta).expected_loss_capped(strike, HORIZON)
         want = _reference_capped_loss(strike, beta=beta)
-        assert got == pytest.approx(want, rel=1e-11), (strike, beta, got, want)
+        assert got == pytest.approx(want, rel=1e-12), (strike, beta, got, want)
 
     def test_THE_COMPANION_the_WRONG_rho_sign_is_MATERIALLY_different(self) -> None:
         """Proving the sign check has power rather than merely passing."""
@@ -253,8 +258,17 @@ class TestTheClosedFormAgainstTheSplitIntegral:
                               * norm_cdf((threshold - beta * z) / scale), strike),
                 nodes=n) / truth - 1.0)
             for n in (64, 256, 370)]
-        assert min(errors) > 1e-05, f"the naive integral never gets close: {errors}"
-        assert not (errors[0] > errors[1] > errors[2]), f"and it does not converge: {errors}"
+        # The robust claim is the **magnitude**, not the shape of the sequence: the naive integral
+        # is stuck near 1e-3 at every practical node count — six orders worse than the split
+        # reference's 1e-14 — so it cannot be the reference, and a band wide enough to accept it
+        # would be wide enough to hide a real defect.
+        #
+        # An earlier draft asserted the sequence was *non-monotone*. It is at some fixtures and is
+        # not at this one, so that claim pinned an accident — the same mistake made at tranche 41
+        # and recorded there. Twice is enough to state the rule: assert the size of an error, not
+        # the shape of its approach, unless the shape itself is the theorem.
+        assert min(errors) > 1e-04, f"the naive integral never gets close: {errors}"
+        assert min(errors) / 1e-14 > 1e08, "six orders from the split reference's accuracy"
 
 
 class TestTheZeroCorrelationReduction:
