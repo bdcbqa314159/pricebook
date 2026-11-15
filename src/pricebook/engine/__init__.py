@@ -28,6 +28,7 @@ from pricebook.engine.forward_cds import (
 )
 from pricebook.engine.first_to_default_basket import price_first_to_default_basket
 from pricebook.engine.synthetic_cdo_tranche import price_synthetic_cdo_tranche
+from pricebook.engine.loss_recursion import price_recursion_tranche
 from pricebook.engine.registry import register
 
 __all__ = [

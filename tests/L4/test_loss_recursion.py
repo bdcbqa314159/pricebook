@@ -263,7 +263,10 @@ class TestTheRecursionTranchePrices:
         model = _model()
         survival = model.tranche_survival_curve(ATTACH, DETACH)
         horizon = (SCHEDULE.dates[-1] - VAL).days / 365.0
-        steps = 800
+        # The model's own committed count, not a literal: the step count lives on the model
+        # (§3.5 — config with the thing that makes it expensive), so a test pinning 800 here would
+        # assert the engine against a grid it does not use.
+        steps = model.protection_steps
         step = horizon / steps
         want = 0.0
         previous_time, previous = 0.0, survival.survival(0.0)
@@ -283,7 +286,7 @@ class TestTheGuardsAreReachable:
             RecursionModel(_market(), INDEX, BETA, RECOVERY, 1)
 
     def test_a_BETA_outside_the_unit_interval_is_refused(self) -> None:
-        with pytest.raises(ValueError, match="correlation"):
+        with pytest.raises(ValueError, match="factor loading"):
             RecursionModel(_market(), INDEX, 1.4, RECOVERY, POOL_SIZE)
 
     def test_a_RECOVERY_outside_the_unit_interval_is_refused(self) -> None:

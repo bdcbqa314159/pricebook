@@ -41,11 +41,27 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Protocol
 
 from pricebook.foundation.bivariate_normal import bivariate_normal_cdf
 from pricebook.foundation.distributions import inverse_norm_cdf, norm_cdf
 from pricebook.market.snapshot import MarketSnapshot
 from pricebook.market.survival_curve import ReferenceEntity
+
+
+class TrancheLossModel(Protocol):
+    """Anything that can say what fraction of a `[K₁,K₂]` tranche survives to `t`.
+
+    Two present consumers share this shape, not a word: the LHP closed form below and tranche
+    44a's exact recursion answer the same question by different mathematics. Annotating
+    `TrancheSurvival.model` concretely would deny the reuse that is actually correct — which
+    pyright caught, and which is the **third** time in this arc a correct reuse was contradicted by
+    a concrete annotation (tranche 42's `risky_pv01`, tranche 42's `BasketSurvival`, this).
+    """
+
+    def tranche_survival(
+        self, attachment: float, detachment: float, horizon: float
+    ) -> float: ...
 
 
 @dataclass(frozen=True)
@@ -57,7 +73,7 @@ class TrancheSurvival:
     `credit_legs.SurvivalFunction` and the tranche-39 premium leg consumes it unchanged.
     """
 
-    model: LHPModel
+    model: TrancheLossModel
     attachment: float
     detachment: float
 
@@ -86,6 +102,11 @@ class LHPModel:
             raise ValueError(
                 f"the recovery must sit in [0, 1), got {self.recovery}: at R = 1 there is no loss "
                 f"to tranche and `K/(1−R)` divides by zero")
+
+    @property
+    def protection_steps(self) -> int:
+        """800 — the closed form is cheap to sample, so the quadrature is taken fine."""
+        return 800
 
     @property
     def loss_given_default(self) -> float:
