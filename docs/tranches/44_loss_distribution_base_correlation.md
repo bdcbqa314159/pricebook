@@ -134,4 +134,69 @@ land (the exact loss distribution and the base-correlation curve are the arc's t
 
 ---
 
-## 5. Cowork's ruling on T44a — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T44a — PR #61 (§10 step 4, 2026-11-15)
+
+Accepted with one change request (the duplication, below) — v0.51.0, 1754 green, eleven gates, CI green
+both runners after corrections. The arc's loop closes as designed: the recursion converges to T43's LHP
+at exactly `O(1/N)` (ratios 1.81→2.00), so the approximation built first is now the reference the exact
+model answers to — by a rate, and the binomial pins the recursion step *pointwise before* any `Z`
+integration (the half a sum-to-one distribution would otherwise hide).
+
+**The Ask — RULED: module-level functions over a `TrancheLossModel` protocol; NOT a base/mixin.** The
+duplication (`tranche_expected_loss`/`tranche_survival`/`tranche_survival_curve` identical in `LHPModel`
+and `RecursionModel`, differing only in `expected_loss_capped`) is a real shared **shape** — the tranche
+composition over a model that supplies `expected_loss_capped(K)` — and rule-of-two is met (§6). A shared
+**base/mixin is the polymorphism §6 keeps the models away from** (template-method inheritance, an abstract
+`expected_loss_capped` with concrete `tranche_*`); the library's answer is the one it uses everywhere —
+**free functions over a protocol** (`credit_legs` over curves, the registry over model protocols, T42's
+`SurvivalFunction`). So: a `TrancheLossModel` protocol with the one member `expected_loss_capped(K)`, and
+`tranche_*` as module-level functions over it; both models stay **concrete and frozen**. This **kills the
+width hole at its root** — the first survivor was reachable twice *because* the composition was written
+twice; one composition, one oracle, both models covered (your own rule: *a second implementation of a
+shared composition needs the shared oracle applied to it, not merely present in the tree* — the cleanest
+fix is to stop having a second implementation). **Done in T44a**, and because it touches T43's shipped
+`LHPModel` it is a **pure refactor proved bit-identical** on the LHP path (the §4 bar, the T41b
+hex-literal-frozen discipline).
+
+**Config on the model (§3.5 generalisation) — ratified.** The protection-leg step count is a property of
+*how expensive the model is to evaluate* (LHP 800, recursion 100, measured 8.1e-07), not of the engine —
+so it lives on the model, and one hard-coded engine number would make one model wrong. §3.5's "config
+deferred to its first consumer" generalises correctly: the consumer that *determines* it is the model.
+Right, and forced.
+
+**The two survivors — ratified.** (1) the width division (fixed by the extraction above). (2) the
+step-count test telescoped (it read `model.protection_steps`, checking the engine against its own grid,
+blind to whether the grid is *adequate*) — the two questions separated, the adequacy asserted against an
+independent reference. The §4 telescoping lesson, and a clean separation.
+
+**The slow-gate CI failure — ratified, and it earns a §9 line.** Reported green on a 5.3s **local**
+re-time, failed `slow` on **both** CI runners (18.3s/10.1s vs 10.0s) — the **second** time this arc (T42
+first). §9 edited: for a numerically-heavy file, **CI is the measurement, not a local re-time**. Your
+own adoption of "CI is the reading from here" is exactly right; the charter now carries it so a future
+session inherits it. **The vectorisation that fixed it is good** — the `Z`-dependence is the scalar
+`q=p(T|Z)`, so the convolution is one array advance (`nodes×N` → `N`), `fsum` outer sum unchanged, inner
+convolution reordered → **≤1 ULP, not bit-identity** (correctly *not* over-claimed — the third time you
+have flagged that bar, held).
+
+**The scipy-`ndtr` reach-and-withdraw — ratified, and the right instinct twice over.** Reaching for
+scipy's vectorised `Φ` and withdrawing it because (a) it would make this model's `Φ` ≠ the copula/LHP `Φ`
+— a convention divergence the register exists to prevent — and (b) it bought **nothing** (the convolution
+was the cost, the 96 `Φ` evals never were) is "measure before you break a convention for speed." A
+performance argument for a convention break that was not a performance argument. Good.
+
+**The anchor-on-the-wrong-implementation finding — ratified.** Vectorising made a second recursion impl
+and the binomial pinned only the scalar one *while pricing ran the fast one*; now asserted equal, the
+binomial reaching the fast path transitively (9/6 kills on the vectorised branches). "Oracle the thing
+that runs" — the same shape as the width survivor. `foundation.standard_normal_nodes` as public surface
+(vs reaching into `_rule`) is the §6 reachability rule, one real consumer.
+
+**The concrete-annotation-denying-reuse pattern (3rd: `TrancheSurvival` typed `LHPModel`) — noted, no
+charter line.** pyright caught it, as it caught T42's `risky_pv01` and `BasketSurvival` — **the gate we
+hardened at T42b earning its keep three times.** It does not ship (pyright gates it), so it is a build
+habit for you to watch, not a latent-defect class; the backstop works. No charter edit for it.
+
+**Change request (still draft):** extract the tranche composition to free functions over `TrancheLossModel`
+(bit-identical on the LHP path), relocate the width oracle onto the shared function, re-run. Then mark #61
+ready.
+
+**Next:** T44b (base correlation) — specced; its merge closes the arc (`CP_okane_credit.md` + re-audit #4).
