@@ -280,6 +280,52 @@ class TestTheRecursionTranchePrices:
         assert got > 1e-03, "the premise: the leg is materially non-zero"
 
 
+class TestTwoHolesTheSweepFoundInTheParallelImplementation:
+    """Both survivors are lessons about where an oracle *lives*, not about the recursion itself."""
+
+    def test_the_tranche_SURVIVAL_is_normalised_by_the_tranche_WIDTH(self) -> None:
+        """**The same hole tranche 43 had**, and the reason is worth recording: I fixed it there,
+        but the oracle lives in the LHP's test file against the LHP model — so the recursion's own
+        width division was never covered. A second implementation of a shared composition needs
+        the shared oracle applied to *it*, not merely present somewhere in the tree.
+
+        (The composition is genuinely duplicated between the two models rather than shared, which
+        is what made the second copy reachable at all. That duplication is worth Cowork's eye.)"""
+        model = _model()
+        for attach, detach in ((0.03, 0.07), (0.03, 0.30), (0.0, 1.0)):
+            width = detach - attach
+            expected_loss = model.tranche_expected_loss(attach, detach, HORIZON)
+            assert model.tranche_survival(attach, detach, HORIZON) == pytest.approx(
+                1.0 - expected_loss / width, rel=1e-13)
+        narrow = model.tranche_survival(0.03, 0.07, HORIZON)
+        wide = model.tranche_survival(0.03, 0.30, HORIZON)
+        assert narrow < wide and wide / narrow - 1.0 > 0.05, (narrow, wide)
+
+    def test_the_COMMITTED_step_count_RESOLVES_its_own_error(self) -> None:
+        """The oracle the protection-leg test cannot be, because it TELESCOPES.
+
+        That test reads `model.protection_steps` so it asserts the engine against the grid the
+        engine actually uses — honest about *which* grid, and for exactly that reason blind to
+        whether the grid is adequate: a mutation setting the count to 2 moves both sides together
+        and survives. Two different questions, and I conflated them.
+
+        So the resolution is asserted separately, against a far finer reference (§4 — state what a
+        green rules out). Measured: the committed 100 steps resolve **8.1e-07**, and the error falls
+        at second order, so a coarsened grid fails here rather than passing quietly."""
+        from pricebook.engine.loss_recursion import tranche_protection
+
+        model = _model()
+        # 300 steps, not 1600: the reference's own error against a 1600-step run is 8.5e-08, an
+        # order below the 7.2e-07 it is here to resolve, and it costs a fifth as much. The `slow`
+        # budget is a real constraint on this file (it is the arc's expensive quadrature), and a
+        # reference ten times finer than the question needs is spent headroom, not rigour.
+        reference = tranche_protection(_tranche(), model, 300)
+        committed = tranche_protection(_tranche(), model, model.protection_steps)
+        assert abs(committed / reference - 1.0) < 2e-06, committed / reference - 1.0
+        coarse = tranche_protection(_tranche(), model, 2)
+        assert abs(coarse / reference - 1.0) > 1e-03, "a coarse grid must be visibly wrong"
+
+
 class TestTheGuardsAreReachable:
     def test_a_POOL_of_fewer_than_two_credits_is_refused(self) -> None:
         with pytest.raises(ValueError, match="at least two"):
