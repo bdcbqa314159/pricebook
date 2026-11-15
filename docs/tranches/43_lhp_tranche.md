@@ -104,4 +104,54 @@ brings the exact loss distribution and base correlation and closes the arc.
 
 ---
 
-## 5. Cowork's ruling on T43 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T43 — PR #60 (§10 step 4, 2026-11-15)
+
+Accepted — v0.50.0, 1723 green, eleven gates, pyright clean. The single-tranche synthetic CDO in the LHP
+closed form is in — the correlation market's defining model, reusing `Φ₂` (T36b) and the copula (T41).
+
+**Eq 16.1 = `Φ₂`, sign `−β` — confirmed with demonstrated power.** Against an independent market-factor
+integral `−β` agrees to 1e-14 while `+β` is 62–240% wrong, and a companion asserts `+β` *is* materially
+wrong — the T17 same-formula caution applied, and the check proved it has power rather than merely
+passing. Exactly right.
+
+**Both Asks — ratified.** (a) The coupon is running-spread-on-outstanding-notional (my spec's form); the
+standardised-coupon/upfront detail stays out of scope, flagged not assumed. (b) **The index-handle
+question dissolved, correctly** — the LHP is the infinite homogeneous limit, so there is no per-name
+structure to reference: the pool's identity is its one default curve, already keyed by `ReferenceEntity`
+(T41b), and a new handle type would have no second consumer (§6). A question answered by the finance, not
+a ruling — the best kind.
+
+**Finding 1 (the closed form undefined at the partition's endpoints) — ratified, and it sharpens my
+spec.** `A(K)` needs `0 < K < 1−R` strictly, but the capital-structure partition runs to the endpoints,
+so the endpoint branches (`0` below, `(1−R)p` above, and the cap that **cannot bind because max loss is
+`1−R`, not `1`**) are **load-bearing, not defensive** — with them the partition is exact to 2e-16. My
+spec wrote the ceiling as `1` (`E[min(L,1)]=E[L]`); the real ceiling is `1−R`, which is where the cap
+lives. The identity still holds (`L ≤ 1−R < 1`), but the sharper statement is `E[min(L,1−R)] = E[L]` and
+the detachment range is `[0,1−R]`-relevant — my imprecision, caught by the build. The oracle choice
+forcing the endpoint discovery is the spec working.
+
+**Finding 2 (a truncation bug in your own reference, caught by a plateau) — ratified.** The kink-split
+market-factor integral disagreed with the closed form by 2.41e-10 at a strike and the gap **did not
+move** across 160/400/900 nodes — truncation, not quadrature (the window stopped short of the upper tail
+where the kink sits deep in the left). Fixed to an absolute limit (worst gap 1.7e-14), so the band stayed
+tight instead of loosening around a reference bug. This is §4's "a reference is code too" + the T25
+plateau-rate detector **pointed at the reference**, which is exactly where that discipline earns most.
+
+**The sweep's three survivors with one shared cause — RATIFIED, and it earns a §4 line.** Every oracle
+was **scale-invariant** (par-reprice telescopes; spread-linearity is homogeneous; the equity/mezz/senior
+ordering is a ratio), so together they pinned the tranche's *shape* and said nothing about its *level* — a
+uniform rescaling of a leg survives all of them (a doubled `(1−R)`, 40% off, sailed through). I verified
+the mechanism (par-reprice and linearity both read 0 on a doubled leg; only an absolute-level check sees
+it). Closed with absolute-level oracles. **Charter §4 edited** — the T16 magnitude trap at the level of a
+whole oracle *set*: check whether the set shares a scale-invariance, and if so pin an absolute magnitude.
+A genuinely new mechanism (three survivors, one cause), load-bearing.
+
+**The shape-of-approach repeat — carried as discipline, no charter line (yet).** Asserting the naive
+integral's error sequence was *non-monotone* (true at some fixtures, false at the test's) pinned an
+accident — the **same mistake as T41's**, which you recorded then. Your rule — *assert the SIZE of an
+error, not the SHAPE of its approach, unless the shape is the theorem* — is the T21 spirit ("a fitted
+exponent is not assertable; use an RMS over the range"), now twice. Held as discipline; **a third
+instance earns its own §4 line** (the catalogue cadence). Good that you flagged your own repeat.
+
+**Next:** T44 (the exact loss distribution + base correlation) — the arc's last build — mine to spec; its
+close fires `CP_okane_credit.md` + re-audit #4. **Mark #60 ready (step 6) → Bernardo merges.**

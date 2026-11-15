@@ -238,7 +238,15 @@ not an oracle. Ruled principles:
   about its MAGNITUDE** — which is the same trap wearing a subtler disguise: not a vacuous assertion,
   but a *complete* set of assertions about the wrong aspect. When a quantity enters a formula as a
   **product** (`(fτ)/(1+fτ)·σ`), assert the product's **value** against an independent transcription,
-  not merely that each factor is present and correctly signed. And beware the anchor's own blind spot:
+  not merely that each factor is present and correctly signed. **The same trap at the level of a whole
+  oracle SET: if every oracle is *scale-invariant* — a par-reprice (telescopes), a ratio, an ordering, a
+  linearity — they collectively pin the SHAPE and say nothing about the LEVEL, so a *uniform rescaling of
+  a leg* survives all of them at once.** Check whether the oracle set shares a scale-invariance; if it
+  does, add one oracle asserting an **absolute magnitude** against an independent absolute reference. *(T43:
+  a doubled `(1−R)` — the protection leg 40% off — survived the par-reprice, the spread-linearity and the
+  equity/mezz/senior ordering together, because all three are homogeneous in a leg's scale; three mutation
+  survivors with one shared cause, killed by an absolute-level protection-leg oracle.)* And beware the
+  anchor's own blind spot:
   **an oracle made sharp by a quantity being exactly zero is, for that very reason, blind to that
   quantity** — so a closed-form anchor run under the measure where the target's drift vanishes cannot
   see the drift at all. The magnitude oracle that fills the gap is itself a transcription, made
