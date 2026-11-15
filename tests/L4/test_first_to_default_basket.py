@@ -27,6 +27,7 @@ exact and the reuse large:
 """
 
 import math
+from collections.abc import Callable
 from datetime import date, timedelta
 
 import pytest
@@ -223,6 +224,30 @@ class TestTheProtectionLegOnABasketCurve:
         for coarse, fine in zip(errors, errors[1:]):
             assert coarse > fine, errors
         assert errors[0] < 1e-04 and errors[-1] < 1e-07, errors
+
+    def test_the_WRONG_PAIRING_cannot_happen_SILENTLY(self) -> None:
+        """C13's extension asks for this guard, so here it is, in both tiers.
+
+        **Statically:** `protection_leg` is annotated with the concrete `SurvivalCurve`, while the
+        premium leg takes the `SurvivalFunction` protocol — so pyright rejects a basket passed to
+        the pillar integrator, and pyright runs in CI.
+
+        **At runtime:** `BasketSurvival` deliberately carries no `.times` and no `.hazard`, because
+        it has neither — there are no pillars in an integral. So the wrong pairing raises rather
+        than quietly computing the 1.56e-03-wrong number. That is the guard that matters: not a
+        tolerance on a bad result, but the bad result being unreachable."""
+        basket = BasketSurvival(_copula())
+        assert not hasattr(basket, "times"), "a basket survival has no pillars"
+        assert not hasattr(basket, "hazard"), "and no piecewise-constant hazard"
+        from pricebook.market.credit_legs import protection_leg
+
+        # Called through a deliberately loose alias, not a `type: ignore` — the charter forbids
+        # suppressions (§7) and the debt gate counts them (§8, which caught the first draft of
+        # this line). The looseness is the point: the static guard is pyright's and is exercised
+        # in CI, while what a runtime test can show is that bypassing it still fails loudly.
+        dynamic: Callable[..., float] = protection_leg
+        with pytest.raises(AttributeError, match="times"):
+            dynamic(CURVE, basket, RECOVERY, HORIZON, 50)
 
     def test_the_PILLAR_HAZARD_form_would_PLATEAU_which_is_why_it_is_not_used(self) -> None:
         """The §4 rate-detector: a model error plateaus where a discretisation error converges.
