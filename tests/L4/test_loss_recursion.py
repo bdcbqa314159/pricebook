@@ -34,6 +34,7 @@ from pricebook.engine import price
 from pricebook.foundation import CouponSchedule, Currency, Money, PricingResult
 from pricebook.foundation.day_count import DayCountConvention
 from pricebook.foundation.distributions import inverse_norm_cdf, norm_cdf
+from pricebook.foundation.quadrature import standard_normal_nodes as _quadrature_nodes
 from pricebook.foundation.time_measure import TimeMeasure
 from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
 from pricebook.market.survival_curve import ReferenceEntity, SurvivalCurve
@@ -133,6 +134,32 @@ class TestTheConditionalDistributionIsTheBinomial:
         assert len(got) == len(want)
         for defaults, (one, other) in enumerate(zip(got, want)):
             assert one == pytest.approx(other, rel=1e-12, abs=1e-300), defaults
+
+    def test_the_VECTORISED_path_agrees_with_the_SCALAR_recursion(self) -> None:
+        """The tie that makes the binomial anchor cover the code that actually prices.
+
+        `conditional_distribution` is the readable scalar recursion and is what the binomial test
+        above pins; pricing runs a **vectorised** copy that advances all quadrature nodes as one
+        array, because the scalar version put this file at 18.3s against CI's 10s `slow` gate. Two
+        implementations of one formula is exactly the situation where an anchor on the wrong one is
+        worthless — so they are asserted equal here, and the binomial anchor reaches the fast path
+        transitively.
+
+        Agreement is **exact in ℝ and ≤1 ULP** in floating point (measured over 18 values): the
+        vectorised form is the same sum reordered by a dot product, so bit-identity is not
+        available and claiming it would be the mistake made twice already this arc."""
+        model = _model(pool_size=11)
+        points, _ = _quadrature_nodes(96)
+        unit = model.loss_unit
+        for strike in (0.02, 0.07, 0.30):
+            scalar = math.fsum(
+                weight * sum(
+                    p * min(defaults * unit, strike)
+                    for defaults, p in enumerate(
+                        model.conditional_distribution(HORIZON, factor)))
+                for factor, weight in zip(points, _quadrature_nodes(96)[1]))
+            vectorised = model.expected_loss_capped(strike, HORIZON, nodes=96)
+            assert abs(vectorised - scalar) <= 4.0 * math.ulp(scalar), (strike, vectorised, scalar)
 
     def test_the_conditional_distribution_SUMS_to_one(self) -> None:
         for factor in (-3.0, 0.0, 2.0):

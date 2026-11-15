@@ -47,6 +47,31 @@ Two cost fixes beyond that, both exact: the two caps in a tranche's expected los
 market-factor sweep (the subtraction moves inside a linear expectation), and the whole test file
 fell from **44s to 5.3s**.
 
+### Vectorised, because CI is not my machine
+
+The `slow` gate failed on **both** runners — 18.3s on Linux, 10.1s on Windows, against 10.0s —
+while the file measured **5.3s locally**. That is §9's "a timing reading is only valid where it is
+taken", and the second time this arc my local headroom was not headroom (tranche 42 was the first).
+
+The charter's remedy is to vectorise, so the recursion now advances **all quadrature nodes as one
+array**: its only `Z`-dependence is the scalar `q = p(T|Z)`, so the convolution is identical at
+every node. `nodes × N` interpreter steps become `N` array operations, and the file runs **1.1s**.
+The outer sum stays `math.fsum` over weight-times-value, exactly as `standard_normal_expectation`
+does it, so only the inner convolution was reordered — agreement with the scalar form is exact in ℝ
+and **≤1 ULP**, which is the claim available and the one made.
+
+Two things that fell out of doing it properly:
+
+- **`scipy.special.ndtr` would have vectorised `Φ` in one call, and was rejected.** It would mean
+  this model's `Φ` is not the `Φ` the copula and the LHP use — a convention divergence of exactly
+  the kind the register exists to prevent — and it bought **nothing**: with the library's own
+  `norm_cdf` called per node the file still runs 1.1s, because the convolution was the cost, not
+  the 96 scalar evaluations.
+- **There are now two implementations of the recursion**, and the binomial anchor pinned only the
+  scalar one while pricing ran the vectorised one. An anchor on the wrong implementation is
+  worthless, so the two are asserted equal and the binomial anchor reaches the fast path
+  transitively.
+
 ### Mutation sweep
 
 12 mutants. Two survivors, and both are lessons about where an oracle *lives* rather than about the

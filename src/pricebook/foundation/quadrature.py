@@ -79,6 +79,25 @@ def _rule(nodes: int) -> tuple[tuple[float, ...], tuple[float, ...]]:
     return scaled, normalised
 
 
+def standard_normal_nodes(nodes: int = _DEFAULT_NODES) -> tuple[tuple[float, ...], tuple[float, ...]]:
+    """The scaled nodes and normalised weights, for a caller that must evaluate them *together*.
+
+    `standard_normal_expectation` takes a scalar function and is the right interface for almost
+    everything. It is the wrong one when the integrand is expensive **per node** and vectorises
+    across nodes: tranche 44a's loss recursion is a convolution over `N` credits whose only
+    `Z`-dependence is one probability, so evaluating all nodes as one array replaces `nodes × N`
+    interpreter steps with `N` array operations — the difference between a test file that fits the
+    `slow` budget on CI and one that does not.
+
+    Exposed rather than letting a caller reach into `_rule`, and returned as tuples so the cached
+    rule cannot be mutated through the back door. The caller owns the summation: weight-times-value
+    added with `math.fsum` reproduces `standard_normal_expectation` exactly.
+    """
+    if nodes < 1:
+        raise ValueError(f"a quadrature rule needs at least one node, got {nodes}")
+    return _rule(nodes)
+
+
 def standard_normal_expectation(
     f: Callable[[float], float], nodes: int = _DEFAULT_NODES
 ) -> float:

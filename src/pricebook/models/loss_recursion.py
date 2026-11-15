@@ -42,7 +42,12 @@ import math
 from dataclasses import dataclass
 
 from pricebook.foundation.distributions import inverse_norm_cdf, norm_cdf
-from pricebook.foundation.quadrature import standard_normal_expectation
+import numpy as np
+
+from pricebook.foundation.quadrature import (
+    standard_normal_expectation,
+    standard_normal_nodes,
+)
 from pricebook.market.snapshot import MarketSnapshot
 from pricebook.market.survival_curve import ReferenceEntity
 from pricebook.models.lhp import TrancheSurvival
@@ -140,26 +145,54 @@ class RecursionModel:
                 nodes=nodes)
             for defaults in range(self.pool_size + 1))
 
+    def _capped_payoffs(
+        self, payoff: np.ndarray, horizon: float, nodes: int
+    ) -> float:
+        """`E[Σ_m f(m|Z)·payoff(m)]`, with the recursion run for **all `Z` nodes at once**.
+
+        The recursion's only `Z`-dependence is the scalar `q = p(T|Z)`, so the convolution is the
+        same arithmetic at every node and vectorises across them: one array of shape
+        `(nodes, N+1)` advanced `N` times, instead of `nodes × N` interpreter steps. That is what
+        brings this inside the `slow` budget on CI — where the file ran 18.3s against a 10s gate
+        while measuring 5.3s locally, which is §9's point that a timing reading is only valid where
+        it is taken, and a reminder that my machine is not CI.
+
+        The **outer** sum stays `math.fsum` over weight-times-value, exactly as
+        `standard_normal_expectation` does it, so vectorising the inner convolution does not change
+        the summation order of the integral itself.
+        """
+        points, weights = standard_normal_nodes(nodes)
+        factors = np.asarray(points)
+        # The library's own `Φ`, evaluated per node rather than a vectorised substitute.
+        # `scipy.special.ndtr` would vectorise in one call and would also mean this model's `Φ`
+        # is **not** the `Φ` the copula and the LHP use — a convention divergence of exactly the
+        # kind the register exists to prevent, for no measurable gain: the 96 scalar calls are
+        # negligible beside the `N`-step convolution that was the actual cost.
+        scale = math.sqrt(1.0 - self.beta * self.beta)
+        threshold = self.threshold(horizon)
+        probability = np.asarray(
+            [norm_cdf((threshold - self.beta * float(factor)) / scale) for factor in factors])
+
+        buckets = np.zeros((factors.size, self.pool_size + 1))
+        buckets[:, 0] = 1.0
+        for credit in range(self.pool_size):
+            survive = buckets[:, : credit + 1] * (1.0 - probability)[:, None]
+            default = buckets[:, : credit + 1] * probability[:, None]
+            buckets[:, : credit + 2] = 0.0
+            buckets[:, : credit + 1] += survive
+            buckets[:, 1 : credit + 2] += default
+        per_node = buckets @ payoff
+        return math.fsum(
+            weight * value for weight, value in zip(weights, per_node.tolist()))
+
     def expected_loss_capped(
         self, strike: float, horizon: float, nodes: int = _DEFAULT_FACTOR_NODES
     ) -> float:
-        """`E[min(L(T), K)] = Σ_m f(m)·min(m·u, K)`.
-
-        Integrated as one expectation over `Z` rather than by building `f(m)` first and summing:
-        the two are the same quantity, and doing it in one pass costs one `Z` sweep instead of
-        `N+1` of them — which matters at 179 ms per evaluation at `N = 320`.
-        """
+        """`E[min(L(T), K)] = Σ_m f(m)·min(m·u, K)`."""
         if strike <= 0.0 or horizon <= 0.0:
             return 0.0
-        unit = self.loss_unit
-
-        def conditional(factor: float) -> float:
-            return sum(
-                weight * min(defaults * unit, strike)
-                for defaults, weight in enumerate(
-                    self.conditional_distribution(horizon, factor)))
-
-        return standard_normal_expectation(conditional, nodes=nodes)
+        losses = np.arange(self.pool_size + 1) * self.loss_unit
+        return self._capped_payoffs(np.minimum(losses, strike), horizon, nodes)
 
     def tranche_expected_loss(
         self, attachment: float, detachment: float, horizon: float,
@@ -174,16 +207,9 @@ class RecursionModel:
         """
         if horizon <= 0.0:
             return 0.0
-        unit = self.loss_unit
-
-        def conditional(factor: float) -> float:
-            return sum(
-                weight * (min(defaults * unit, detachment)
-                          - min(defaults * unit, attachment))
-                for defaults, weight in enumerate(
-                    self.conditional_distribution(horizon, factor)))
-
-        return standard_normal_expectation(conditional, nodes=nodes)
+        losses = np.arange(self.pool_size + 1) * self.loss_unit
+        payoff = np.minimum(losses, detachment) - np.minimum(losses, attachment)
+        return self._capped_payoffs(payoff, horizon, nodes)
 
     def tranche_survival(
         self, attachment: float, detachment: float, horizon: float
