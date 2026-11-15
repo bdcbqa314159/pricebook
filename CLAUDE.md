@@ -348,7 +348,7 @@ not an oracle. Ruled principles:
   static gate; name it here so a spec carries the premise before the sweep has to. Tenth appearance, and
   the first where the degeneracy is a *cross-tranche fixture convention* rather than a property of one
   fixture. *(T40/T42; flag for re-audit #4 — if it bites a third time it earns a proactive sweep, the τ=1
-  cadence.)*
+  cadence.)* Mutation is also the
   **mandatory recovery when pre-registration
   was missed** — the empirical proof of power that RED-first would otherwise have given, never a
   licence to skip RED-first. **A surviving mutant is a hole — unless it is an *equivalent mutant*,
@@ -578,7 +578,14 @@ unconditionally only for the fraction.)*
 ## 9. Gates, branches, flow
 
 - **`verify.py`**: `acyclic` · `layers` · `fields` · `debt` · `version` · `provenance` ·
-  `references` · `gates` · `conventions` · `slow` · `tests` (floored). CI runs ubuntu + windows, Python 3.12. Tolerance-based oracles are a hard rule
+  `references` · `gates` · `conventions` · `slow` · `tests` (floored) · `ruff` · `pyright`. CI runs ubuntu + windows, Python 3.12.
+  The last two are **standalone** steps rather than `verify.py` subcommands, and tranche 42b
+  extended the `gates` gate to require `ci.yml` to invoke them too — until then they could be
+  deleted and nothing would notice, the §9 empty-gate defect one category wider. *pytest* is not
+  named separately: it runs **through** `tests` and `slow`, so naming it would either fail (no
+  direct step) or pass on the `pip install` line. And the list above must stay a **list** — a
+  backticked word in prose inside it parses as a gate name, which is how the first draft of this
+  very edit made the gate flag a gate that does not exist. Tolerance-based oracles are a hard rule
   (transcendental results differ 1–2 ULP across runtimes); the byte-identical statelessness check
   is same-process only. **A timing gate's reading is only valid when measured in isolation** — running
   `slow` concurrently with the full suite or a type-checker reports contention, not run time (T19: a

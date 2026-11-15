@@ -288,7 +288,7 @@ STOCK = ROOT / "_stock"
 # The committed test floor (the floor rule, CLAUDE.md 6 second clause; ruling:
 # docs/handoffs/rulings_floor_rule.md). CI is RED below it. A slice that adds a test
 # tier raises this in the same commit. First value = the restart's measured 366.
-TEST_FLOOR = 1670
+TEST_FLOOR = 1678
 
 #: The commands `verify.py` actually implements, so §9 and `ci.yml` cannot agree on a typo.
 _KNOWN_GATES = frozenset({"acyclic", "layers", "fields", "debt", "provenance",
@@ -653,6 +653,36 @@ def conventions() -> list[str]:
     return problems
 
 
+
+def _standalone_invocations(workflow: str) -> set[str]:
+    """The non-`verify.py` commands `ci.yml` actually runs — `ruff`, `pyright`, and such.
+
+    **An invocation is not an installation**, and that is the whole point of this function. Both
+    `ruff` and `pyright` also appear in the workflow's `pip install` line, so a check asking only
+    "is the name in the file?" would pass with the `ruff check` step deleted — a gate satisfied by
+    its own dependency list. Install steps are therefore skipped, and the suite's seeded-drift test
+    removes the *invocation* while leaving the *install* in place, which is the case that separates
+    a real check from a self-satisfying one.
+
+    Tranche 42b, after `pyright` caught a type defect a local run missed and it emerged that
+    nothing would notice if the step were dropped.
+    """
+    found: set[str] = set()
+    for line in workflow.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("- run:"):
+            continue
+        command = stripped[len("- run:"):].strip()
+        if command.startswith("pip install") or command.startswith("python verify.py"):
+            continue
+        # `npx -y pyright@1.1.411` and `ruff check src/pricebook` alike: take the words and keep
+        # the bare tool names, so a pinned version or an `npx` prefix does not hide the gate.
+        for word in re.split(r"[\s@=]+", command):
+            if word and word.replace("-", "").replace("_", "").isalpha():
+                found.add(word)
+    return found
+
+
 def gates() -> list[str]:
     """Charter §9's gate list and `ci.yml`'s invocations must name the same set.
 
@@ -669,16 +699,22 @@ def gates() -> list[str]:
     if match is None:
         return ["CLAUDE.md §9 no longer opens its gate list with '- **`verify.py`**: …. CI runs'"]
     listed = set(re.findall(r"`([a-z]+)`", match.group(1)))
-    invoked = set(re.findall(r"python verify\.py ([a-z]+)", workflow)) - {"all"}
+    subcommands = set(re.findall(r"python verify\.py ([a-z]+)", workflow)) - {"all"}
+    standalone = _standalone_invocations(workflow)
+    invoked = subcommands | standalone
 
     problems = []
     for name in sorted(listed - invoked):
         problems.append(f"CLAUDE.md §9 names `{name}` but ci.yml never invokes it — a gate CI "
                         "does not call cannot fail")
-    for name in sorted(invoked - listed):
+    # The reverse direction stays scoped to `verify.py` subcommands. Classifying an arbitrary
+    # `ci.yml` step as gate-or-scaffolding (checkout, setup-python, pip install) needs judgement,
+    # and a check needing an exemption list cannot fail — the τ=1 over-reach, declined at tranche
+    # 42b. So a standalone gate must be *named to be enforced*, and naming it is the deliberate act.
+    for name in sorted(subcommands - listed):
         problems.append(f"ci.yml invokes `{name}` but CLAUDE.md §9 does not name it — the charter "
                         "must state every gate that can reject a push")
-    for name in sorted(listed & invoked):
+    for name in sorted(listed & subcommands):
         if name not in _KNOWN_GATES:
             problems.append(f"`{name}` is named and invoked but verify.py has no such command")
     return problems
