@@ -85,3 +85,5 @@ re-audit #4). Cowork writes each per-tranche spec before its build (§10); this 
 specs. **T38 is specced** (`docs/tranches/38_credit_default_swap.md`); the rest follow in turn.
 
 **T41c inserted (2026-11-14):** `verify.py conventions` — the register-integrity gate (unique ids + resolving citations), earned by T41b's duplicate-`C11` finding that two review passes (incl. a Cowork by-name ratification) missed. Statically decidable → gateable per §9. Runs before T42.
+
+**T42b inserted (2026-11-15):** `verify.py gates` extended to the named non-`verify.py` CI gates (pyright/ruff/pytest), earned by T42 — pyright caught a defect a local run missed and sits outside the T38 gates-gate's domain (droppable silently). Runs before T43.

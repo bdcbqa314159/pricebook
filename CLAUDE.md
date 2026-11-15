@@ -334,7 +334,21 @@ not an oracle. Ruled principles:
   sub-trap: a `@runtime_checkable Protocol` **with no members is satisfied by everything**, so even a
   deliberate counter-fixture cannot discriminate unless the protocol carries a real member. Ninth
   appearance, and the first where the degeneracy is in the *input population* rather than a value, slice,
-  distribution, or duplicated guard. *(T33b.)* Mutation is also the
+  distribution, or duplicated guard. *(T33b.)* **And the degeneracy can be a *systemic fixture-construction
+  convention* shared across tranches — not one fixture's value but a habit every fixture inherits — so it
+  re-appears tranche after tranche until named.** Building premium-schedule fixtures that **begin at the
+  valuation date** means no fixture ever produces a *historical* flow, so the invariant-6 / date-boundary
+  filter (C10) has nothing to filter and a dropped-or-bypassed filter is invisible — exactly the `τ=1`
+  "annual dates" habit one guard over (accrual → date boundary). It has cost **two** tranches: T40 shipped
+  a 73% annuity overstatement (a forward whose premiums had partly settled discounted at negative `t`),
+  found at T41b; one tranche later T42 built the same fixture shape and the sweep caught it again. The
+  premise to assert, where a historical-flow filter is load-bearing, is **"a premium-schedule fixture
+  straddles the valuation date unless the tranche says why not"** — and because whether a historical period
+  is load-bearing is *dynamic* (the τ=1 gateability boundary, §9), it is the mutation sweep's job, never a
+  static gate; name it here so a spec carries the premise before the sweep has to. Tenth appearance, and
+  the first where the degeneracy is a *cross-tranche fixture convention* rather than a property of one
+  fixture. *(T40/T42; flag for re-audit #4 — if it bites a third time it earns a proactive sweep, the τ=1
+  cadence.)*
   **mandatory recovery when pre-registration
   was missed** — the empirical proof of power that RED-first would otherwise have given, never a
   licence to skip RED-first. **A surviving mutant is a hole — unless it is an *equivalent mutant*,

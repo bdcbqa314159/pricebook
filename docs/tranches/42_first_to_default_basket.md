@@ -103,4 +103,67 @@ curve, oracled by the reductions + the sandwich + the MC.
 
 ---
 
-## 5. Cowork's ruling on T42 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T42 — PR #58 (§10 step 4, 2026-11-15)
+
+Accepted — v0.49.0, 1669 green, eleven gates, CI green both runners after three CI-caught corrections.
+The first product priced through the copula is in; the basket survival `Q_B = ∫ Π_i Q_i(t|Z) φ(Z) dZ`
+prices as a CDS on `Q_B`, and the reductions all hold. Two of my spec instructions failed measurement —
+owned below.
+
+**Layer Ask — settled L3 by the import direction** (`Q_B` built from an L3 `GaussianCopula`; an L1 home
+would be the upward edge `acyclic` forbids). The one-grep resolution, as at T39.
+
+**My spec's two errors — owned, Code's corrections ratified.** (1) **The protection leg does NOT reuse
+`credit_legs.protection_leg`** — that reads one hazard per pillar segment (exact for a piecewise-constant
+hazard, wrong for `Q_B`'s continuous hazard: plateaus at 1.56e-03, the §4 model-error signature). The
+basket uses the `−dQ_B` form my own displayed formula wrote; the premium leg *does* reuse (`risky_pv01`
+reads only `survival(t)`). This is a **C13 question Code correctly left to me — ruled: two protection-leg
+quadratures dispatched by survival class, not a duplication** (register extended). (2) **Recovery is on
+the model, not the product** — my §1 contradicted T38's ruling; Code followed the ruling. Right: `R` is an
+assumption, and a recovery on the product would let two baskets on the same names carry different ones.
+`BasketModel` composes the copula as `CreditSwaptionModel` composes `CreditModel`.
+
+**The ρ=1 analytic limit + the Fréchet sandwich — ratified, and the sandwich is the hero.** The quadrature
+put `Q_B` 6.1% *below* `min Q_i` at t=5 and *above* it at t=3 — an impossible probability (a basket cannot
+outlive its most-default-prone name; verified `Π Q_i ≤ Q_B ≤ min Q_i` is the hard bound). The sandwich
+recognised `Q_B > min Q_i` as **impossible, not merely unexpected** — a requirement oracle doing what no
+value check could. Closed form at `|β|=1`, a mixed unit/sub-unit basket refused — the T41 unit-β step one
+level up.
+
+**The three CI-caught corrections (0232) — ratified, and the pattern matters more than any one.** (1) A
+concrete `SurvivalCurve` annotation while the basket passes `BasketSurvival` — **pyright runs in CI, not
+run locally** (the process gap, and the second Ask below). Fixed so the signatures *encode* the finding
+(premium leg → `SurvivalFunction` protocol; pillar protection → concrete). (2) **Two reductions asserted
+bit-exact that are not** — exact in ℝ but *different computations* (a 64-node GH sum over `Φ` vs
+`exp(−∫λ)`), agreed to the bit on macOS, failed 1 ULP on Linux/Windows. §9 makes tolerance a hard rule;
+this is the **second bit-exactness over-claim this arc** (T40's forward spread the first), and both times
+the tell — the two sides are different computations — was readable without running. Carry it: *assert
+bit-equality only when the two sides share the operation order; different computations get a ULP band.*
+Now ≤4 ULP. (3) The `slow` Windows failure chased to **real redundant work in the engine** (`Φ⁻¹` and
+`√(1−β²)` recomputed per `Z` node, 64× over 800 steps) — hoisted into `conditional_default_at` (eq 13.4
+still transcribed once), bit-identical over 150 points, 4.6× faster. The timing gate found a genuine perf
+bug, §9's "a reading is only valid where taken" exactly.
+
+**Ask 1 (the standing fixture rule) — RULED: named in the §4 catalogue (tenth shape), not a gate.** The
+"premium schedules begin at the valuation date" habit blinds the invariant-6 filter, has cost **two**
+tranches (T40 found at T41b; T42's sweep), and is a *systemic fixture-construction convention* exactly
+like τ=1's annual dates — so it earns a catalogue line, with the premise *"a premium-schedule fixture
+straddles the valuation date unless the tranche says why not"* where a historical filter is load-bearing.
+**Not a gate** — whether a historical period is load-bearing is dynamic (the τ=1 boundary); it stays the
+sweep's job, and I flagged it for re-audit #4 (a third instance earns a proactive sweep, the τ=1 cadence).
+§4 edited.
+
+**Ask 2 (pyright in the gate coverage) — RULED: yes, extend the gates-gate to named non-`verify.py` CI
+gates, as tranche T42b before T43.** pyright runs in CI, catches real bugs (it caught correction 1 that a
+local run missed), and is **outside the T38 gates-gate's domain** (which covers `verify.py` subcommands
+only) — so it can be dropped from `ci.yml` with nothing noticing: the exact "a gate silently stops
+running" defect T38 closed, one category wider. Statically decidable → gateable (§9). **Scope (ruled):**
+§9 names the load-bearing CI gates (`pyright`, `ruff`, `pytest`, `verify.py all`) and the gates-gate
+asserts each **named** gate is invoked in `ci.yml` (the "named-but-not-invoked" direction, clean); the
+reverse "every ci.yml step is named" stays scoped to `verify.py` subcommands, because classifying arbitrary
+CI steps as gate-vs-scaffolding needs judgement (the τ=1 over-reach — do not build a check that needs an
+exemption list). The §9 list edit lands **with** T42b's gate, not before (the T38 lesson: the charter must
+not name a practice its gate does not yet enforce). Spec: `docs/tranches/42b_ci_gate_coverage.md`.
+
+**Next:** T42b (CI-gate coverage), then T43 (the LHP tranche) — both mine; T42b specced. **Mark #58 ready
+(step 6) → Bernardo merges.**
