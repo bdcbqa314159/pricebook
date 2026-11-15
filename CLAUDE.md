@@ -348,7 +348,7 @@ not an oracle. Ruled principles:
   static gate; name it here so a spec carries the premise before the sweep has to. Tenth appearance, and
   the first where the degeneracy is a *cross-tranche fixture convention* rather than a property of one
   fixture. *(T40/T42; flag for re-audit #4 — if it bites a third time it earns a proactive sweep, the τ=1
-  cadence.)*
+  cadence.)* Mutation is also the
   **mandatory recovery when pre-registration
   was missed** — the empirical proof of power that RED-first would otherwise have given, never a
   licence to skip RED-first. **A surviving mutant is a hole — unless it is an *equivalent mutant*,
