@@ -89,6 +89,20 @@ where it is observable, not through a price) and whose realised variances pin th
   delegating to `risky_pv01` with identical arguments and ordering) kept as `==` and the contrast
   stated — bit-equality is a claim about the computation, not about the mathematics.
 
+### Performance — the `slow` gate caught redundant work in the engine, not just the tests
+
+`CreditName.conditional_default` recomputed its `Φ⁻¹` threshold and its `√(1−β²)` weight on every
+call, and neither depends on the market factor — so a 64-node quadrature did them 64 times over,
+at each of the protection leg's 800 steps. The gate failed on Windows at 10.6s against a 10.0s
+budget; locally the file ran in 3s, which is the §9 point that a timing reading is only valid where
+it is taken.
+
+Hoisted into `conditional_default_at(horizon)`, a closure over the `Z`-independent parts, with
+`conditional_default` now defined as that closure evaluated at a point — so eq 13.4 is still
+**transcribed once** and the basket composes it rather than re-deriving it (§4). **Bit-identical
+over 150 (name, t, z) points**, and 4.6× faster: the two protection-leg convergence tests went
+from 0.69s to 0.15s each.
+
 ### Mutation sweep
 
 22 mutants, full suite each, no `-x`. Four survivors, **every one a fixture gap and not a bug** —

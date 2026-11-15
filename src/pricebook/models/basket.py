@@ -87,9 +87,12 @@ class BasketSurvival:
                 f"bound). All-unit loadings are taken analytically; sub-unit ones integrate "
                 f"cleanly. Nothing needs the mixture, so it is refused rather than approximated.")
 
-        names = self.copula.names
+        # Each name's `Z`-independent parts are computed once, not once per quadrature node:
+        # with 64 nodes, 3 names and 800 protection-leg steps, the naive form repeats ~150k
+        # `Φ⁻¹` calls that depend only on `t` (the `slow` gate caught it on Windows).
+        conditionals = [name.conditional_default_at(t) for name in self.copula.names]
         return standard_normal_expectation(
-            lambda z: math.prod(1.0 - name.conditional_default(t, z) for name in names),
+            lambda z: math.prod(1.0 - conditional(z) for conditional in conditionals),
             nodes=self.nodes)
 
     def default_probability(self, t: float) -> float:
