@@ -424,7 +424,14 @@ class TestTheFixtureBlindSPOTSTheSweepFound:
         assert whole / want - 1.0 > 0.5, (whole, want)
 
     def test_a_NON_POSITIVE_horizon_has_no_protection_left(self) -> None:
-        """L1 surface reachable by direct call, so the guard gets a test rather than deletion."""
+        """The behaviour, asserted — but the guard producing it is a **proved equivalent** mutant.
+
+        Removing `if horizon <= 0: return 0.0` changes nothing, bit for bit, over 45
+        horizon/step/curve combinations: every survival function is flat at 1 below zero, so each
+        difference `Q(prev) − Q(t)` is exactly zero and the sum is `0.0` either way. So this test
+        pins the *outcome* and cannot kill that mutation — which is the honest position, not a gap
+        to paper over. The guard is kept for symmetry with `protection_leg`, where the same line
+        IS load-bearing."""
         basket = BasketSurvival(_copula())
         assert protection_leg_from_survival(CURVE, basket, RECOVERY, 0.0, 800) == 0.0
         assert protection_leg_from_survival(CURVE, basket, RECOVERY, -1.0, 800) == 0.0

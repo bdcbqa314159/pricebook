@@ -227,6 +227,12 @@ def protection_leg_from_survival(
     """
     if steps < 1:
         raise ValueError(f"the protection leg needs at least one step, got {steps}")
+    # Invariant 6, and a **proved equivalent** guard rather than a load-bearing one: every survival
+    # function is flat at 1 for t <= 0, so each difference `Q(prev) - Q(t)` is exactly zero and the
+    # sum is 0.0 with or without this line (verified bit-identical over 45 horizon/step/curve
+    # combinations). It is kept for symmetry with `protection_leg`, where the same guard IS
+    # load-bearing because `segment_breaks` would otherwise build a degenerate grid — and because
+    # stating the intent beats relying on a flatness the caller's type does not promise.
     if horizon <= 0.0:
         return 0.0
 

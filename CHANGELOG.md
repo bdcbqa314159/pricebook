@@ -6,6 +6,93 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-11-15
+
+### Added — tranche 42, the first-to-default basket (the first product through the copula)
+
+A first-to-default basket **is a CDS on the basket survival curve**, which is what makes the method
+exact and the reuse large (`OKANE-2008` ch 15.1–15.2):
+
+    Q_B(t|Z) = Π_i Q_i(t|Z)        — conditional independence (tranche 41's copula)
+    Q_B(t)   = ∫ Q_B(t|Z) φ(Z) dZ  — Gauss-Hermite over the market factor
+
+- `models/basket.py` — `BasketSurvival(copula, nodes)` and `BasketModel(copula, recovery)`.
+- `products/first_to_default_basket.py` — frozen; at least two names, no duplicates.
+- `engine/first_to_default_basket.py` — `@register(FirstToDefaultBasket, BasketModel)`, with
+  `par_spread`, `basket_annuity` and `basket_protection` as named surface because the oracles are
+  about *them*. Deterministic, so `standard_error` stays `None`; the Monte-Carlo is the
+  cross-check, not the engine (the tranche-41 pattern).
+- `market/credit_legs.py` — `protection_leg_from_survival`, the `−dQ` form, on a new
+  `SurvivalFunction` protocol.
+
+### Two of the spec's instructions did not survive measurement
+
+1. **`credit_legs.protection_leg` cannot be reused for the basket.** The spec said to reuse the
+   legs whole with "no leg re-transcription". The premium leg does reuse — `risky_pv01` reads only
+   `survival(t)`. The protection leg cannot: its correctness rests on the hazard being constant
+   between pillars, true of a bootstrapped `SurvivalCurve` and false of `Q_B`, whose implied hazard
+   varies continuously. Fed `Q_B` it **plateaus 1.56e-03 from the truth** — identical at 50 and 200
+   points per segment, §4's signature of a model error rather than a discretisation one. So the
+   basket uses the `−dQ_B` form the spec's own displayed formula writes, which needs no hazard and
+   converges cleanly (7.3e-06 / 4.5e-07 / 2.7e-08 at 50/200/800 steps).
+
+   The two are **not** a duplication to collapse: they are the right quadrature for two different
+   classes of survival function. Which applies where is `docs/conventions_register.md` C13's
+   business, and extending that row is Cowork's — raised, not decided.
+2. **Recovery is on the model, not the product.** The spec listed `R` as a product field; tranche
+   38 ruled the opposite and that ruling is the older and more considered — `R` is a market
+   assumption, and a recovery on the product would let two baskets on the same names carry
+   different ones. `BasketModel` composes the copula exactly as `CreditSwaptionModel` composes
+   `CreditModel`.
+
+The spec's layer question (`Q_B` at L1 or L3) is settled by the import direction: it is built from
+a `GaussianCopula` (L3), so an L1 module holding it would be the upward edge `acyclic` forbids.
+
+### The ρ = 1 limit had to be taken analytically
+
+At `|β| = 1` each conditional survival is an **indicator** in `Z`, so their product is a step, and
+Gauss-Hermite cannot integrate a step — tranche 41's unit-β finding, one level up. Measured: `Q_B`
+came out **6.1% below** `min_i Q_i` at `t = 5` and, at `t = 3`, **above** it, which is an impossible
+probability — the Fréchet upper bound breached. The closed form is elementary (the product is
+`1{Z > max_i C_i}`, so `Q_B = 1 − Φ(max_i C_i) = min_i Q_i`, exact for `β = ±1` alike). A basket
+**mixing** unit and sub-unit loadings is refused: the integrand is then a step times a smooth part,
+the quadrature is silently wrong there, and nothing needs it.
+
+**The Fréchet sandwich is what caught it.** `Π Q_i ≤ Q_B ≤ min Q_i` is a requirement oracle that
+survives transcription — and it does something a value-against-value check cannot: it recognised
+`Q_B > min Q_i` as *impossible* rather than merely unexpected.
+
+### Oracles
+
+Single-name reduction `Q_B = Q₁` (**0 ULP**), the `ρ = 0` product and `ρ = ±1` widest-name limits,
+the Fréchet sandwich at four horizons, monotonicity, the rate-asserted market-factor integral, the
+par reprice, linearity in the spread, and the spread bounded below by the widest single name and
+above by their sum (210.96bp ≤ 491.28bp ≤ 554.27bp). Plus a Monte-Carlo cross-check at 40k paths
+whose **realised correlation pins `β_iβ_j` pair by pair** (tranche 17 — a factorisation is pinned
+where it is observable, not through a price) and whose realised variances pin the `√(1−β²)` weight.
+
+### Mutation sweep
+
+22 mutants, full suite each, no `-x`. Four survivors, **every one a fixture gap and not a bug** —
+and the last is the one worth recording:
+
+- **the notional scaling** was unpinned: the par reprice is ~0 at any scale, and the linearity check
+  compares differences, so dropping the factor entirely survived;
+- **the contract's own entity list** was unpinned, because the fixture gave the basket *exactly* the
+  copula's three names, making "the contract's subset" and "all of them" the same operation. A
+  fourth name in the copula separates them;
+- **the invariant-6 filter** was unpinned, because the premium schedule began at the valuation date
+  — so no period was historical and the filter had nothing to filter. That is *precisely* the blind
+  spot that hid tranche 40's 73% annuity overstatement, found in tranche 41b. Having fixed that one
+  tranche earlier, this tranche's fixture reproduced its shape: the convention "schedules start
+  today" is systemic, not per-tranche, and the sweep is what catches it;
+- the `−dQ` leg's non-positive-horizon guard is a **proved equivalent** mutant — every survival
+  function is flat at 1 below zero, so each difference is exactly zero and the sum is `0.0` with or
+  without the guard (bit-identical over 45 combinations). Kept for symmetry with `protection_leg`,
+  where the same line is load-bearing, and the test says plainly that it pins the outcome and
+  cannot kill the mutation.
+
+
 ## [0.48.2] - 2026-11-14
 
 ### Added — tranche 41c, `verify.py conventions` (tooling only)
