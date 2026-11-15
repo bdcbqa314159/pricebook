@@ -32,6 +32,7 @@ import pytest
 
 from pricebook.engine.base_correlation import (
     BaseCorrelationCurve,
+    HomogeneousPool,
     base_tranche_expected_loss,
     base_tranche_par_spread,
     bootstrap_base_correlation,
@@ -72,10 +73,15 @@ def _market() -> MarketSnapshot:
         curves=CurveSet({DISCOUNT_KEY: CURVE}, survivals={INDEX: POOL}))
 
 
+def _pool() -> HomogeneousPool:
+    """Which pool, on what curves — bundled because §7's limit compels it (the bootstrap would
+    otherwise take six arguments) and because the four always travel together."""
+    return HomogeneousPool(_market(), INDEX, RECOVERY, EUR)
+
+
 def _known_curve() -> BaseCorrelationCurve:
     """The curve the synthetic quotes are generated from — the round trip's independent truth."""
-    return BaseCorrelationCurve(
-        STRIKES, TRUE_CORRELATIONS, _market(), INDEX, RECOVERY)
+    return BaseCorrelationCurve(_pool(), STRIKES, TRUE_CORRELATIONS)
 
 
 def _synthetic_quotes() -> tuple[TrancheQuote, ...]:
@@ -102,7 +108,9 @@ class TestTheFixtureIsNotDegenerate:
     def test_the_quotes_are_a_REALISTIC_SKEW(self) -> None:
         """Equity far wider than mezzanine far wider than senior — measured 4254 / 661 / 131 bp."""
         spreads = [quote.spread for quote in _synthetic_quotes()]
-        assert spreads[0] > 10.0 * spreads[1] > 0.0, spreads
+        # measured 4254 / 661 / 131 bp — ratios of 6.4x and 5.1x, which is the shape of a real
+        # index skew and the reason a flat correlation curve cannot reproduce one
+        assert spreads[0] > 5.0 * spreads[1] > 0.0, spreads
         assert spreads[1] > 4.0 * spreads[2] > 0.0, spreads
 
 
@@ -112,8 +120,7 @@ class TestTheBootstrapRoundTrip:
     def test_the_KNOWN_curve_is_RECOVERED_from_its_own_quotes(self) -> None:
         """Non-telescoping: an independently constructed curve in, the curve out. Measured at
         6.7e-16 — the bootstrap is an exact inverse, not an approximation."""
-        bootstrapped = bootstrap_base_correlation(
-            _synthetic_quotes(), _market(), INDEX, RECOVERY, SCHEDULE)
+        bootstrapped = bootstrap_base_correlation(_synthetic_quotes(), _pool(), SCHEDULE)
         assert bootstrapped.strikes == STRIKES
         for strike, got, want in zip(STRIKES, bootstrapped.correlations, TRUE_CORRELATIONS):
             assert got == pytest.approx(want, rel=1e-12), (strike, got, want)
@@ -121,7 +128,7 @@ class TestTheBootstrapRoundTrip:
     def test_the_bootstrapped_curve_REPRICES_the_quotes(self) -> None:
         """The other direction of the same inverse, and the one a desk would check."""
         quotes = _synthetic_quotes()
-        curve = bootstrap_base_correlation(quotes, _market(), INDEX, RECOVERY, SCHEDULE)
+        curve = bootstrap_base_correlation(quotes, _pool(), SCHEDULE)
         for quote in quotes:
             assert base_tranche_par_spread(curve, quote.bounds, SCHEDULE) == pytest.approx(
                 quote.spread, rel=1e-10)
@@ -134,10 +141,8 @@ class TestTheBootstrapRoundTrip:
         quote = TrancheQuote(
             single,
             base_tranche_par_spread(
-                BaseCorrelationCurve((0.03,), (0.31,), _market(), INDEX, RECOVERY),
-                single, SCHEDULE))
-        curve = bootstrap_base_correlation(
-            (quote,), _market(), INDEX, RECOVERY, SCHEDULE)
+                BaseCorrelationCurve(_pool(), (0.03,), (0.31,)), single, SCHEDULE))
+        curve = bootstrap_base_correlation((quote,), _pool(), SCHEDULE)
         assert curve.correlations[0] == pytest.approx(0.31, rel=1e-12)
         # and the equity tranche's expected loss is tranche 43's, on the same model
         assert base_tranche_expected_loss(curve, 0.0, 0.03, HORIZON) == pytest.approx(
@@ -158,7 +163,7 @@ class TestTheMonotonicityIsATheoremNotATest:
         Asserted link by link on a real quote set, so the reasoning is in the suite rather than in
         a comment: this is *why* a positive quote cannot produce an arbitrageable curve."""
         quotes = _synthetic_quotes()
-        curve = bootstrap_base_correlation(quotes, _market(), INDEX, RECOVERY, SCHEDULE)
+        curve = bootstrap_base_correlation(quotes, _pool(), SCHEDULE)
         for quote in quotes:
             attachment, detachment = quote.bounds.attachment, quote.bounds.detachment
             expected_loss = base_tranche_expected_loss(
@@ -176,8 +181,7 @@ class TestTheMonotonicityIsATheoremNotATest:
         a consistent curve for a positive quote set."""
         quotes = _synthetic_quotes()
         stressed = (quotes[0], TrancheQuote(quotes[1].bounds, mezzanine_bp / 1e4), quotes[2])
-        curve = bootstrap_base_correlation(
-            stressed[:2], _market(), INDEX, RECOVERY, SCHEDULE)
+        curve = bootstrap_base_correlation(stressed[:2], _pool(), SCHEDULE)
         equity_loss = base_tranche_expected_loss(curve, 0.0, 0.03, HORIZON)
         mezzanine_loss = base_tranche_expected_loss(curve, 0.03, 0.07, HORIZON)
         assert mezzanine_loss > 0.0, mezzanine_loss
@@ -196,13 +200,13 @@ class TestAQuoteWithNoBaseCorrelationIsREFUSED:
         quotes = _synthetic_quotes()
         unreachable = (quotes[0], TrancheQuote(quotes[1].bounds, 0.16))
         with pytest.raises(ValueError, match="no base correlation"):
-            bootstrap_base_correlation(unreachable, _market(), INDEX, RECOVERY, SCHEDULE)
+            bootstrap_base_correlation(unreachable, _pool(), SCHEDULE)
 
     def test_THE_PREMISE_the_same_strike_accepts_a_REACHABLE_quote(self) -> None:
         """So the refusal is about the quote and not the fixture's shape."""
         quotes = _synthetic_quotes()
         reachable = (quotes[0], TrancheQuote(quotes[1].bounds, 0.1400))
-        curve = bootstrap_base_correlation(reachable, _market(), INDEX, RECOVERY, SCHEDULE)
+        curve = bootstrap_base_correlation(reachable, _pool(), SCHEDULE)
         assert 0.0 < curve.correlations[1] < 1.0
 
     def test_a_NON_POSITIVE_quote_is_refused(self) -> None:
@@ -211,8 +215,7 @@ class TestAQuoteWithNoBaseCorrelationIsREFUSED:
         quotes = _synthetic_quotes()
         with pytest.raises(ValueError, match="positive"):
             bootstrap_base_correlation(
-                (quotes[0], TrancheQuote(quotes[1].bounds, 0.0)),
-                _market(), INDEX, RECOVERY, SCHEDULE)
+                (quotes[0], TrancheQuote(quotes[1].bounds, 0.0)), _pool(), SCHEDULE)
 
 
 class TestTheGuardsAreReachable:
@@ -228,11 +231,21 @@ class TestTheGuardsAreReachable:
         for strike, correlation in zip(STRIKES, TRUE_CORRELATIONS):
             assert curve.correlation_at(strike) == correlation
 
-    def test_quotes_OUT_OF_STRIKE_ORDER_are_refused(self) -> None:
+    def test_quotes_OUT_OF_STRIKE_ORDER_cannot_be_EXPRESSED(self) -> None:
+        """There is no order check, because it would be unreachable — and that is worth asserting.
+
+        A first draft of the bootstrap had one. Contiguity forces `attachment ==
+        previous_detachment` and `TrancheBounds` forces `detachment > attachment`, so the
+        detachments increase *already*: `detachment <= strikes[-1]` cannot hold. Two guards
+        implying a third makes the third dead code (the T15 rule), so it was deleted and this test
+        pins the implication instead — an out-of-order quote set is refused, just not by the guard
+        a reader might expect."""
         quotes = _synthetic_quotes()
-        with pytest.raises(ValueError, match="order"):
-            bootstrap_base_correlation(
-                (quotes[1], quotes[0]), _market(), INDEX, RECOVERY, SCHEDULE)
+        with pytest.raises(ValueError, match="equity"):
+            bootstrap_base_correlation((quotes[1], quotes[0]), _pool(), SCHEDULE)
+        # and swapping the two later strikes breaks contiguity, which is the guard that carries it
+        with pytest.raises(ValueError, match="contiguous"):
+            bootstrap_base_correlation((quotes[0], quotes[2], quotes[1]), _pool(), SCHEDULE)
 
     def test_a_GAPPED_capital_structure_is_refused(self) -> None:
         """Each quote must attach where the previous detached, or the bootstrap has no base
@@ -240,16 +253,14 @@ class TestTheGuardsAreReachable:
         with pytest.raises(ValueError, match="attach"):
             bootstrap_base_correlation(
                 (TrancheQuote(TrancheBounds(0.0, 0.03), 0.42),
-                 TrancheQuote(TrancheBounds(0.05, 0.07), 0.06)),
-                _market(), INDEX, RECOVERY, SCHEDULE)
+                 TrancheQuote(TrancheBounds(0.05, 0.07), 0.06)), _pool(), SCHEDULE)
 
     def test_an_EMPTY_quote_set_is_refused(self) -> None:
         with pytest.raises(ValueError, match="at least one"):
-            bootstrap_base_correlation((), _market(), INDEX, RECOVERY, SCHEDULE)
+            bootstrap_base_correlation((), _pool(), SCHEDULE)
 
     def test_the_FIRST_quote_must_be_an_EQUITY_tranche(self) -> None:
         """The bootstrap starts from `[0,K]`: there is nothing below it to subtract."""
         with pytest.raises(ValueError, match="equity"):
             bootstrap_base_correlation(
-                (TrancheQuote(TrancheBounds(0.03, 0.07), 0.06),),
-                _market(), INDEX, RECOVERY, SCHEDULE)
+                (TrancheQuote(TrancheBounds(0.03, 0.07), 0.06),), _pool(), SCHEDULE)
