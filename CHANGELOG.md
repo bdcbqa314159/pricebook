@@ -6,6 +6,81 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-11-15
+
+### Added — tranche 44b, base correlation (the credit arc's last build)
+
+The market's quoting convention for index tranches: the single `ρ_B(K)` that, applied to the
+**equity `[0,K]`** tranche, reprices the quote (`OKANE-2008` ch 20.2–20.3). The curve is
+bootstrapped shortest-strike-first, and any `[K₁,K₂]` tranche is the **difference of two
+base-correlation equity tranches**.
+
+- `engine/base_correlation.py` — `HomogeneousPool`, `BaseCorrelationCurve`,
+  `bootstrap_base_correlation`, `base_tranche_expected_loss`, `base_tranche_par_spread`. **L4
+  because it inverts the engine**: each strike's correlation is found by repricing `[0,K]` through
+  tranche 43's LHP pricer, which §2 puts beside the Jarrow-Yildirim calibrator.
+- `products/synthetic_cdo_tranche.py` — `TrancheQuote`, at **L2 and not L1** though it is market
+  data: a quote is *about* a `TrancheBounds`, and `market/` importing a product would be the upward
+  edge `acyclic` forbids.
+
+The legs are tranche 39's and 42's unchanged — the base-tranche survival satisfies
+`credit_legs.SurvivalFunction`, so a base-correlation tranche reaches the same arithmetic as every
+other credit product in the library.
+
+### The spec's headline oracle was vacuous, and the restatement is the tranche's substance
+
+The spec asked for a refusal of a non-monotone positive quote set. There is no such thing:
+
+    EL([K₁,K₂]) > 0  ⟺  Q < 1 and decreasing  ⟺  protection > 0  ⟺  par > 0
+
+is exact, so **every positive quote bootstraps to a monotone curve by construction** — measured
+down to a **1bp** mezzanine quote. Asserting it would have the suite reject something that cannot
+exist: an oracle that cannot fail, on the requirement base correlation exists to satisfy. *(Raised
+at build and blessed by Cowork before the oracle was written, rather than at the PR.)*
+
+So the monotonicity is asserted as **the theorem it is** — over extreme quotes, with the
+implication chain written out link by link, so the suite documents *why* it holds and why compound
+correlation cannot promise it. And the non-vacuous guard is the other side of the same iff:
+
+**a quote with no base correlation at all.** Given `ρ_B(3%) = 0.25`, the `[3%,7%]` par spread
+reachable over `ρ ∈ (0.02, 0.98)` is `[−729, +1467] bp`, so a 1600bp quote has no root. It is
+refused in the bootstrap's own vocabulary, with the admissible range *reported* — because
+`bracketed_root`'s docstring says a non-straddling bracket is the caller's bug and that the caller
+should have refused an out-of-range target first. A second oracle asserts the message names the
+tranche and the reachable interval and that the root-finder's vocabulary does not leak: dropping
+the guard still *raises*, so "it raises" would have passed.
+
+### Oracles
+
+The **known-curve round trip** is the anchor: a non-flat curve (ρ_B = 0.25/0.45/0.62) generates a
+realistic skew — **4254 / 661 / 131 bp** — and bootstrapping those quotes back recovers the curve to
+**1e-12**, with the quotes repriced through it to 1e-10. Plus the **single-strike reduction** onto
+tranche 43 (one `[0,K]` quote at `ρ` bootstraps to exactly `ρ`), and the implication chain above.
+
+### Interpolation is deliberately absent
+
+Every tranche priced here is bounded by *quoted* strikes, so `correlation_at` **refuses** an
+unquoted one. Interpolating `ρ_B` is a modelling choice the quotes do not pin, nothing in scope
+consumes it (§6), and doing it silently would be a plausible wrong number (§3.4). Like tranche 43's
+index-handle question, the ruling dissolved rather than being made — it waits for a bespoke tranche
+to pull it.
+
+### A guard deleted for being unreachable
+
+A first draft checked the quotes were in increasing strike order. Contiguity forces
+`attachment == previous_detachment` and `TrancheBounds` forces `detachment > attachment`, so the
+detachments increase **already** — `detachment <= strikes[-1]` cannot hold. Two guards implying a
+third makes the third dead code (the T15 rule); it was deleted and the suite now pins the
+implication, so an out-of-order quote set is still refused, just not by the guard a reader might
+expect.
+
+### Mutation sweep
+
+11 mutants, **no survivors**. Four single-killers, all refusal guards with one condition each —
+inherent — except the reachability refusal, which is the tranche's non-vacuous arbitrage oracle and
+was hardened to two.
+
+
 ## [0.51.0] - 2026-11-15
 
 ### Added — tranche 44a, the exact loss distribution by recursion

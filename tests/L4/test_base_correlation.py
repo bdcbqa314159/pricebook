@@ -202,6 +202,25 @@ class TestAQuoteWithNoBaseCorrelationIsREFUSED:
         with pytest.raises(ValueError, match="no base correlation"):
             bootstrap_base_correlation(unreachable, _pool(), SCHEDULE)
 
+    def test_the_refusal_REPORTS_THE_RANGE_which_only_the_bootstrap_knows(self) -> None:
+        """A second killer for the reachability guard, and the reason it exists at all.
+
+        Dropping the guard still raises — `bracketed_root` refuses a non-straddling bracket — so a
+        test that only checked "it raises" would pass. What distinguishes our refusal is that it is
+        **actionable**: it names the admissible correlation range and the spread interval the
+        tranche actually spans, which the root-finder cannot know and which tells a desk whether to
+        re-quote or to look at the strike below. The root-finder's own message describes a caller's
+        bug in the caller's absence."""
+        quotes = _synthetic_quotes()
+        unreachable = (quotes[0], TrancheQuote(quotes[1].bounds, 0.16))
+        with pytest.raises(ValueError) as caught:
+            bootstrap_base_correlation(unreachable, _pool(), SCHEDULE)
+        message = str(caught.value)
+        assert "no base correlation" in message
+        assert "3.00%" in message and "7.00%" in message, "the tranche is named"
+        assert "spans" in message, "and the reachable interval is reported"
+        assert "bracket" not in message, "the root-finder's vocabulary must not leak"
+
     def test_THE_PREMISE_the_same_strike_accepts_a_REACHABLE_quote(self) -> None:
         """So the refusal is about the quote and not the fixture's shape."""
         quotes = _synthetic_quotes()
