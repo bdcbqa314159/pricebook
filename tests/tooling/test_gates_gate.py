@@ -19,6 +19,8 @@ wrong.
 """
 
 import re
+
+import pytest
 from pathlib import Path
 
 from verify import _KNOWN_GATES, gates
@@ -111,3 +113,73 @@ class TestTheGateREJECTSEachRealDriftShape:
 
         monkeypatch.setattr(Path, "read_text", patched)
         return gates()
+
+
+class TestTheNonVerifyCIGatesAreCoveredToo:
+    """Tranche 42b — `pyright` and `ruff` are gates the charter names and `ci.yml` must invoke.
+
+    The tranche-38 gate closed "a `verify.py` gate stops running and nothing notices". It covered
+    **`verify.py` subcommands only**, so `ruff` and `pyright` — the two standalone CI gates, one of
+    which caught a tranche-42 type defect a local run missed — could be deleted from `ci.yml` with
+    nothing noticing. Same defect, one category wider, and statically decidable.
+
+    **An invocation is not an installation, and that distinction is the whole design.** Both names
+    also appear in `ci.yml`'s `pip install` line, so a naive "is the name in the file" check would
+    pass with the `ruff check` step deleted — a gate satisfied by its own dependency list. The
+    check therefore ignores `pip install` steps, and the seeded-drift test below deletes the
+    *invocation* while leaving the *install* in place, which is the case that separates a real
+    check from a self-satisfying one.
+
+    **`pytest` is deliberately NOT named**, and that is a finding rather than an omission: it has
+    no direct `ci.yml` step at all — it runs *through* `verify.py tests` and `verify.py slow`, both
+    already named and invoked. Naming it would either fail (no invocation) or, under a looser
+    check, pass on the install line. Raised for Cowork rather than guessed.
+    """
+
+    def test_PYRIGHT_and_RUFF_are_named_in_section_9(self) -> None:
+        listed = _listed(CHARTER.read_text())
+        assert {"pyright", "ruff"} <= listed, sorted(listed)
+
+    def test_PYTEST_is_NOT_named_because_it_has_no_direct_invocation(self) -> None:
+        """The premise behind excluding it, asserted so the exclusion is evidenced."""
+        workflow = WORKFLOW.read_text()
+        invocations = [
+            line for line in workflow.splitlines()
+            if line.strip().startswith("- run:") and "pytest" in line
+            and "pip install" not in line]
+        assert invocations == [], invocations
+        assert "pytest" not in _listed(CHARTER.read_text())
+        assert "tests" in _listed(CHARTER.read_text()), "it is covered as `tests`"
+
+    def test_the_real_tree_AGREES_on_the_standalone_gates(self) -> None:
+        assert gates() == []
+
+    @pytest.mark.parametrize("gate", ["pyright", "ruff"])
+    def test_a_named_standalone_gate_whose_INVOCATION_is_deleted_is_rejected(
+        self, monkeypatch, gate: str) -> None:
+        """The install line stays, which is what makes this test discriminating."""
+        workflow = WORKFLOW.read_text()
+        seeded = "\n".join(
+            line for line in workflow.splitlines()
+            if not (line.strip().startswith("- run:") and gate in line
+                    and "pip install" not in line))
+        assert seeded != workflow, "the premise: there was an invocation to remove"
+        assert gate in seeded, "and the install line must survive, or this proves nothing"
+        problems = TestTheGateREJECTSEachRealDriftShape._run(
+            monkeypatch, workflow=seeded)
+        assert any(gate in p and "never invokes" in p for p in problems), problems
+
+    @pytest.mark.parametrize("gate", ["pyright", "ruff"])
+    def test_removing_a_gate_CONSISTENTLY_from_both_sides_is_allowed(
+        self, monkeypatch, gate: str) -> None:
+        """The gate checks *agreement*, not the presence of a fixed set — dropping a gate
+        deliberately is a decision the charter records, not an error to block."""
+        workflow = "\n".join(
+            line for line in WORKFLOW.read_text().splitlines()
+            if not (line.strip().startswith("- run:") and gate in line
+                    and "pip install" not in line))
+        charter = CHARTER.read_text().replace(f"`{gate}` · ", "", 1)
+        assert gate not in _listed(charter), "the premise: the name is gone from §9"
+        problems = TestTheGateREJECTSEachRealDriftShape._run(
+            monkeypatch, charter=charter, workflow=workflow)
+        assert problems == [], problems
