@@ -57,7 +57,11 @@ POOL = SurvivalCurve(TM, (0.0, 1.0, 3.0), (0.009, 0.016, 0.028))
 RECOVERY = 0.40
 NOTIONAL = Money(10_000_000.0, EUR)
 HORIZON = 5.0
-DATES = tuple(VAL + timedelta(days=round(182.5 * i)) for i in range(11))
+#: Semi-annual AND **straddling the valuation date** — §4's tenth degenerate shape. The first
+#: version of this fixture began *at* `VAL`, so no period was historical and the invariant-6 filter
+#: in `base_tranche_par_spread` had nothing to filter: dropping the filter survived the whole file.
+#: I had told Cowork this fixture straddled; it did not, and only re-deriving the claim found it.
+DATES = tuple(VAL + timedelta(days=round(182.5 * i)) for i in range(-2, 11))
 SCHEDULE = CouponSchedule(DATES, DC)
 
 #: The capital structure the market quotes, and a deliberately **NON-FLAT** base-correlation curve
@@ -104,6 +108,37 @@ class TestTheFixtureIsNotDegenerate:
     def test_the_base_correlation_curve_is_NON_FLAT_and_RISING(self) -> None:
         assert len(set(TRUE_CORRELATIONS)) == len(TRUE_CORRELATIONS)
         assert list(TRUE_CORRELATIONS) == sorted(TRUE_CORRELATIONS)
+
+    def test_the_schedule_STRADDLES_the_valuation_date(self) -> None:
+        """§4's tenth shape, asserted as the premise rather than assumed.
+
+        Without a historical period the invariant-6 filter in `base_tranche_par_spread` has nothing
+        to filter, and dropping it survives every other oracle in this file — measured. This is the
+        assertion whose absence made the first version of the fixture degenerate."""
+        historical = [pay for _, pay, _ in SCHEDULE.periods() if pay <= VAL]
+        assert len(historical) >= 2, historical
+        live = [pay for _, pay, _ in SCHEDULE.periods() if pay > VAL]
+        assert len(live) >= 2, "and there must still be a live leg to price"
+
+    def test_the_SETTLED_premiums_are_EXCLUDED_from_the_annuity(self) -> None:
+        """Invariant 6 on this module's leg, which the straddling fixture makes reachable."""
+        from pricebook.engine.base_correlation import _BaseTrancheSurvival
+        from pricebook.market.credit_legs import risky_pv01
+
+        curve = _known_curve()
+        bounds = TrancheBounds(0.03, 0.07)
+        survival = _BaseTrancheSurvival(curve, bounds)
+        live = [p for p in SCHEDULE.periods() if p[1] > VAL]
+        whole = risky_pv01(SCHEDULE.periods(), CURVE, survival)
+        want = risky_pv01(live, CURVE, survival)
+        assert whole / want - 1.0 > 0.2, "the premise: the settled periods are material"
+        # the par spread must be built on the live annuity, so a wider-than-par quote results
+        from pricebook.engine.base_correlation import base_tranche_par_spread
+
+        on_live = base_tranche_par_spread(curve, bounds, SCHEDULE)
+        assert on_live == pytest.approx(
+            base_tranche_par_spread(curve, bounds, CouponSchedule(
+                tuple(d for d in DATES if d >= VAL), DC)), rel=1e-09)
 
     def test_the_quotes_are_a_REALISTIC_SKEW(self) -> None:
         """Equity far wider than mezzanine far wider than senior — measured 4254 / 661 / 131 bp."""

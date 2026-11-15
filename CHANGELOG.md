@@ -87,6 +87,19 @@ converges at second order — 2.8e-06, 7.0e-07, 1.7e-07, 3.3e-08 at 100/200/400/
 committed at **7.0e-07**, four significant figures tighter than a tranche is quoted, for 3 ms
 against 10 ms. The file runs 1.1s and projects to ~4s on Windows.
 
+### A false claim of mine, and the third bite of the tenth shape
+
+I told Cowork this tranche's fixture straddled the valuation date, as tranches 43 and 44a's do.
+**It did not.** The schedule began *at* `VAL`, there was no straddle assertion, and dropping the
+invariant-6 filter in `base_tranche_par_spread` **survived the whole file**. Found only because
+Cowork declined to take the report's word — a reported premise it had not re-derived is content and
+not an oracle (§5, one level up) — and I re-derived it before marking the PR ready.
+
+That makes §4's tenth degenerate shape **bite a third time** (tranches 40, 42, and here), which is
+the escalation the charter flag arms: the ruling that the counter stood at two bites rested on my
+claim, and the claim was wrong. Fixture fixed, the straddle asserted as a premise, and the filter
+pinned — the mutation now dies four ways.
+
 ### Mutation sweep
 
 11 mutants, **no survivors**. Four single-killers, all refusal guards with one condition each —
