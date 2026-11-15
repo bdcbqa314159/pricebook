@@ -44,6 +44,11 @@ from pricebook.foundation.time_measure import TimeMeasure
 from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
 from pricebook.market.survival_curve import ReferenceEntity, SurvivalCurve
 from pricebook.models.lhp import LHPModel
+from pricebook.models.tranche_loss import (
+    tranche_expected_loss,
+    tranche_survival,
+    tranche_survival_curve,
+)
 from pricebook.products.synthetic_cdo_tranche import SyntheticCDOTranche, TrancheBounds
 
 VAL = date(2026, 1, 1)
@@ -181,22 +186,22 @@ class TestTheCapitalStructureIdentities:
         model = _model(beta=beta)
         edges = (0.0, 0.03, 0.07, 0.15, 0.30, 1.0)
         total = sum(
-            model.tranche_expected_loss(lower, upper, HORIZON)
+            tranche_expected_loss(model, lower, upper, HORIZON)
             for lower, upper in zip(edges, edges[1:]))
         assert total == pytest.approx((1.0 - RECOVERY) * _pool_default(), rel=1e-13)
 
     def test_the_expected_loss_is_MONOTONE_in_both_bounds(self) -> None:
         model = _model()
         rising_detachment = [
-            model.tranche_expected_loss(ATTACH, d, HORIZON) for d in (0.05, 0.10, 0.20)]
+            tranche_expected_loss(model, ATTACH, d, HORIZON) for d in (0.05, 0.10, 0.20)]
         assert rising_detachment == sorted(rising_detachment)
         rising_attachment = [
-            model.tranche_expected_loss(a, 0.30, HORIZON) for a in (0.01, 0.05, 0.12)]
+            tranche_expected_loss(model, a, 0.30, HORIZON) for a in (0.01, 0.05, 0.12)]
         assert rising_attachment == sorted(rising_attachment, reverse=True)
 
     def test_the_tranche_SURVIVAL_stays_in_the_unit_interval_and_DECREASES(self) -> None:
         model = _model()
-        values = [model.tranche_survival(ATTACH, DETACH, t) for t in (0.0, 1.0, 3.0, 5.0)]
+        values = [tranche_survival(model, ATTACH, DETACH, t) for t in (0.0, 1.0, 3.0, 5.0)]
         assert values[0] == 1.0
         for earlier, later in zip(values, values[1:]):
             assert 0.0 <= later <= earlier <= 1.0, values
@@ -204,8 +209,8 @@ class TestTheCapitalStructureIdentities:
     def test_the_EQUITY_tranche_bears_loss_FIRST(self) -> None:
         """A requirement no transcription can fake: the 0–3% loses more of itself than the 3–7%."""
         model = _model()
-        equity = model.tranche_expected_loss(0.0, 0.03, HORIZON) / 0.03
-        mezzanine = model.tranche_expected_loss(0.03, 0.07, HORIZON) / 0.04
+        equity = tranche_expected_loss(model, 0.0, 0.03, HORIZON) / 0.03
+        mezzanine = tranche_expected_loss(model, 0.03, 0.07, HORIZON) / 0.04
         assert equity > mezzanine > 0.0, (equity, mezzanine)
 
 
@@ -332,7 +337,7 @@ class TestTheTranchePrices:
 
         model = _model()
         live = [p for p in SCHEDULE.periods() if p[1] > VAL]
-        survival = model.tranche_survival_curve(ATTACH, DETACH)
+        survival = tranche_survival_curve(model, ATTACH, DETACH)
         assert tranche_annuity(_tranche(), model) == risky_pv01(live, CURVE, survival)
 
 
@@ -348,6 +353,28 @@ class TestTheAbsOLUTELevelsTheSweepFound:
     def _discount(self, t: float) -> float:
         return CURVE.df_at(t)
 
+    @pytest.mark.parametrize("builder", ["lhp", "recursion"], ids=["lhp", "recursion"])
+    def test_the_SHARED_width_normalisation_covers_BOTH_models(self, builder: str) -> None:
+        """One composition, one oracle, both models — the point of the extraction.
+
+        This hole was found twice: tranche 43's sweep caught the width division unpinned and it was
+        fixed *here*, against the LHP; tranche 44a's sweep found it again in the recursion's own
+        copy. It was reachable twice because the composition existed twice. Now
+        `models/tranche_loss.tranche_survival` is the only implementation, so this test covers
+        whichever model is passed to it — and a mutation of the division dies for both at once."""
+        from pricebook.models.loss_recursion import RecursionModel
+
+        model = (_model() if builder == "lhp"
+                 else RecursionModel(_market(), INDEX, BETA, RECOVERY, 20))
+        for attach, detach in ((0.03, 0.07), (0.03, 0.30), (0.0, 1.0)):
+            width = detach - attach
+            expected_loss = tranche_expected_loss(model, attach, detach, HORIZON)
+            assert tranche_survival(model, attach, detach, HORIZON) == pytest.approx(
+                1.0 - expected_loss / width, rel=1e-13)
+        narrow = tranche_survival(model, 0.03, 0.07, HORIZON)
+        wide = tranche_survival(model, 0.03, 0.30, HORIZON)
+        assert narrow < wide and wide / narrow - 1.0 > 0.05, (narrow, wide)
+
     def test_the_tranche_SURVIVAL_is_normalised_by_the_tranche_WIDTH(self) -> None:
         """`Q = 1 − EL/(K₂−K₁)`, and the division was unpinned.
 
@@ -358,13 +385,13 @@ class TestTheAbsOLUTELevelsTheSweepFound:
         model = _model()
         for attach, detach in ((0.03, 0.07), (0.03, 0.30), (0.0, 1.0)):
             width = detach - attach
-            expected_loss = model.tranche_expected_loss(attach, detach, HORIZON)
-            assert model.tranche_survival(attach, detach, HORIZON) == pytest.approx(
+            expected_loss = tranche_expected_loss(model, attach, detach, HORIZON)
+            assert tranche_survival(model, attach, detach, HORIZON) == pytest.approx(
                 1.0 - expected_loss / width, rel=1e-14)
         # and the normalisation bites: the 3–7% and 3–30% tranches have different widths, so the
         # same absolute loss leaves different fractions outstanding
-        narrow = model.tranche_survival(0.03, 0.07, HORIZON)
-        wide = model.tranche_survival(0.03, 0.30, HORIZON)
+        narrow = tranche_survival(model, 0.03, 0.07, HORIZON)
+        wide = tranche_survival(model, 0.03, 0.30, HORIZON)
         assert narrow < wide, (narrow, wide)
         assert wide / narrow - 1.0 > 0.10, "and materially so"
 
@@ -378,7 +405,7 @@ class TestTheAbsOLUTELevelsTheSweepFound:
         from pricebook.engine.synthetic_cdo_tranche import tranche_protection
 
         model = _model()
-        survival = model.tranche_survival_curve(ATTACH, DETACH)
+        survival = tranche_survival_curve(model, ATTACH, DETACH)
         horizon = (SCHEDULE.dates[-1] - VAL).days / 365.0
         steps = 800
         step = horizon / steps
@@ -401,7 +428,7 @@ class TestTheAbsOLUTELevelsTheSweepFound:
         from pricebook.market.credit_legs import protection_leg_from_survival
 
         model = _model()
-        survival = model.tranche_survival_curve(ATTACH, DETACH)
+        survival = tranche_survival_curve(model, ATTACH, DETACH)
         horizon = (SCHEDULE.dates[-1] - VAL).days / 365.0
         correct = tranche_protection(_tranche(), model)
         doubled = protection_leg_from_survival(CURVE, survival, RECOVERY, horizon, 800)

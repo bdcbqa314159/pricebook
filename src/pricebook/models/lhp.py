@@ -20,6 +20,12 @@ needs `0 < K < 1−R` strictly, and `inverse_norm_cdf` refuses the endpoints rat
 and `K ≥ 1−R` is `(1−R)p` because the cap cannot bind — **the maximum portfolio loss is `1−R`, not
 1**. With the branches the identity is exact to 2e-16; without them it raises.
 
+**The tranche composition lives in `models/tranche_loss.py`, not here.** `EL` and the
+outstanding fraction `Q` are the same arithmetic over any model that can cap a portfolio loss, and
+writing them out per model is what let tranche 43's width-division hole reappear in tranche 44a's
+copy — so there is one composition over a `TrancheLossModel` protocol and this model supplies only
+`expected_loss_capped`.
+
 **The pool has no per-name structure, which answers where the pool lives.** The LHP is the infinite
 homogeneous limit, so there are no individual credits to reference: the pool's identity *is* its one
 default curve, which `CurveSet.survivals` already keys by `ReferenceEntity` (tranche 41b). An index
@@ -49,23 +55,6 @@ from pricebook.market.survival_curve import ReferenceEntity
 
 
 @dataclass(frozen=True)
-class TrancheSurvival:
-    """`Q(T) = 1 − EL(T)/(K₂−K₁)` — the tranche's outstanding fraction, survival-curve *shaped*.
-
-    A synthetic CDO tranche is a CDS on *this*: the premium leg pays its spread on the outstanding
-    notional, which amortises exactly as expected loss eats the tranche. So it satisfies
-    `credit_legs.SurvivalFunction` and the tranche-39 premium leg consumes it unchanged.
-    """
-
-    model: LHPModel
-    attachment: float
-    detachment: float
-
-    def survival(self, t: float) -> float:
-        return self.model.tranche_survival(self.attachment, self.detachment, t)
-
-
-@dataclass(frozen=True)
 class LHPModel:
     """The homogeneous pool: its default curve (by entity), its factor loading and its recovery."""
 
@@ -86,6 +75,11 @@ class LHPModel:
             raise ValueError(
                 f"the recovery must sit in [0, 1), got {self.recovery}: at R = 1 there is no loss "
                 f"to tranche and `K/(1−R)` divides by zero")
+
+    @property
+    def protection_steps(self) -> int:
+        """800 — the closed form is cheap to sample, so the quadrature is taken fine."""
+        return 800
 
     @property
     def loss_given_default(self) -> float:
@@ -127,26 +121,3 @@ class LHPModel:
         return (self.loss_given_default
                 * bivariate_normal_cdf(self.threshold(horizon), -exceedance, -self.beta)
                 + strike * norm_cdf(exceedance))
-
-    def tranche_expected_loss(
-        self, attachment: float, detachment: float, horizon: float
-    ) -> float:
-        """`EL = E[min(L,K₂)] − E[min(L,K₁)]`, in pool-notional units."""
-        return (self.expected_loss_capped(detachment, horizon)
-                - self.expected_loss_capped(attachment, horizon))
-
-    def tranche_survival(
-        self, attachment: float, detachment: float, horizon: float
-    ) -> float:
-        """`Q = 1 − EL/(K₂−K₁)` — the fraction of the tranche still outstanding."""
-        width = detachment - attachment
-        if width <= 0.0:
-            raise ValueError(
-                f"a tranche needs positive width, got [{attachment}, {detachment}]")
-        return 1.0 - self.tranche_expected_loss(attachment, detachment, horizon) / width
-
-    def tranche_survival_curve(
-        self, attachment: float, detachment: float
-    ) -> TrancheSurvival:
-        """The tranche's survival as an object the tranche-39 premium leg can consume."""
-        return TrancheSurvival(self, attachment, detachment)

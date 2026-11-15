@@ -599,7 +599,13 @@ unconditionally only for the fraction.)*
   `slow` concurrently with the full suite or a type-checker reports contention, not run time (T19: a
   backgrounded gate under load read 690s against a true 1.75s, a 400× artefact). And its headroom is
   not bankable: re-time a file after adding oracles rather than assume the margin (T19: six oracles
-  added to the Bermudan file without re-timing produced a real Windows `slow` failure). **The floor
+  added to the Bermudan file without re-timing produced a real Windows `slow` failure). **And for a
+  numerically-heavy file, a LOCAL re-time is not the measurement — CI is.** The slow budget is sized for
+  the CI runners, which are slower and vary between ubuntu and windows; a comfortable local reading is not
+  evidence the gate passes there. Twice this arc a file was reported green on a local re-time and failed
+  `slow` on *both* CI runners (T42: a Windows failure at 10.6s/10.0s against a local pass; T44a: 18.3s
+  Linux / 10.1s Windows against **5.3s local**). So for a file with real numerical cost, the CI run —
+  both runners — is the reading; "re-timed locally" is not sufficient to call it green. **The floor
   gate's own discovery must be total** — the `tests` floor counts only the directories it enumerates,
   so a test directory it does not discover runs *unfloored* and escapes the floor silently; discovery
   enumerates every test dir, not a fixed `tests/L*` set (layer dirs first, so the lowest layer still
