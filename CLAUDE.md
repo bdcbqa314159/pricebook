@@ -578,7 +578,14 @@ unconditionally only for the fraction.)*
 ## 9. Gates, branches, flow
 
 - **`verify.py`**: `acyclic` · `layers` · `fields` · `debt` · `version` · `provenance` ·
-  `references` · `gates` · `conventions` · `slow` · `tests` (floored). CI runs ubuntu + windows, Python 3.12. Tolerance-based oracles are a hard rule
+  `references` · `gates` · `conventions` · `slow` · `tests` (floored) · `ruff` · `pyright`. CI runs ubuntu + windows, Python 3.12.
+  The last two are **standalone** steps rather than `verify.py` subcommands, and tranche 42b
+  extended the `gates` gate to require `ci.yml` to invoke them too — until then they could be
+  deleted and nothing would notice, the §9 empty-gate defect one category wider. *pytest* is not
+  named separately: it runs **through** `tests` and `slow`, so naming it would either fail (no
+  direct step) or pass on the `pip install` line. And the list above must stay a **list** — a
+  backticked word in prose inside it parses as a gate name, which is how the first draft of this
+  very edit made the gate flag a gate that does not exist. Tolerance-based oracles are a hard rule
   (transcendental results differ 1–2 ULP across runtimes); the byte-identical statelessness check
   is same-process only. **A timing gate's reading is only valid when measured in isolation** — running
   `slow` concurrently with the full suite or a type-checker reports contention, not run time (T19: a

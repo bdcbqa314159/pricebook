@@ -6,6 +6,53 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.49.1] - 2026-11-15
+
+### Changed — tranche 42b, the gates-gate covers the standalone CI gates too (tooling only)
+
+Tranche 38's `verify.py gates` closed "a gate stops running and nothing notices" — but only for
+`verify.py` subcommands. `ci.yml` also runs **`ruff`** and **`pyright`**, and `pyright` caught a
+tranche-42 type defect a local run missed; either could have been deleted with nothing noticing,
+because neither the charter nor the gate knew they should be there. The same defect, one category
+wider, and statically decidable.
+
+§9's gate list now names `ruff` and `pyright`, and the gate requires `ci.yml` to invoke each
+**named** gate whether it is a subcommand or a standalone step. The reverse direction stays scoped
+to subcommands: classifying an arbitrary `ci.yml` step as gate-or-scaffolding needs judgement, and
+a check needing an exemption list cannot fail (the τ=1 over-reach, declined). So a standalone gate
+is enforced by being *named*, and naming it is the deliberate act.
+
+### An invocation is not an installation, and that is the design
+
+Both `ruff` and `pyright` appear in the workflow beyond their gate steps, `ruff` in the `pip
+install` line. A check asking only "is the name in the file?" would pass with the `ruff check` step
+deleted — **a gate satisfied by its own dependency list**. Install steps are skipped, and the
+seeded-drift test deletes the *invocation* while leaving the *install* in place, which is the case
+that separates a real check from a self-satisfying one. (`pyright` cannot demonstrate it: it
+arrives via `npx`, so it has no install line — a first draft of that test assumed both names were
+on it and failed on `pyright` for a premise that was mine, not the gate's.)
+
+### `pytest` is deliberately not named, which is a finding
+
+The spec listed it among the three to name. It has **no direct `ci.yml` step at all**: it runs
+*through* `verify.py tests` and `verify.py slow`, both already named and invoked. Naming it would
+either fail outright or, under a looser check, pass on the `pip install` line. Raised for Cowork
+rather than guessed, and `tests` already covers it.
+
+### The charter's gate list must stay a list
+
+The first draft of the §9 edit put the explanation *inside* the list sentence, and a backticked
+word in that prose parses as a gate name — so the gate immediately flagged a gate that does not
+exist. **The gate caught the charter edit that was adding the gate.** The explanation now sits past
+the parse boundary, and says so.
+
+### Mutation sweep
+
+Four mutants of the extension, each killed: ignoring non-`verify.py` names (7), counting install
+lines as invocations (2), returning no standalone invocations (7), dropping the
+named-but-not-invoked direction (4).
+
+
 ## [0.49.0] - 2026-11-15
 
 ### Added — tranche 42, the first-to-default basket (the first product through the copula)
