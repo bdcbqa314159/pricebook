@@ -37,6 +37,7 @@ Provenance:
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from pricebook.foundation.bivariate_normal import bivariate_normal_cdf
@@ -83,18 +84,34 @@ class CreditName:
         """`C_i(T) = Φ⁻¹(1 − Q_i(T))` — eq 13.2."""
         return inverse_norm_cdf(self.default_probability(horizon))
 
-    def conditional_default(self, horizon: float, factor: float) -> float:
-        """`p_i(T|Z) = Φ((C_i − β_iZ)/√(1−β_i²))` — eq 13.4.
+    def conditional_default_at(self, horizon: float) -> Callable[[float], float]:
+        """`Z ↦ p_i(T|Z)` with the parts that do not depend on `Z` computed once.
 
-        At `β = ±1` the idiosyncratic weight is **exactly zero** and this is an indicator, not a
-        division: the name's fate is fully determined by `Z`. The `ρ = ±1` reductions need exactly
-        that case, so it is handled rather than guarded against.
+        The threshold is an `Φ⁻¹` call and the idiosyncratic weight a square root, and neither
+        varies with the market factor — so evaluating them inside a quadrature's node loop does
+        them 64 times over. Hoisting them matters beyond tidiness: tranche 42's basket survival
+        integrates a product over names at every one of 800 protection-leg steps, and the
+        redundancy made the whole basket price measurably slower (the `slow` gate caught it on
+        Windows).
+
+        Returned as a closure rather than copied into the caller so eq 13.4 is **transcribed
+        once**: `conditional_default` below is this function evaluated at a point, which is what
+        keeps the basket from re-deriving a load-bearing formula (§4).
         """
         idiosyncratic = 1.0 - self.beta * self.beta
-        shifted = self.threshold(horizon) - self.beta * factor
+        threshold = self.threshold(horizon)
+        beta = self.beta
         if idiosyncratic <= 0.0:
-            return 1.0 if shifted > 0.0 else 0.0
-        return norm_cdf(shifted / math.sqrt(idiosyncratic))
+            # `β = ±1`: the idiosyncratic weight is exactly zero, so this is an indicator and not
+            # a division — the name's fate is fully determined by `Z`. The `ρ = ±1` reductions
+            # need exactly that case, so it is handled rather than guarded against.
+            return lambda factor: 1.0 if threshold - beta * factor > 0.0 else 0.0
+        scale = math.sqrt(idiosyncratic)
+        return lambda factor: norm_cdf((threshold - beta * factor) / scale)
+
+    def conditional_default(self, horizon: float, factor: float) -> float:
+        """`p_i(T|Z) = Φ((C_i − β_iZ)/√(1−β_i²))` — eq 13.4, at one `Z`."""
+        return self.conditional_default_at(horizon)(factor)
 
 
 @dataclass(frozen=True)

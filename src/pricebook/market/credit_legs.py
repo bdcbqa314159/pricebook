@@ -36,11 +36,24 @@ Provenance:
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Protocol
 from dataclasses import dataclass
 from datetime import date
 
 from pricebook.market.curve import CurveHandle
 from pricebook.market.survival_curve import SurvivalCurve
+
+
+class SurvivalFunction(Protocol):
+    """Anything that answers "what is the probability of surviving to `t`?".
+
+    `SurvivalCurve` satisfies it, and so does tranche 42's basket survival — which is *not* a
+    piecewise-constant-hazard curve and cannot be one, being an integral over the market factor.
+    Depending on the shape rather than the concrete type is what lets the premium leg below be
+    reused whole by the basket (§6, the rule-of-two met by a shared shape).
+    """
+
+    def survival(self, t: float) -> float: ...
 
 
 def segment_breaks(survival: SurvivalCurve, horizon: float) -> list[float]:
@@ -57,7 +70,7 @@ def segment_breaks(survival: SurvivalCurve, horizon: float) -> list[float]:
 def risky_pv01(
     periods: Sequence[tuple[date, date, float]],
     discount: CurveHandle,
-    survival: SurvivalCurve,
+    survival: SurvivalFunction,
 ) -> float:
     """`RPV01` per unit notional — eq 6.4, premium payments plus the coupon accrued at default.
 
@@ -188,3 +201,50 @@ def forward_spread(near: CdsLegs, far: CdsLegs) -> float:
     part of its contract.
     """
     return (far.protection - near.protection) / forward_annuity(near, far)
+
+
+def protection_leg_from_survival(
+    discount: CurveHandle,
+    survival: SurvivalFunction,
+    recovery: float,
+    horizon: float,
+    steps: int,
+) -> float:
+    """`(1−R)∫₀ᵀ Z(t)·(−dQ(t))` per unit notional — the protection leg from a survival function.
+
+    **Why this exists beside `protection_leg`, which is the same integral.** That one reads the
+    hazard once per pillar segment, which is *exact* when the hazard is piecewise constant and
+    second order — and simply wrong otherwise. Tranche 42's basket survival has a continuously
+    varying hazard, and fed to the pillar form it **plateaus 1.56e-03 from the truth**: identical
+    at 50 and 200 points per segment, the §4 signature of a model error rather than a
+    discretisation one. This form differences `Q` instead, so it needs no hazard at all and
+    converges on any survival function (measured −7.3e-06 / −4.5e-07 / −2.7e-08 at 50/200/800
+    steps on the tranche-42 basket).
+
+    The two are therefore **not** a duplication to collapse: they are the right quadrature for two
+    different classes of survival function. Which applies where is `docs/conventions_register.md`
+    C13's business, and extending that row is Cowork's — raised at tranche 42 rather than decided.
+    """
+    if steps < 1:
+        raise ValueError(f"the protection leg needs at least one step, got {steps}")
+    # Invariant 6, and a **proved equivalent** guard rather than a load-bearing one: every survival
+    # function is flat at 1 for t <= 0, so each difference `Q(prev) - Q(t)` is exactly zero and the
+    # sum is 0.0 with or without this line (verified bit-identical over 45 horizon/step/curve
+    # combinations). It is kept for symmetry with `protection_leg`, where the same guard IS
+    # load-bearing because `segment_breaks` would otherwise build a degenerate grid — and because
+    # stating the intent beats relying on a flatness the caller's type does not promise.
+    if horizon <= 0.0:
+        return 0.0
+
+    step = horizon / steps
+    area = 0.0
+    previous_time, previous_survival = 0.0, survival.survival(0.0)
+    for index in range(1, steps + 1):
+        t = step * index
+        current = survival.survival(t)
+        # The trapezoid is on the DISCOUNT factor only; the survival enters as an exact
+        # difference, which is what makes this independent of how `Q` is represented.
+        area += 0.5 * (discount.df_at(previous_time) + discount.df_at(t)) * (
+            previous_survival - current)
+        previous_time, previous_survival = t, current
+    return (1.0 - recovery) * area

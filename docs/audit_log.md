@@ -133,6 +133,7 @@ than rediscovering them:
 | T39 | the leg's non-positive-horizon guard and the bootstrap's five refusals (arbitrage, its `>` boundary, maturity order, empty strip, recovery range) and the leg's horizon guard | six guards, one condition each — inherent |
 | T40 | seven refusals across the forward CDS, the swaption and its model (forward start on/before the schedule, expiry on the schedule, positive strike, positive forward annuity, par-spread annuity, finite non-negative vol) | guards, one condition each — inherent. The three *load-bearing* single-killers (the direction factor, and `σ²` vs `σ²t` twice) were hardened in-tranche |
 | T41 | three copula refusals (`|β| ≤ 1`, non-empty portfolio, shared clock) | guards, one condition each — inherent. The three load-bearing single-killers (the unit-β indicator twice, the name index) were hardened in-tranche |
+| T42 | four basket refusals (two-name minimum, duplicate entities, mixed unit/sub-unit loadings, recovery range) and the missing-entity check | guards, one condition each — inherent. The three *load-bearing* survivors (notional scaling, the contract's entity list, the invariant-6 filter) were all **fixture gaps**, closed in-tranche |
 
 T38's two load-bearing single killers were **hardened in-tranche** rather than recorded: the
 protection-leg quadrature rule (1 → 3 killers, via a closed-form anchor) and the direction factor

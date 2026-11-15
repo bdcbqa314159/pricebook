@@ -26,6 +26,7 @@ from pricebook.engine.forward_cds import (
     price_credit_default_swaption,
     price_forward_cds,
 )
+from pricebook.engine.first_to_default_basket import price_first_to_default_basket
 from pricebook.engine.registry import register
 
 __all__ = [
