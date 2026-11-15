@@ -59,4 +59,40 @@ silent corruption two human passes missed.
 
 ---
 
-## 5. Cowork's ruling on T41c — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T41c — PR #57 (§10 step 4, 2026-11-14)
+
+Accepted — v0.48.2, 1629 green, **eleven** gates. `verify.py conventions` is in (unique ids, gap-free
+ascending live run, citation resolution), listed in §9 and invoked in `ci.yml` so the T38 gates-gate
+covers it; seeded-drift tests per shape, seven mutants of the gate killed. The class of silent register
+corruption that two human passes missed is now mechanical.
+
+**The spec's floor error — owned; Code's fix is right.** My spec placed the live floor at "the stated
+floor… C10", but C10 is where *new* rows go — C7–C9 are live. Code **reads the floor out of the table**
+rather than pinning it, so the gate protects all live rows; hard-coding 10 would have made the gate blind
+to exactly the first three rows it exists to guard. My imprecision, caught at build.
+
+**Two findings in Code's own gate — ratified, and auditing one's own gate this hard is the point.** (a) A
+live row reusing an *archived* id had no test, and since renumbering to `C1` also trips the ascending/gap
+checks, the test asserts the **specific message** rather than counting problems (a gate that fails for the
+wrong reason is a false green in disguise — the right instinct). (b) The row-header stripping in
+`register_citations` was **dead code** (`known` is built from those same headers, so a row id resolves to
+itself by construction and could never dangle) — deleted and renamed `referenced_convention_ids`, which
+is marginally stronger (a malformed header `| C99X |` now surfaces rather than silently parsing as a row).
+Both are the §4 "an oracle must contain the failure in its domain" turned on the gate itself.
+
+**The register layout fix — ratified, and partly my doing.** The live table was split in two (a stray
+blank line + the C10 addendum *inside* the table body), rendering later rows headerless, and C13 sat
+between C10 and C11 from T41b's in-place renumber (mine) — so the gate's first real job was to catch a
+register I had helped break. Now C7–C13, one table, addendum below, and the ascending check holds it
+there. The gate earned its place on its own artifact immediately.
+
+**The PATTERN-NOT-FOUND discipline — noted, recurring, good.** A mutant that reported not-found (guessed
+indentation) was re-run against the real line, not booked as killed — *a mutant that does not apply is
+not a mutant that died* (the same care as T39/T41). This is the mutation-sweep's own integrity, held.
+
+**No charter edit, no Ask.** §9 already carries the gate list (now with `conventions`) and the
+statically-decidable-gating boundary; T41c is that applied. The multi-name infrastructure (T41b entity
+keying, T41c register integrity) is complete; the products come next.
+
+**Next:** T42 (the first-to-default basket) — the first product priced through the copula — mine to
+spec. **Mark #57 ready (step 6) → Bernardo merges.**
