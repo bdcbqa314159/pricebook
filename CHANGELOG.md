@@ -64,12 +64,30 @@ survives transcription — and it does something a value-against-value check can
 
 ### Oracles
 
-Single-name reduction `Q_B = Q₁` (**0 ULP**), the `ρ = 0` product and `ρ = ±1` widest-name limits,
+Single-name reduction `Q_B = Q₁` (exact in ℝ, **≤4 ULP** — see below), the `ρ = 0` product and
+`ρ = ±1` widest-name limits,
 the Fréchet sandwich at four horizons, monotonicity, the rate-asserted market-factor integral, the
 par reprice, linearity in the spread, and the spread bounded below by the widest single name and
 above by their sum (210.96bp ≤ 491.28bp ≤ 554.27bp). Plus a Monte-Carlo cross-check at 40k paths
 whose **realised correlation pins `β_iβ_j` pair by pair** (tranche 17 — a factorisation is pinned
 where it is observable, not through a price) and whose realised variances pin the `√(1−β²)` weight.
+
+### Two of my own over-claims, caught by CI rather than by reading
+
+- **`risky_pv01` was annotated with the concrete `SurvivalCurve`** while the basket passes a
+  `BasketSurvival`. The "the premium leg reuses cleanly" claim was true at runtime and the type
+  said otherwise — pyright caught it, and the fix is the honest one: the premium leg takes the
+  `SurvivalFunction` protocol (it reads only `survival(t)`), while the pillar protection leg stays
+  concrete because it genuinely needs `.times` and `.hazard`. The signatures now *encode* the
+  finding above rather than contradicting it.
+- **Two reductions were asserted bit-exact and are not.** `Q_B = Q₁` and
+  `Q_B = min_i Q_i` are exact identities in ℝ, but each compares *different computations* — a
+  64-node Gauss-Hermite sum over `Φ` against `exp(−∫λ)`, and a `Φ`/`Φ⁻¹` round trip. They agreed
+  to the last bit on one platform, so the first draft used `==`; **CI failed on both Linux and
+  Windows at 1 ULP**, which is what §9's "tolerance-based oracles are a hard rule" exists to
+  prevent. Now asserted at ≤4 ULP, with the one place bit-equality *is* available (the engine
+  delegating to `risky_pv01` with identical arguments and ordering) kept as `==` and the contrast
+  stated — bit-equality is a claim about the computation, not about the mathematics.
 
 ### Mutation sweep
 

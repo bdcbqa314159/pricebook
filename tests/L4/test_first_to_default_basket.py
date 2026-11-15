@@ -153,12 +153,21 @@ class TestTheBasketSurvivalCurve:
             _independent_product(horizon), got, _widest(horizon))
 
     def test_the_SINGLE_NAME_basket_IS_that_names_curve(self) -> None:
-        """The exact reduction: one name makes the product trivial, so `Q_B = Q₁` — measured at
-        0 ULP, not merely to tolerance."""
+        """The reduction is exact **in ℝ** and a few ULP in floating point, which is the most that
+        is available — and an earlier draft of this test wrongly asserted bit-equality.
+
+        One name makes the product trivial, and `E_Z[1 − p₁(t|Z)] = Q₁(t)` is an exact identity.
+        But the two sides are *different computations*: a 64-node Gauss-Hermite sum over `Φ`
+        against a single `exp(−∫λ)`. They happened to agree to the last bit on one platform, so
+        the first version asserted `==` — and **CI failed on both Linux and Windows at 1 ULP**,
+        which is precisely what §9's "tolerance-based oracles are a hard rule" exists to prevent.
+        Four ULP is asserted: tight enough that a real defect in the product-over-names cannot
+        hide (the independence bound is 4.5% away), loose enough to be a fact rather than luck."""
         solo = BasketSurvival(_copula(count=1))
         curve = _curves()[0]
         for horizon in (1.0, 3.0, 5.0):
-            assert solo.survival(horizon) == curve.survival(horizon)
+            got, want = solo.survival(horizon), curve.survival(horizon)
+            assert abs(got - want) <= 4.0 * math.ulp(want), (horizon, got, want)
 
     @pytest.mark.parametrize("horizon", [1.0, 3.0, 5.0])
     def test_INDEPENDENCE_rho_zero_gives_the_PRODUCT(self, horizon: float) -> None:
@@ -176,7 +185,11 @@ class TestTheBasketSurvivalCurve:
         the same answer, which is the tell that it is the *magnitude* of the loading that matters
         here, not its direction."""
         got = BasketSurvival(_copula(betas=(sign,) * len(BETAS))).survival(horizon)
-        assert got == _widest(horizon)
+        want = _widest(horizon)
+        # Exact in ℝ, a few ULP in floating point: `1 − Φ(max C)` against `min exp(−∫λ)` is a
+        # round trip through `Φ`/`Φ⁻¹`, so bit-equality is not available here either (same lesson
+        # as the single-name reduction above).
+        assert abs(got - want) <= 4.0 * math.ulp(want), (horizon, sign, got, want)
 
     def test_THE_COMPANION_a_generic_correlation_sits_STRICTLY_between(self) -> None:
         """A limit a no-op satisfies is vacuous (§4): the generic case must be materially inside
@@ -283,6 +296,10 @@ class TestTheBasketPrices:
         from pricebook.engine.first_to_default_basket import basket_annuity
 
         basket = BasketSurvival(_copula())
+        # `==` is right *here*, unlike the two reductions above: the engine calls this very
+        # function with the same periods, the same curve and an equal-valued basket, so the
+        # operations and their order are identical and bit-equality is genuinely available. The
+        # distinction is the point — bit-equality is a claim about the computation, not the maths.
         assert basket_annuity(_basket(), _model()) == risky_pv01(
             SCHEDULE.periods(), CURVE, basket)
 
