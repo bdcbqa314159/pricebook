@@ -288,11 +288,12 @@ STOCK = ROOT / "_stock"
 # The committed test floor (the floor rule, CLAUDE.md 6 second clause; ruling:
 # docs/handoffs/rulings_floor_rule.md). CI is RED below it. A slice that adds a test
 # tier raises this in the same commit. First value = the restart's measured 366.
-TEST_FLOOR = 1620
+TEST_FLOOR = 1629
 
 #: The commands `verify.py` actually implements, so §9 and `ci.yml` cannot agree on a typo.
 _KNOWN_GATES = frozenset({"acyclic", "layers", "fields", "debt", "provenance",
-                          "references", "version", "slow", "tests", "gates"})
+                          "references", "version", "slow", "tests", "gates",
+                          "conventions"})
 
 #: A `stock:` value naming no path — a module built fresh, with no stock ancestor. The
 #: common case under the new model, so it must be expressible rather than fudged.
@@ -563,6 +564,95 @@ def _report(name: str, errs: list[str]) -> bool:
     return True
 
 
+
+#: The archived table's header — everything below it describes the predecessor tree, whose ids are
+#: deliberately kept stable (the register says so) and are legitimately cited from the prose.
+_ARCHIVED_HEADER = "| # | Convention (archived tree) |"
+
+
+def _register_text() -> str:
+    return (ROOT / "docs" / "conventions_register.md").read_text()
+
+
+def live_convention_ids(text: str) -> list[int]:
+    """The `C<n>` ids of the LIVE table's rows, in file order.
+
+    The floor is read out of the table rather than pinned: the live rows begin at **C7**, not at
+    the C10 the register's "new live rows continue at C10" note might suggest — that note is about
+    where *new* rows go, and C7-C9 are live too. Hard-coding 10 would have made the gate wrong
+    about the first three rows it is supposed to protect.
+    """
+    head, _, _ = text.partition(_ARCHIVED_HEADER)
+    return [int(m) for m in re.findall(r"^\| C(\d+) \|", head, re.M)]
+
+
+def archived_convention_ids(text: str) -> list[int]:
+    _, _, tail = text.partition(_ARCHIVED_HEADER)
+    return [int(m) for m in re.findall(r"^\| C(\d+) \|", tail, re.M)]
+
+
+def referenced_convention_ids(text: str) -> set[int]:
+    """Every `C<n>` the register mentions anywhere, row headers included.
+
+    A first draft stripped the row headers first, so this meant "what the prose cites". That
+    stripping was **dead code**: `known` is built from those same headers, so a row's own id
+    resolves to itself by construction and could never be reported as dangling. Including them is
+    simpler and marginally stronger — a malformed header like `| C99X |` does not parse as a row
+    but is still *mentioned*, so it surfaces as an unresolved reference instead of vanishing.
+    Found by mutating the stripping away and watching nothing fail (§6, the T15 delete-it rule).
+    """
+    return {int(m) for m in re.findall(r"\bC(\d+)\b", text)}
+
+
+def conventions() -> list[str]:
+    """`docs/conventions_register.md` must stay mechanically sound: unique ids, resolving
+    citations, no gap in the live run.
+
+    Earned by tranche 41b, which found **two `C11` rows** — the tranche-39 protection-leg row took
+    an id the `model.market` row already held, and **two review passes read past it, including the
+    one that ratified "C11" by name.** The register is cited from `src/` docstrings, `OPEN.md`, the
+    CHANGELOG and CLAUDE.md, and nothing checked it, so a duplicate id or a citation to a row that
+    does not exist was invisible to every gate — the tranche-26b references-drift shape.
+
+    Deliberately **does not** check whether a row's claim is true (that a `guarded` row really is
+    guarded): that needs judgement, judgement needs an exemption list, and a gate with an exemption
+    list cannot fail — the τ=1 guard's lesson (§9).
+    """
+    text = _register_text()
+    live, archived = live_convention_ids(text), archived_convention_ids(text)
+    problems: list[str] = []
+
+    if not live:
+        return ["docs/conventions_register.md: no live convention rows found — the table's shape "
+                "changed, and reading it as empty would make every citation dangle silently"]
+
+    for group, name in ((live, "live"), (archived, "archived")):
+        for identifier in sorted({i for i in group if group.count(i) > 1}):
+            problems.append(
+                f"C{identifier} appears twice in the {name} register — ids are cited from src/, "
+                f"OPEN.md and the CHANGELOG, so a duplicate silently redirects them")
+    for identifier in sorted(set(live) & set(archived)):
+        problems.append(
+            f"C{identifier} is both a live and an archived row — the archived ids are kept stable "
+            f"precisely so a live row may not reuse one")
+
+    if live != sorted(live):
+        problems.append(
+            f"the live ids are not ascending: {live}. A register is read by number, so a row out "
+            f"of sequence is a row a reader does not find")
+    expected = list(range(live[0], live[0] + len(live)))
+    if sorted(live) != expected:
+        problems.append(
+            f"the live ids have a gap: {sorted(live)} against a gap-free run {expected}. A hole "
+            f"means a row was dropped, and nothing else would say so")
+
+    known = set(live) | set(archived)
+    for identifier in sorted(referenced_convention_ids(text) - known):
+        problems.append(
+            f"the register mentions C{identifier}, which is not a row in either table")
+    return problems
+
+
 def gates() -> list[str]:
     """Charter §9's gate list and `ci.yml`'s invocations must name the same set.
 
@@ -608,6 +698,7 @@ def main() -> int:
     sub.add_parser("slow")
     sub.add_parser("version")
     sub.add_parser("gates")
+    sub.add_parser("conventions")
     sub.add_parser("all")
     args = ap.parse_args()
 
@@ -616,7 +707,7 @@ def main() -> int:
     checks = {
         "acyclic": acyclic, "fields": fields, "layers": layers, "debt": debt,
         "provenance": provenance, "references": references, "version": version,
-        "slow": slow_tests, "gates": gates,
+        "slow": slow_tests, "gates": gates, "conventions": conventions,
     }
     if args.cmd == "all":
         # `slow` re-runs every file separately, so it is NOT in `all` — CI calls it once,
