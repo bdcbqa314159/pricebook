@@ -161,24 +161,29 @@ class TestTheQuadraturesValidityRegime:
         ever stops tracking the cutoff, the error has a second source and the table above no longer
         describes it.
         """
+        import pricebook.engine.fourier_inversion as inversion
         import pricebook.engine.heston_fourier as module
+
+        # `_LOWER` moved to the extracted inversion at tranche 49; `FourierGrid.nodes()` reads it
+        # from there, so that is the module this test must patch. Patching `heston_fourier` would
+        # now be a silent no-op -- the test would pass while measuring nothing.
 
         params = HestonParams(kappa=1.5, theta=0.04, sigma_v=0.0, rho=0.0, v0=0.05)
         strike = 1.25 * FORWARD
         reference = DF * black_price(
             FORWARD, strike, params.integrated_variance(YEARS), EquityOptionKind.CALL
         )
-        original = module._LOWER
+        original = inversion._LOWER
         try:
             errors = []
             for cutoff in (1e-6, 1e-8, 1e-10):
-                module._LOWER = cutoff
+                inversion._LOWER = cutoff
                 got = module.heston_call_price(
                     params, UNDERLYING, strike, EXPIRY, (CURVE, FourierGrid(200.0, 4001))
                 )
                 errors.append(abs(got / reference - 1.0))
         finally:
-            module._LOWER = original
+            inversion._LOWER = original
         for coarse, fine in zip(errors, errors[1:]):
             assert 50.0 < coarse / fine < 200.0, f"the bias must be LINEAR in the cutoff: {errors}"
         assert original <= 1e-12, "the committed cutoff must put the bias below every oracle here"
