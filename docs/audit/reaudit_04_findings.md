@@ -112,6 +112,63 @@ Survivors ruled by Cowork, appended here.
 
 ---
 
+---
+
+## (1) Oracle-power sweep — DONE (Code, 2026-11-16). **5 survivors, all real, all one family.**
+
+Ran oldest-first. **Methodology note first, because it nearly invalidated the run:** the sweep's
+first execution reported *"survivors: 0"* from 21 runs that had all **failed on the command line**
+(`--timeout=600` with no `pytest-timeout` installed). Every row said "error" rather than "killed",
+which is the only reason it was caught. **A sweep that reports zero survivors must also report how
+many mutants actually applied** — "a mutant that does not apply is not a mutant that died", at the
+scale of a whole sweep rather than one line. Re-run correctly, 21/21 applied.
+
+### F-4.1 … F-4.5 — the proactive invariant-6 sweep (the first named item): 21 sites, 5 survivors
+
+Every historical-flow filter in the tree was bypassed individually (`is_historical` flipped so
+nothing is historical), full suite each. 16 killed, **5 survived**, and all five are the tenth
+degenerate shape — the guard is present and correct, and no fixture exercises it:
+
+| # | site | why the guard is invisible |
+|---|---|---|
+| **F-4.1** | `engine/equity_vanilla.py:45` | there *is* an expired-option test, but the option is **out of the money** (strike 105, spot 100), so the intrinsic the bypass returns is `0` — the same answer. **A moneyness degeneracy, not a date one**: a new sub-shape of the tenth family. |
+| **F-4.2** | `engine/heston_fourier.py:166` | same shape, same fixture family. |
+| **F-4.3** | `engine/forward_cds.py:118` | the swaption's expiry guard — no expired-swaption fixture at all. |
+| **F-4.4** | `engine/yoy.py:136` | the fixed-leg comprehension guard: the matured-swap test has **every** period settled, so the comprehension is empty with or without the filter. Only a **straddling** schedule discriminates. |
+| **F-4.5** | `engine/yoy.py:152` | the par-rate annuity guard, same cause. |
+
+**Severity.** F-4.1/4.2/4.3: an expired *in-the-money* option would price at its intrinsic instead
+of PV 0 — a live number for a settled trade. F-4.4/4.5: a settled period's `nominal.df(pay)` is a
+discount factor at **negative `t`**, i.e. above 1 — the same defect class as T40's 73% annuity
+overstatement, in an engine that has shipped since T4.
+
+**The escalation earned its keep on its first run**, and the T44b fix holds under it (its site is
+killed). **The three straddle claims were re-derived, not taken:** T43, T44a and T44b all straddle
+(2 settled / 10 live each) with the premise asserted in each file.
+
+### Items 2–4 — clean
+
+- **Single-killer re-run table:** all four recorded load-bearing single-killers still die (MM-I's
+  two `τ/(1+τ)` denominators, the YoY first `ψ`, tranche 26's Leg B numéraire divisor). **No killer
+  has been deleted**; each is still killed by exactly one test, so the recorded status stands.
+- **New L0/credit closed forms, this arc's two blind spots probed:** a *uniform rescaling* of every
+  tranche surface (LHP capped loss, the recursion, the shared composition, the base-correlation
+  difference) and an *order loss* in every credit quadrature (both `credit_legs` legs, the RPV01
+  trapezoid) — **no survivors**. T43's scale-invariance lesson holds across the whole tower. `Φ₂`,
+  now load-bearing for the copula/LHP/recursion tower, dies **80** ways on a 1% rescale.
+  *(One probe reported PATTERN NOT FOUND and was re-run against the real line rather than counted.)*
+- **Oldest-first full-tree sweep (T1–T37):** 12 mutants applied across the discount curve, the cash
+  engine, the linker accrual, Black's `d±`, the T8 annuity, MM-I's freezing weight, Box-Muller's
+  angle, `inverse_norm_cdf`'s tail branch and the CVA integrand — **no survivors**. *(Five reported
+  PATTERN NOT FOUND on the first pass and were re-run against their real lines.)*
+
+## (2) Duplication — VERIFIED by artifact, not by report
+
+The T44a tranche-composition extraction single-sources it: **zero** composition definitions remain
+in `LHPModel` or `RecursionModel`, three in `models/tranche_loss.py`, and dropping the shared width
+division **once** fails 4 tests across *both* models' suites. One composition, one oracle, both
+covered — as claimed, now shown.
+
 ## Status
 
 - (3) and (4): **DONE** (Cowork), above. Two stale headers fixed in place; no fix-tranche.
