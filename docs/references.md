@@ -313,7 +313,7 @@ Candidate map (ruled per-tranche at build; the arc plan is `docs/okane_credit_ar
 premium leg / risky PV01 (eqs 6.2/6.4) are built and oracled in
 `engine/credit_default_swap.py`.
 
-### `GATHERAL-2006` — `in-hand`
+### `GATHERAL-2006` — `worked-from`
 
 Gatheral, J., *The Volatility Surface: A Practitioner's Guide*, Wiley Finance Series, 2006. 210 pp.
 Held at `_stock/NewDocuments/Gatheral - The Volatility Surface, A Practitioner's Guide copy.pdf`
@@ -326,7 +326,13 @@ replication (T31), SABR (`models/sabr_model.py`), the implied-vol surface (T9/T3
 Gatheral adds *on top*: the **SVI** parameterization of the surface (ch 3, eq 3.20) and its no-arbitrage
 conditions, the **surface asymptotics** (ch 7, Lee's moment formula / wing slopes), **volatility
 derivatives** beyond the variance swap (ch 11, the volatility swap's convexity, options on variance), and
-**stochastic-volatility-plus-jumps / Bates** (ch 5) extending T33. A **second source** for Heston, local
+**stochastic-volatility-plus-jumps / Bates** (ch 5) extending T33. **Worked from at T46:** ch 3's eq 3.20
+(the SVI slice, `models/svi.py`) and ch 7 pp. 97–98 (Lee's moment formula, `β*, α* ∈ [0,2]`, which is what
+pins eq 3.20's radical — see `models/svi.py`'s header for why neither `pdftotext` rendering shows it).
+**What it does NOT carry:** no butterfly-arbitrage condition for SVI — the text gives only the calendar
+condition and says butterfly is *"relatively easy to eliminate"*; the rigorous `g(k) ≥ 0` is
+Gatheral–Jacquier (2014), **not held** (`docs/to_go_deeper.md`), so T46 derives the density from
+Breeden–Litzenberger instead. A **second source** for Heston, local
 vol and the variance swap we already hold — so a cross-source independence check is available where it and
 `BROCKHAUS-2016` render the same object (§4's same-formula caveat applies).
 

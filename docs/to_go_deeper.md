@@ -233,3 +233,27 @@ candidate) is the completion ratio in the checkpoint `CP_okane_credit.md`. The r
    (not a flag on the knockout one, §6) whose engine adds the front-end protection term; oracle by the
    decomposition (`non-knockout = knockout + front-end`, different code each side) and the `R→1` /
    `h→0` reductions to the knockout. Cheap; unpulled (nothing needs it), so deferred by the §1 pull gate.
+
+---
+
+## `GATHERAL-2006` — *The Volatility Surface* (project six, in progress)
+
+Opened at T46 (SVI). The arc is live, so this section records only what T46 itself deliberately left,
+not the arc's forward scope (`docs/gatheral_vol_surface_arc.md` holds that).
+
+1. **Gatheral–Jacquier (2014)'s closed-form no-butterfly conditions — an ACQUIRE-SOURCE route, and
+   the one place T46's certificate has a stated gap.** The 2006 text carries **no** butterfly
+   condition for SVI: the ch 3 digression gives the calendar condition and says butterfly is
+   *"relatively easy to eliminate"*, and that is all. So T46 derives the risk-neutral density from
+   Breeden–Litzenberger instead (`models/svi.py::risk_neutral_density` — `p = g·n(d₋)/√w` with
+   `g = (1 − kw'/2w)² − (w'²/4)(1/w + 1/4) + w''/2`, obtained from `e^k p = c'' − c'`) and certifies
+   admissibility in two pieces: the **quoted span** numerically, at 401 points, and the **two tails**
+   analytically, because `g(±∞) = ¼ − (b(1±ρ))²/16 ≥ 0` is *exactly* Lee's `b(1±ρ) ≤ 2` (verified to
+   8 decimals on both wings of three slices). **What that leaves uncovered is the intermediate
+   region** — beyond the far edge of the quotes, before the asymptote dominates. A finite scan cannot
+   close it and no held source gives the closed form that would.
+   **Route:** obtain Gatheral, J. & Jacquier, A., *Arbitrage-free SVI volatility surfaces*,
+   Quantitative Finance 14(1), 2014 — **not held**, and a work merely referenced is not citable (§7),
+   so this is an acquire-source note rather than a deferred build. With it, the scan is replaced by
+   the paper's parameter-space conditions and the certificate becomes global. Until then the gap is
+   named in `_butterfly_breach`'s docstring rather than papered over.
