@@ -351,7 +351,16 @@ not an oracle. Ruled principles:
   a 73% annuity overstatement (a forward whose premiums had partly settled discounted at negative `t`),
   found at T41b; one tranche later T42 built the same fixture shape and the sweep caught it again. The
   premise to assert, where a historical-flow filter is load-bearing, is **"a premium-schedule fixture
-  straddles the valuation date unless the tranche says why not"** — and because whether a historical period
+  straddles the valuation date unless the tranche says why not"** — **but the straddle is necessary, not
+  sufficient**: the general premise (the catalog's refrain — the fixture must make the two branches produce
+  *different* numbers) specialises here to *the excluded flow is worth a different amount excluded than it
+  is when the dropped guard lets it fall through*. For a premium accrual that is the straddle; for an
+  **option bypass** it additionally needs the expired option **in the money**, since the fall-through
+  returns intrinsic and an *out-of-the-money* expired option's intrinsic is `0` — the same answer PV-0
+  gives, so the guard stays invisible though the fixture straddles. *(Re-audit #4's first proactive
+  invariant-6 run: F-4.1/F-4.2 — the equity and Heston expired-option tests straddled but were OTM, the
+  "zero makes a factor invisible" shape wearing the invariant-6 guard's clothes; not a new shape, the
+  straddle premise sharpened by its own sweep's first run.)* And because whether a historical period
   is load-bearing is *dynamic* (the τ=1 gateability boundary, §9), it is the mutation sweep's job, never a
   static gate; name it here so a spec carries the premise before the sweep has to. Tenth appearance, and
   the first where the degeneracy is a *cross-tranche fixture convention* rather than a property of one
@@ -645,7 +654,16 @@ unconditionally only for the fraction.)*
   every push and catch *structural* drift (layering, fields, debt balance, provenance), so the
   re-audit targets only what they cannot: **(1) oracle power** — a full-tree mutation sweep, because
   mutation is per-tranche and never re-run, so an oracle strong at T4 can be silently weakened by a
-  later refactor (the project's signature defect, applied to history). **A drifted discipline is gated
+  later refactor (the project's signature defect, applied to history). **A whole-sweep "zero survivors"
+  is meaningless without the applied count beside it — a mutant that did not apply is not a mutant that
+  died, at sweep scale.** The per-mutant form of this (PATTERN-NOT-FOUND is not a kill) is old; the
+  aggregate form is the dangerous one, because the sweep runs *unattended* and a run where every mutant
+  errored (a missing `pytest-timeout`, a stale line map) reports a clean `0` that ends the re-audit
+  declaring the tree sound when nothing ran. So the sweep reports **applied/killed/survived**, and a `0`
+  survivors is read only against a *full* applied count. *(Re-audit #4: the first proactive sweep printed
+  "survivors: 0" from 21 runs that had every one errored on the command line; caught only because each row
+  said "error" not "killed" — the §4 "contain the failure in its domain" rule applied to the audit's own
+  instrument.)* **A drifted discipline is gated
   (§7's references precedent) only when its violation is STATICALLY decidable; when the violation is a
   dynamic/semantic property — *is this accrual load-bearing in the path the fixture exercises?* — no CI
   gate can see it and it stays the mutation sweep's job.** The references discipline was static (header
