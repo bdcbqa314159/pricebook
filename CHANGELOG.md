@@ -50,9 +50,18 @@ and both forms are asserted so the correction is visible rather than silently su
 `heston_fourier.py` keeps what is Heston-specific. SVJ differs from Heston in *exactly one thing* —
 its characteristic function — so §6's rule-of-two fires on a genuinely shared shape, and the
 alternative (a sixth argument on `heston_probabilities`) would have broken §7's limit for something
-that is not vocabulary. **The move is proved bit-identical on 120 Heston reference values** stored as
-raw IEEE-754 bit patterns rather than decimals, since a decimal round-trip would turn a bit-identity
-claim into a tolerance claim.
+that is not vocabulary. **The move is proved bit-identical on 120 Heston reference values** — 360
+doubles, same interpreter, before versus after, every bit equal.
+
+**And the first committed form of that proof was wrong in a way CI caught.** The captured bit
+patterns were asserted for *equality*, which turns an in-process measurement into a cross-platform
+claim — and §9 states the rule it breaks: transcendental results differ 1-2 ULP across runtimes.
+`cmath.exp`/`log`/`sqrt` duly disagreed with the capturing machine by **1 to 4 ULP** on both
+runners, 12 tests failing. The committed form is now a **ULP-distance** assertion with a stated
+budget of 32 — about 6e-14 relative on these prices, four orders tighter than the tightest
+behavioural oracle in the tree, and shown to reject a 1e-9 relative perturbation by a factor of a
+thousand. The in-process bit-identity remains the purity argument; the portable regression is what a
+test running elsewhere is entitled to assert.
 
 The extraction also made the inversion testable **with no model at all**, which a Heston-only test
 could never do: handed a Gaussian characteristic function, both probabilities have exact closed

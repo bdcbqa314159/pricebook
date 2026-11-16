@@ -1,13 +1,25 @@
 """The extracted Gil-Pelaez inversion (L4) — tranche 49.
 
-**This file exists to prove one thing: extracting the inversion out of `heston_fourier.py` changed
-no Heston number.** §4 permits a bit-identity claim exactly when a refactor preserves the order of
-the floating-point operations, and a verbatim code move does — so the proof available here is the
-strong one, not the ULP band a reordering would have forced.
+**This file guards one thing: extracting the inversion out of `heston_fourier.py` changed no Heston
+number.** The references below were produced by `heston_call_price` **before** the extraction, and
+they are stored as raw IEEE-754 bit patterns rather than decimals so that the comparison is made in
+the integer domain, where a 1-ULP drift is visible and a decimal round-trip would have hidden it.
 
-The references below were produced by `heston_call_price` **before** the extraction and are stored
-as raw IEEE-754 bit patterns rather than decimal literals, because a decimal round-trip would turn a
-bit-identity claim into a tolerance claim and quietly weaken exactly what is being asserted.
+**But the assertion is a ULP bound, not equality, and the first version of this file got that
+wrong.** §4 permits a bit-identity claim when a refactor preserves the order of the floating-point
+operations, and the move does — so the *purity proof* was in-process bit-identity: 360 doubles, the
+same interpreter, before versus after, every bit equal. That proof is sound and it is what justified
+the refactor. Baking those bits into a **committed** test is a different and stronger claim, because
+the test then runs on other machines, and §9 states the rule this breaks: *"Tolerance-based oracles
+are a hard rule (transcendental results differ 1-2 ULP across runtimes)."* `cmath.exp`, `cmath.log`
+and `cmath.sqrt` are exactly that, and CI duly disagreed with this machine by **1 to 4 ULP** on both
+runners.
+
+So the committed form is a **ULP-distance** assertion with a stated margin — still four orders of
+magnitude tighter than any behavioural tolerance in the tree, and tight enough that a real change
+to the inversion could not hide inside it, while being a claim the test is actually entitled to
+make. The in-process bit-identity measurement stays the purity argument; this is its portable
+regression.
 
 The test also guards the move in the other direction: `_LOWER` and `FourierGrid` moved with the
 inversion, and `tests/L4/test_heston_fourier.py`'s cutoff test had been patching
@@ -101,16 +113,51 @@ REFERENCES = [
     (0.8, 0.03, 0.2, 0.4, 0.09, 1825, 200.0, "65f500bd731b1040"),]
 
 
+#: How far a reference value may drift. Measured: the extraction is bit-identical in-process, and
+#: CI disagreed with the capturing machine by **1 to 4 ULP** on both runners — pure libm variation
+#: in `cmath.exp`/`log`/`sqrt`, which §9 names as a hard rule rather than a surprise. 32 leaves room
+#: for a slower runtime or a future libm without admitting anything real: 32 ULP on a price near 10
+#: is about 6e-14 relative, four orders tighter than the tightest behavioural oracle in the tree,
+#: and any actual change to the inversion moves prices by vastly more.
+_ULP_BUDGET = 32
+
+
+def _ulp_distance(left: float, right: float) -> int:
+    """Signed-magnitude doubles compared as integers — the distance in representable steps.
+
+    Comparing bit patterns as *integers* rather than as floats is what makes "within 4 ULP" a
+    statement one can assert; a relative tolerance at this scale is dominated by the exponent."""
+    def ordered(value: float) -> int:
+        bits = int.from_bytes(struct.pack("<d", value), "little")
+        return bits if bits < (1 << 63) else (1 << 63) - bits
+    return abs(ordered(left) - ordered(right))
+
+
 @pytest.mark.parametrize("kappa,theta,sigma_v,rho,v0,days,strike,expected", REFERENCES)
 def test_the_extraction_changed_no_heston_number(
     kappa: float, theta: float, sigma_v: float, rho: float, v0: float,
     days: int, strike: float, expected: str,
 ) -> None:
-    """Bit-identical, not approximately equal."""
+    """Within `_ULP_BUDGET` of the pre-extraction value — see the module docstring for why this is
+    a ULP bound and not equality."""
     params = HestonParams(kappa=kappa, theta=theta, sigma_v=sigma_v, rho=rho, v0=v0)
     expiry = VAL + timedelta(days=days)
     price = heston_call_price(params, UNDERLYING, strike, expiry, (CURVE, GRID))
-    assert struct.pack("<d", price).hex() == expected
+    reference = struct.unpack("<d", bytes.fromhex(expected))[0]
+    distance = _ulp_distance(price, reference)
+    assert distance <= _ULP_BUDGET, (
+        f"{price!r} is {distance} ULP from the pre-extraction {reference!r} "
+        f"(budget {_ULP_BUDGET}) — a real change, not libm variation"
+    )
+
+
+def test_the_ulp_budget_would_catch_a_real_change() -> None:
+    """The budget is only meaningful if it rejects something. A 1e-9 *relative* perturbation — far
+    below any behavioural tolerance in this tree, and the sort of thing a quietly reordered
+    quadrature produces — is already millions of ULP away."""
+    reference = struct.unpack("<d", bytes.fromhex(REFERENCES[0][7]))[0]
+    assert _ulp_distance(reference, reference) == 0
+    assert _ulp_distance(reference * (1.0 + 1e-9), reference) > 1_000 * _ULP_BUDGET
 
 
 def test_the_cutoff_constant_lives_where_the_quadrature_reads_it() -> None:

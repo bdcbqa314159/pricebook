@@ -17,11 +17,18 @@ the alternative — a sixth argument on `heston_probabilities` — would have br
 something that is not vocabulary.
 
 **The extraction is a pure code move, proved by bit-identity rather than by the suite staying
-green.** The expressions and their order are unchanged, so every Heston number is the same double
-it was: 120 reference values (3 parameter sets x 4 maturities x 2 grids x 5 strikes) were captured
-as raw bit patterns before the move and are asserted after, in
-`tests/L4/test_fourier_inversion.py`. §4 permits the bit-identity claim exactly when a refactor
-preserves the order of the floating-point operations, and a verbatim move does.
+green.** The expressions and their order are unchanged, so every Heston number is the same double it
+was: 120 reference values (3 parameter sets x 4 maturities x 2 grids x 5 strikes) were captured as
+raw bit patterns before the move and compared after, **in the same interpreter** — 360 doubles, every
+bit equal. §4 permits the bit-identity claim exactly when a refactor preserves the order of the
+floating-point operations, and a verbatim move does.
+
+**That proof is in-process, and the committed regression is therefore a ULP bound rather than
+equality** — which is not a weakening of the argument but the limit of what a test running on other
+machines may claim. §9 states the rule: transcendental results differ 1-2 ULP across runtimes, and
+`cmath.exp`/`log`/`sqrt` are exactly that. The first version of `tests/L4/test_fourier_inversion.py`
+asserted the captured bits for equality and failed on both CI runners by 1 to 4 ULP; it now asserts
+a ULP distance with a stated budget, still four orders tighter than any behavioural tolerance here.
 
 **The characteristic function arrives already bound to its maturity and carry**, as `phi(u)` alone.
 The inversion has no business knowing what parameters a model carries, and a signature taking
@@ -33,9 +40,10 @@ Provenance:
   source: BROCKHAUS-2016 (docs/references.md) ch 16.2 - the Gil-Pelaez form of the inversion
           integral, unchanged from tranche 33; this module is an extraction, not a new
           transcription
-  oracle: tests/L4/test_fourier_inversion.py - the 120-point bit-identity proof that the extraction
-          changed no Heston number, and the inversion's requirements on a characteristic function
-          it is handed (a degenerate `phi` recovers Black)
+  oracle: tests/L4/test_fourier_inversion.py - the 120-point ULP-bounded regression that the
+          extraction changed no Heston number (bit-identical in-process; see above for why the
+          committed form is a ULP bound), and the inversion's own requirements against a Gaussian
+          characteristic function, whose two probabilities have exact closed forms
   crosscheck: none - the numerics are cross-checked where the characteristic functions are
           (models/heston.py, models/bates.py)
   slice:  tranche 49 - the SVJ/Bates model
