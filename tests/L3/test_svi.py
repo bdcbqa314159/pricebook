@@ -127,13 +127,17 @@ class TestTheRadicalIsPinnedByTheWings:
     `k` and violates `β*, α* ∈ [0,2]` unboundedly, so the *linear* asymptote is the pin."""
 
     @pytest.mark.parametrize("sign,expected", [(+1, B * (1 + RHO)), (-1, B * (1 - RHO))])
-    def test_each_wing_is_linear_with_the_transcribed_slope(self, sign: int, expected: float) -> None:
-        """`w(k) → a + b(ρ ± 1)(k − m)`, so the local slope tends to `b(1±ρ)` — distinct per wing
-        precisely because `ρ ≠ 0`."""
+    def test_each_wing_matches_lees_own_quantity(self, sign: int, expected: float) -> None:
+        """Asserted in **ch 7's own form**, `w(k)/|k| → β*` (and `α*` on the right), which is a
+        **magnitude**: on the left wing the signed derivative is `b(ρ−1) = −0.52` while Lee's
+        `β* = b(1−ρ) = +0.52`. Comparing the signed slope to `β*` is a sign error, and asserting
+        the source's own ratio avoids inventing a convention the source does not use."""
         far = sign * 400.0
+        assert SLICE.total_variance(far) / abs(far) == pytest.approx(expected, rel=1e-2)
+        # and the signed derivative carries the wing's direction, which `wing_slopes` drops
         h = 1e-3
         slope = (SLICE.total_variance(far + h) - SLICE.total_variance(far - h)) / (2 * h)
-        assert slope == pytest.approx(expected, rel=1e-5)
+        assert slope == pytest.approx(sign * expected, rel=1e-5)
 
     def test_the_two_wing_slopes_differ_so_rhos_sign_is_observable(self) -> None:
         up, down = SLICE.wing_slopes()
@@ -201,7 +205,12 @@ class TestTheRiskNeutralDensity:
         up, mid, down = (self._call(SLICE, k + h), self._call(SLICE, k), self._call(SLICE, k - h))
         wrong = math.exp(-k) * (up - 2 * mid + down) / (h * h)
         right = risk_neutral_density(SLICE, k)
-        assert abs(wrong - right) > 0.3 * right, f"indistinguishable: {wrong} vs {right}"
+        gap = abs(wrong - right) / right
+        # MEASURED at 24.5% here, against the 2e-5 band the companion above passes at -- four
+        # orders of magnitude outside it, so that oracle provably discriminates the two forms
+        # rather than merely tolerating both (§4: state what a green actually rules out).
+        assert gap > 0.15, f"indistinguishable: {wrong} vs {right} ({gap:.3%})"
+        assert gap > 1000 * 2e-5, "the wrong form must sit far outside the companion's tolerance"
 
     def test_it_integrates_to_one(self) -> None:
         """A density's defining requirement — it survives any transcription error the source and the
@@ -251,11 +260,20 @@ class TestTheCalendarCondition:
         assert max(gaps) - min(gaps) > 1e-3, "a parallel shift would not exercise the k-dependence"
         assert calendar_arbitrage_free(SLICE, later, STRIKES)
 
-    def test_crossing_slices_are_refused(self) -> None:
-        crossing = SviParams(a=A * 1.2, b=B * 0.3, rho=RHO, m=M, sigma=SIGMA)
+    def test_genuinely_crossing_slices_are_refused(self) -> None:
+        """The discriminating case: higher at the vertex, **lower in the wings**, so the later
+        slice is neither uniformly above nor uniformly below. A fixture that merely sits below
+        everywhere would pass a weaker "non-decreasing on average" check too; this one does not."""
+        crossing = SviParams(a=A + 0.05, b=B * 0.25, rho=RHO, m=M, sigma=SIGMA)
         gaps = [crossing.total_variance(k) - SLICE.total_variance(k) for k in STRIKES]
         assert min(gaps) < 0.0 < max(gaps), f"the fixture must actually cross: {gaps}"
         assert not calendar_arbitrage_free(SLICE, crossing, STRIKES)
+
+    def test_a_uniformly_lower_later_slice_is_refused(self) -> None:
+        lower = SviParams(a=A * 0.5, b=B, rho=RHO, m=M, sigma=SIGMA)
+        gaps = [lower.total_variance(k) - SLICE.total_variance(k) for k in STRIKES]
+        assert max(gaps) < 0.0, f"the fixture must sit below everywhere: {gaps}"
+        assert not calendar_arbitrage_free(SLICE, lower, STRIKES)
 
     def test_the_order_of_the_arguments_matters(self) -> None:
         """A mutation swapping the two slices must die — so the check is asserted asymmetric."""
@@ -331,7 +349,8 @@ class TestHestonAgainstSviThroughBlack:
             heston_call_price(self.PARAMS, self.UNDERLYING, k, self.EXPIRY, (self.CURVE, self.GRID))
             for k in strikes
         )
-        # undiscounted, per unit forward -- what Black's total variance speaks to
+        # undiscounted ABSOLUTE prices -- the scale `black_price(forward, strike, w, kind)`
+        # returns, so the comparison below needs no further rescaling
         return forward, strikes, tuple(p / discount for p in prices)
 
     def test_the_expiry_is_not_one_year(self) -> None:
@@ -344,7 +363,7 @@ class TestHestonAgainstSviThroughBlack:
         forward, strikes, undiscounted = self._heston_smile()
         log_strikes = tuple(math.log(k / forward) for k in strikes)
         vols = tuple(
-            black_implied_vol(p * forward, forward, k, self.YEARS, CapFloorKind.CAP)
+            black_implied_vol(p, forward, k, self.YEARS, CapFloorKind.CAP)
             for p, k in zip(undiscounted, strikes, strict=True)
         )
         # the ONE conversion, at the input boundary (ruling 1): annualised quote -> total variance
@@ -355,10 +374,15 @@ class TestHestonAgainstSviThroughBlack:
         for k, strike, target in zip(log_strikes, strikes, undiscounted, strict=True):
             # w feeds black_price with NO further conversion -- the other end of C14
             repriced = black_price(forward, strike, fitted.total_variance(k), CapFloorKind.CAP)
-            gaps.append(abs(repriced / forward - target) / target)
+            gaps.append(abs(repriced - target) / target)
         worst = max(gaps)
-        assert worst < 0.02, f"SVI does not fit the Heston smile: worst relative gap {worst:.3%}"
+        # MEASURED 0.0030% here, against 81.1% for the same path with the `xT` omitted (the test
+        # below). The band is set at 0.05% -- ~16x the measured gap, and ~1600x tighter than the
+        # convention slip -- so a green here provably rules the slip out rather than absorbing it
+        # (§4: a band wide enough to absorb noise is wide enough to absorb a defect).
+        assert worst < 5e-4, f"SVI does not fit the Heston smile: worst relative gap {worst:.4%}"
         assert worst > 1e-8, "an exact match would mean the two objects are not independent"
+        assert min(gaps) > 0.0, "SVI is an approximation of Heston, not an identity"
 
     def test_a_missing_time_factor_would_fail_this_test(self) -> None:
         """Proof the test above has power over the convention, rather than merely passing: feeding
@@ -366,20 +390,18 @@ class TestHestonAgainstSviThroughBlack:
         forward, strikes, undiscounted = self._heston_smile()
         log_strikes = tuple(math.log(k / forward) for k in strikes)
         vols = tuple(
-            black_implied_vol(p * forward, forward, k, self.YEARS, CapFloorKind.CAP)
+            black_implied_vol(p, forward, k, self.YEARS, CapFloorKind.CAP)
             for p, k in zip(undiscounted, strikes, strict=True)
         )
         annualised = tuple(v * v for v in vols)  # the mistake: no x T
         fitted = fit_svi_slice(log_strikes, annualised)
         worst = max(
-            abs(
-                black_price(forward, strike, fitted.total_variance(k), CapFloorKind.CAP) / forward
-                - target
-            )
+            abs(black_price(forward, strike, fitted.total_variance(k), CapFloorKind.CAP) - target)
             / target
             for k, strike, target in zip(log_strikes, strikes, undiscounted, strict=True)
         )
-        assert worst > 0.02, f"the convention slip is invisible here: {worst:.3%}"
+        # MEASURED 81.1%, against the 0.05% band the correct path passes at.
+        assert worst > 0.10, f"the convention slip is invisible here: {worst:.4%}"
 
 
 class TestTheParameterGuards:
