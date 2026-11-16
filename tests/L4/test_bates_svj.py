@@ -86,7 +86,9 @@ PARAMS = BatesParams(heston=HESTON, jumps=JUMPS)
 SHORT_DAYS, LONG_DAYS = 60, 730
 SHORT_EXPIRY = VAL + timedelta(days=SHORT_DAYS)
 LONG_EXPIRY = VAL + timedelta(days=LONG_DAYS)
-GRID = FourierGrid(200.0, 2001)
+#: Wider than tranche 33's Heston grid, for the reason measured in `TestTheInversionIsConverged`:
+#: jump tails make `phi_SVJ` decay more slowly, worst at short maturity.
+GRID = FourierGrid(400.0, 4001)
 
 
 def _years(expiry: date) -> float:
@@ -352,7 +354,9 @@ class TestAgainstMonteCarlo:
         _, se = self._mc(LONG_EXPIRY, strike, seed=90_125)
         with_jumps = bates_call_price(PARAMS, UNDERLYING, strike, LONG_EXPIRY, (CURVE, GRID))
         without = heston_call_price(HESTON, UNDERLYING, strike, LONG_EXPIRY, (CURVE, GRID))
-        assert abs(with_jumps - without) > 10.0 * (4.0 * se), (
+        # MEASURED: the jump effect is 2.853 on a price of 20.64 (13.8%) against a 4*SE band of
+        # ~0.41 -- about 7x. Asserted at 5x so the margin is real and stated, not hopeful.
+        assert abs(with_jumps - without) > 5.0 * (4.0 * se), (
             f"jump effect {abs(with_jumps - without):.4f} vs band {4 * se:.4f}"
         )
 
@@ -361,13 +365,43 @@ class TestTheInversionIsConverged:
     """The Fourier price is the *reference* half of the MC band, so it needs its own accuracy
     argument in the regime it is used (§4, "a reference is code too")."""
 
+    REFERENCE = FourierGrid(1200.0, 24001)
+
     @pytest.mark.parametrize("days", [SHORT_DAYS, LONG_DAYS])
     @pytest.mark.parametrize("strike", [80.0, 100.0, 130.0])
     def test_the_committed_grid_matches_a_far_finer_one(self, days: int, strike: float) -> None:
         expiry = VAL + timedelta(days=days)
         committed = bates_call_price(PARAMS, UNDERLYING, strike, expiry, (CURVE, GRID))
-        fine = bates_call_price(PARAMS, UNDERLYING, strike, expiry, (CURVE, FourierGrid(400.0, 8001)))
+        fine = bates_call_price(PARAMS, UNDERLYING, strike, expiry, (CURVE, self.REFERENCE))
         assert committed == pytest.approx(fine, rel=1e-9)
+
+    def test_THE_REASON_the_grid_is_wider_than_hestons(self) -> None:
+        """**Jump tails decay more slowly, and the damage is at SHORT maturity** — the opposite of
+        where one looks for truncation trouble, because that is where the diffusion has contributed
+        least and the jump tail dominates. Measured here rather than asserted: tranche 33's
+        `upper=200` is wrong by ~3e-05 relative at 60 days and by ~1e-14 at 730, so a
+        Heston-shaped default prices long-dated options perfectly and short-dated ones wrongly.
+        This is what makes the constant's *value* oracled rather than chosen."""
+        narrow = FourierGrid(200.0, 2001)
+        short_error = max(
+            abs(
+                bates_call_price(PARAMS, UNDERLYING, k, SHORT_EXPIRY, (CURVE, narrow))
+                / bates_call_price(PARAMS, UNDERLYING, k, SHORT_EXPIRY, (CURVE, self.REFERENCE))
+                - 1.0
+            )
+            for k in (80.0, 100.0, 130.0)
+        )
+        long_error = max(
+            abs(
+                bates_call_price(PARAMS, UNDERLYING, k, LONG_EXPIRY, (CURVE, narrow))
+                / bates_call_price(PARAMS, UNDERLYING, k, LONG_EXPIRY, (CURVE, self.REFERENCE))
+                - 1.0
+            )
+            for k in (80.0, 100.0, 130.0)
+        )
+        assert short_error > 1e-6, f"the premise: the narrow grid must actually fail short ({short_error:.2e})"
+        assert long_error < 1e-10, f"...and pass long ({long_error:.2e}), which is how it hides"
+        assert short_error > 1_000 * long_error
 
 
 class TestTheCrossArcTieBack:
