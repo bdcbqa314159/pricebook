@@ -44,7 +44,7 @@ from typing import Protocol
 
 import math
 
-from pricebook.foundation.distributions import norm_cdf
+from pricebook.foundation.distributions import norm_cdf, norm_pdf
 from pricebook.foundation.inflation import CapFloorKind
 from pricebook.foundation.solvers import bracketed_root
 
@@ -122,7 +122,7 @@ def black_gamma(forward: float, strike: float, total_variance: float, kind: CapF
     if total_variance <= 0.0:
         return 0.0
     d_plus, root = _d_plus(forward, strike, total_variance)
-    return _norm_pdf(d_plus) / (forward * root)
+    return norm_pdf(d_plus) / (forward * root)
 
 
 def black_vega(forward: float, strike: float, total_variance: float, kind: CapFloorKind) -> float:
@@ -135,7 +135,7 @@ def black_vega(forward: float, strike: float, total_variance: float, kind: CapFl
     if total_variance <= 0.0:
         return 0.0
     d_plus, _ = _d_plus(forward, strike, total_variance)
-    return forward * _norm_pdf(d_plus)
+    return forward * norm_pdf(d_plus)
 
 
 def digital_price(forward: float, strike: float, total_variance: float, kind: CapFloorKind) -> float:
@@ -156,13 +156,7 @@ def digital_delta(forward: float, strike: float, total_variance: float, kind: Ca
     if total_variance <= 0.0:
         return 0.0
     d_plus, root = _d_plus(forward, strike, total_variance)
-    return kind.omega * _norm_pdf(d_plus - root) / (forward * root)
-
-
-def _norm_pdf(x: float) -> float:
-    """The standard normal density. Local to this module because the Greeks are its only consumer —
-    §6's rule-of-two has not fired, so it has not been promoted to `foundation.distributions`."""
-    return math.exp(-0.5 * x * x) / math.sqrt(2.0 * math.pi)
+    return kind.omega * norm_pdf(d_plus - root) / (forward * root)
 
 
 def _no_arbitrage_limit(forward: float, strike: float, kind: CapFloorKind) -> float:

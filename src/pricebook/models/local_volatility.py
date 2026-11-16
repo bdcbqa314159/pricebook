@@ -46,16 +46,11 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
-from pricebook.foundation.distributions import norm_cdf
+from pricebook.foundation.distributions import norm_cdf, norm_pdf
 from pricebook.market.curve import CurveHandle
 from pricebook.market.equity import EquityUnderlying, dividend_forward
 from pricebook.market.equity_skew import ImpliedVolSkew
 
-_SQRT_TWO_PI = math.sqrt(2.0 * math.pi)
-
-
-def _norm_pdf(x: float) -> float:
-    return math.exp(-0.5 * x * x) / _SQRT_TWO_PI
 
 
 @dataclass(frozen=True)
@@ -111,13 +106,13 @@ def black_partials(state: ForwardState, strike: float, volatility: float) -> Bla
     """
     d1, d2 = state.moneyness_terms(strike, volatility)
     root_t = math.sqrt(state.years)
-    pdf2 = _norm_pdf(d2)
+    pdf2 = norm_pdf(d2)
     df = state.discount_factor
     return BlackPartials(
         price=df * (state.forward * norm_cdf(d1) - strike * norm_cdf(d2)),
         d_strike=-df * norm_cdf(d2),
         d2_strike2=df * pdf2 / (strike * volatility * root_t),
-        d_vol=df * state.forward * _norm_pdf(d1) * root_t,
+        d_vol=df * state.forward * norm_pdf(d1) * root_t,
         d_strike_d_vol=df * pdf2 * d1 / volatility,
     )
 
@@ -230,5 +225,5 @@ def _d_price_d_time(
     return (
         -state.yield_rate * df * state.forward * norm_cdf(d1)
         + state.rate * df * strike * norm_cdf(d2)
-        + df * strike * _norm_pdf(d2) * volatility / (2.0 * math.sqrt(state.years))
+        + df * strike * norm_pdf(d2) * volatility / (2.0 * math.sqrt(state.years))
     )

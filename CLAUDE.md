@@ -663,7 +663,15 @@ unconditionally only for the fraction.)*
   survivors is read only against a *full* applied count. *(Re-audit #4: the first proactive sweep printed
   "survivors: 0" from 21 runs that had every one errored on the command line; caught only because each row
   said "error" not "killed" — the §4 "contain the failure in its domain" rule applied to the audit's own
-  instrument.)* **A drifted discipline is gated
+  instrument.)* **And the applied count can be FULL and the verdict still false if the interpreter ran
+  stale bytecode — so the sweep must also ensure the mutated code is the code that RAN.** A mutation
+  written within one filesystem mtime tick leaves the `.pyc`'s (mtime, size) unchanged, so CPython
+  declines to recompile and the run tests the *original* source while printing a confident verdict for the
+  mutant; the applied-count guard is blind to it because the mutation *did* reach the source. Invalidate
+  the bytecode cache per mutant. This is the dangerous direction — a false *"killed"*, which hides a hole
+  exactly as a false green does. *(T46: a first sweep read 26/27 killed; clearing caches per mutant flipped
+  three verdicts (M25–M27, survived→killed) to applied 27/27, killed 26, survived 1 — the applied count was
+  correct throughout and could not have caught it.)* **A drifted discipline is gated
   (§7's references precedent) only when its violation is STATICALLY decidable; when the violation is a
   dynamic/semantic property — *is this accrual load-bearing in the path the fixture exercises?* — no CI
   gate can see it and it stays the mutation sweep's job.** The references discipline was static (header

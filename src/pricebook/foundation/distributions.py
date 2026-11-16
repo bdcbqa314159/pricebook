@@ -70,6 +70,7 @@ from __future__ import annotations
 import math
 
 _SQRT2 = math.sqrt(2.0)
+_SQRT_TWO_PI = math.sqrt(2.0 * math.pi)
 _PI = math.pi
 
 
@@ -90,6 +91,28 @@ def norm_cdf(x: float) -> float:
     ABSOLUTE claim that passes however bad the relative error gets where the true value is ~0. The
     relative-accuracy oracle that replaces it is the point of tranche 20c (see `OPEN.md` OI-3)."""
     return 0.5 * math.erfc(-x / _SQRT2)
+
+
+def norm_pdf(x: float) -> float:
+    """`phi(x)` — the standard normal density.
+
+    **Promoted here at its THIRD consumer, which is the rule firing rather than a tidy-up.**
+    Two L3 modules each carried a private copy; the first one's docstring said *"§6's rule-of-two
+    has not fired, so it has not been promoted"* — true when written, and false from the moment the
+    second copy was written and nobody noticed. Tranche 46 would have been the third. A comment
+    asserting a state of affairs that has since stopped being true is a stale comment, which the
+    writing-time defaults treat as code. (The consumers are named from *their* side, not from here:
+    L0 pointing up the tree by name is a reference that goes stale without anyone noticing.)
+
+    Both private copies were `exp(-0.5*x*x)` over `sqrt(2*pi)` in that order — identical
+    expressions, identical operation order — so this consolidation is **bit-identical**, not merely
+    equal to a tolerance (§4: bit-identity is claimable exactly when the refactor preserves the
+    order of the floating-point operations, and here it does).
+
+    No tail subtlety of the kind `norm_cdf` has: there is no cancellation in a single `exp`, so the
+    relative accuracy is uniform and underflow to zero below `|x| ~ 38` is the correct answer to
+    double precision rather than a defect."""
+    return math.exp(-0.5 * x * x) / _SQRT_TWO_PI
 
 
 # ---------------------------------------------------------------------------------------------
