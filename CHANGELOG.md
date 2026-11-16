@@ -6,6 +6,84 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.54.0] - 2026-11-16
+
+### Added — tranche 48, volatility derivatives (the volatility swap and its convexity)
+
+`products/volatility_swap.py` (L2) and `engine/volatility_swap.py` (L4): the fair volatility-swap
+strike `K_vol = E[√V_T]` under Heston, and the **convexity adjustment** `√(K_var) − K_vol ≥ 0`. The
+second build of the vol-surface arc (T47 was dropped by the §1 pull gate). Reuses T31's variance
+convention and T33's Heston parameters whole; no new L0 primitive.
+
+The engine is Gatheral eq 11.6 — `E[√W_T] = (1/2√π)∫₀^∞(1 − E[e^{−ψW_T}])ψ^{−3/2}dψ` on the
+**total** variance `W_T = ∫₀^T v_t dt` — closed by the CIR Laplace transform `A·e^{−ψv₀B}`. The swap
+pays the *annualised* `V_T = W_T/T`, so `K_vol = E[√W_T]/√T`; at `T = 1` the two normalisations
+coincide, so every oracle runs at two maturities and neither is a year. A mutant dropping that
+`1/√T` dies there.
+
+**Both renderings lose the overbar on `v̄`, so §4's dual-rendering rule is powerless — exactly as
+T46's lost the radical.** `-raw` and `-layout` both print `A`'s exponent as `2λv/η²` and the mean as
+`(1−e^{−λT})/λ·(v − v) + vT`: the long-run and initial variances are indistinguishable in the
+extraction. What resolves it is a **requirement oracle against code already held** — the transform's
+slope at zero must be `E[W_T]`, and T33's `HestonParams.integrated_variance` computes
+`θT + (v₀−θ)(1−e^{−κT})/κ`, which is precisely the mean the text prints. That pins `A`'s exponent to
+the long-run variance and the exponential to the initial one, and it reproduces it to **1.5e-8**.
+
+**And the source hands over the degenerate fixture.** The oracle above discriminates only when
+`v₀ ≠ θ`, and Gatheral's own illustrative parameters — Figures 11.2 (Heston-Nandi) and 11.3
+(Bakshi-Cao-Chen) — both set `v = v̄ = 0.04`, as does the `var[W_T]` derivation that assumes it.
+Building on them would have hidden the overbar completely: swapping `v₀` and `θ` moves the mean by
+8.5% on our fixture and by **exactly nothing** on the source's. Asserted both ways.
+
+**The printed transform overflows, so it is evaluated rearranged.** `e^{φT}` grows with `√ψ` and the
+quadrature needs `ψ` to 40,000; at `η = 1, T = 5` the printed form raises before the integrand
+decays. Dividing numerator and denominator by `e^{φT}` is the **same quantity in exact arithmetic**
+and underflows harmlessly instead; agreement with the printed form measured at **2.1e-15** (a few
+ULP) wherever the printed form computes at all — §4's pure-refactor standard, an exact-arithmetic
+identity plus a ULP band, since the reordering moves the last digits and bit-identity is
+unavailable.
+
+### Fixed — a source-level error, recorded rather than reproduced
+
+**Ch 11's order-of-magnitude claim for the convexity adjustment is wrong by a power.** p.146 derives
+`var[W_T] = v̄T·η²/λ² + O(T⁰)` as `T → ∞`, concludes that the standard deviation of annualised
+*volatility* scales as `η/λ`, and predicts the Bakshi-Cao-Chen convexity to be "roughly 3.39 times"
+the Heston-Nandi one. But Taylor-expanding the square root gives
+`√E[V] − E[√V] ≈ var[V]/(8·E[V]^{3/2})`, which is **quadratic** in `η/λ`: the predicted ratio is
+`3.3913² = 11.50`, and the measured ratio is **11.49**. Ch 11's results are plots, so §4's "no number
+is fitted to a figure" forbids settling this against Figures 11.2/11.3 — the derivation settles it,
+and the oracle asserts the square while excluding the first-order reading. The spec also called this
+a *small*-`T` statement; it is the `T → ∞` limit. Both halves corrected.
+
+### Verification
+
+107 new tests (1852 → **1959**). Mutation: **applied 20/20, killed 20, survived 0** — after one real
+hole. The first run left `M16 pricer: drop the discount factor` alive, because the fixture's curve
+was flat at **zero**: `df(T) = 1` exactly, so the pricer's discounting was a multiplication by one.
+That is the degenerate-fixture catalogue's *first* shape ("a zero makes a factor invisible") in its
+purest form, in a factor no amount of reading would have questioned. Fixed with a 3% rate and the
+premise asserted (`df < 0.95`, and the undiscounted number shown to differ).
+
+Oracles: the Laplace requirements (`F(0) = 1`, decreasing, in `(0,1]`); the slope-at-zero overbar pin
+above; **`ρ`-independence**, since `W_T` is a functional of the variance path and the variance SDE
+carries no correlation; the Jensen bound across a 60-point parameter sweep; the exact `η → 0`
+reduction with a companion asserting the convexity is **materially** non-zero (T39 — the reduction is
+exact *because* it zeroes the parameter the convexity lives in); an independent Monte-Carlo of
+`√V_T` banded at `4·SE` with the quadrature's share measured separately at **below 1e-12** rather
+than folded into one flat percentage; the band's **resolution** stated (band ~0.9% against a
+convexity of ~9% of `K_vol`, a 10× margin — on the source's Heston-Nandi parameters the convexity is
+~0.6%, *inside* the band, so an MC check there could not see a dropped convexity at all); the
+discretisation **null averaged over six seeds**, because an oracle whose expected answer is "no
+difference" is the one a single seed most easily fakes (T21); and a **log-strip cross-product** for
+`K_var` — Heston option prices through T33's Fourier engine against the integrated-variance
+transform, different code each side — asserted by its one-directional truncation signature
+(`narrow < wide < exact`) rather than a tolerance.
+
+The MC instrument uses numpy's generator rather than the tree's `UniformSource`, deliberately: an
+oracle sharing an RNG with the production engines shares a component with them, and
+`standard_normals(source.uniforms(n))` round-trips through Python lists at ~19× the vectorised draw —
+enough alone to push the file past the `slow` ceiling (21.8s → 2.0s against a 10s budget).
+
 ## [0.53.0] - 2026-11-16
 
 ### Added — tranche 46, the SVI surface parameterization (project six opens)
