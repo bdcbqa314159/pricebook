@@ -61,11 +61,20 @@ from pricebook.foundation.solvers import least_squares_fit
 #: assumes only that a martingale measure exists — so it bounds any admissible slice.
 _LEE_WING_BOUND = 2.0
 
-#: How far beyond the quoted span the butterfly certificate is checked, as a fraction of that span,
-#: and how many points across it. The certificate is only ever a statement about the domain it
-#: examined (§4), so the domain is named rather than implied: a slice can be admissible across its
-#: quotes and buckle further out, and `fit_svi_slice` says so in its refusal.
-_BUTTERFLY_MARGIN = 0.5
+#: How many points the butterfly certificate is checked at across the quoted span.
+#:
+#: **There is no margin beyond the span, and that is a derived decision rather than a default.** An
+#: earlier version widened the scan by 50% of the span; the mutation sweep then killed nothing by
+#: narrowing it back to zero, which is the reachability rule firing on a *constant* — an unexercised
+#: widening is dead config. Working out why no fixture could exercise it produced the better answer:
+#: as `|k| -> infinity` the slice's `w' -> b(1±rho)`, `w'' -> 0` and the skew term -> 1/2, so
+#:
+#:     g(±infinity) = 1/4 - (b(1±rho))^2 / 16   >=  0   <==>   b(1±rho) <= 2
+#:
+#: — the asymptotic no-butterfly condition **is Lee's bound** (verified to 8 decimals on both wings
+#: of three slices; `tests/L3/test_svi.py` asserts it). So the tails are certified analytically by
+#: `satisfies_lee_bound` and the interior numerically here, and the two together are why a margin
+#: bought nothing.
 _BUTTERFLY_POINTS = 401
 
 #: `|ρ| < 1` and `σ > 0` are strict, so the solver is kept just inside them: at `|ρ| = 1` the slice
@@ -211,10 +220,15 @@ def calendar_arbitrage_free(
 
 
 def _butterfly_breach(params: SviParams, log_strikes: Sequence[float]) -> float | None:
-    """The log-strike of the worst negative density across the widened quote span, or `None`."""
+    """The log-strike of the worst negative density across the quoted span, or `None`.
+
+    **What this does NOT cover, stated rather than implied (§4).** Together with
+    `satisfies_lee_bound` it certifies the quoted span (numerically, here) and the two tails
+    (analytically — see `_BUTTERFLY_POINTS`). It does **not** certify the intermediate region
+    between the far edge of the quotes and the regime where the asymptote dominates. Closing that
+    gap is exactly what Gatheral–Jacquier (2014)'s closed-form conditions would buy, and it is why
+    the acquire-source note in `docs/to_go_deeper.md` exists: a real gap, not a decorative one."""
     lo, hi = min(log_strikes), max(log_strikes)
-    margin = _BUTTERFLY_MARGIN * max(hi - lo, 1e-3)
-    lo, hi = lo - margin, hi + margin
     step = (hi - lo) / (_BUTTERFLY_POINTS - 1)
     worst: tuple[float, float] | None = None
     for i in range(_BUTTERFLY_POINTS):
@@ -228,22 +242,26 @@ def _butterfly_breach(params: SviParams, log_strikes: Sequence[float]) -> float 
 def _starting_point(
     log_strikes: Sequence[float], total_variances: Sequence[float]
 ) -> tuple[float, float, float, float, float]:
-    """A start read off the data: the vertex from the smallest quote, the wings from the extremes.
+    """A start read off the data, with **no special case** — which is the second version.
 
-    Not a tuned constant — a constant start would be a hidden premise about the market the fit is
-    handed, and the identifiability oracle deliberately drives the same fit from wild starts to
-    show the answer does not depend on this."""
+    The first estimated each wing's slope from the vertex to the corresponding endpoint. That has a
+    degenerate case the obvious fixtures never show: a **one-sided** smile puts the smallest quote
+    *at* an endpoint, so one side has no data at all, its estimated slope is exactly zero, `rho0`
+    pins to its clip, and the solve walks out of evaluations at a cost of 2e-10 — a good fit
+    reported as non-convergence. Flooring the span did not help, because the defect is missing data
+    rather than a small denominator. So the slope estimate is **one-sided on purpose**: the total
+    rise over the span, with `rho0 = 0` leaving the skew entirely to the solver.
+
+    Deliberately start-neutral rather than tuned: a `rho0` guessing the usual equity skew would be
+    an assumption about the market smuggled into a fit that is meant to read it off the quotes. The
+    identifiability oracle drives the same fit from wild starts precisely to show the answer does
+    not depend on this.
+    """
     vertex = min(range(len(total_variances)), key=lambda i: total_variances[i])
-    m0 = log_strikes[vertex]
-    floor = total_variances[vertex]
-    right_span = max(log_strikes[-1] - m0, 1e-3)
-    left_span = max(m0 - log_strikes[0], 1e-3)
-    right = max((total_variances[-1] - floor) / right_span, 0.0)
-    left = max((floor - total_variances[0]) / left_span, 0.0)
-    total = right + left
-    b0 = max(total / 2.0, 1e-3)
-    rho0 = 0.0 if total <= 0.0 else max(min((right - left) / total, 0.9), -0.9)
-    return floor * 0.5, b0, rho0, m0, 0.1
+    floor = min(total_variances)
+    span = max(log_strikes[-1] - log_strikes[0], 1e-3)
+    rise = max(max(total_variances) - floor, 0.0)
+    return floor * 0.5, max(rise / span, 1e-3), 0.0, log_strikes[vertex], 0.1 * span
 
 
 def fit_svi_slice(
@@ -303,7 +321,7 @@ def fit_svi_slice(
     if breach is not None:
         raise ValueError(
             f"the fitted slice admits butterfly arbitrage: its risk-neutral density is negative "
-            f"at log-strike {breach}, checked across the quoted span widened by "
-            f"{_BUTTERFLY_MARGIN:.0%} at {_BUTTERFLY_POINTS} points"
+            f"at log-strike {breach}, checked at {_BUTTERFLY_POINTS} points across the quoted "
+            f"span [{min(log_strikes)}, {max(log_strikes)}]"
         )
     return fitted

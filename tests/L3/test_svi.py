@@ -58,6 +58,7 @@ from pricebook.models.black import black_implied_vol, black_price
 from pricebook.models.heston import HestonParams
 from pricebook.models.svi import (
     SviParams,
+    annualised_vol,
     calendar_arbitrage_free,
     fit_svi_slice,
     risk_neutral_density,
@@ -161,6 +162,15 @@ class TestTheRadicalIsPinnedByTheWings:
         assert steep.b * (1 + abs(steep.rho)) > 2.0, "the fixture must actually violate the bound"
         assert not satisfies_lee_bound(steep), "the reject branch must be exercised (T33b)"
 
+    def test_the_fit_itself_refuses_a_lee_violating_slice(self) -> None:
+        """The predicate being right is not the same as the fit *consulting* it — bypassing the
+        guard inside `fit_svi_slice` survived the whole file until this was added, because every
+        other fixture fits an admissible slice (T33b's input-population degeneracy, found by the
+        mutation sweep rather than by reading the code)."""
+        steep = SviParams(a=A, b=1.8, rho=RHO, m=M, sigma=SIGMA)
+        with pytest.raises(ValueError, match="Lee's wing bound"):
+            fit_svi_slice(STRIKES, tuple(steep.total_variance(k) for k in STRIKES))
+
 
 class TestTheBZeroReduction:
     """The exact anchor, plus the companion T39 requires: a reduction that a flat-smile fixture also
@@ -238,6 +248,56 @@ class TestTheRiskNeutralDensity:
         for i in range(-300, 301):
             k = i / 100.0
             assert risk_neutral_density(SLICE, k) >= 0.0, f"negative density at k={k}"
+
+    def test_the_scan_resolves_the_breach_it_is_asked_to_find(self) -> None:
+        """**Why coarsening the scan survives mutation, proved rather than assumed.** A breach of
+        SVI's density is structurally *wide*: `g` is smooth in `k` with no scale finer than the
+        slice's own, so a breach region is comparable to the span. Measured here at **0.58 in
+        log-strike** — over half the quoted span, and ~200× the 401-point scan's step — and a sweep
+        of 324 admissible slices found none narrower than 0.05. So resolution is genuinely not
+        load-bearing, which is the honest reading of that survivor rather than a hole (§4: state
+        what a green rules out, including when the answer is "resolution is not the risk here")."""
+        bad = SviParams(a=0.01, b=0.9, rho=-0.9, m=0.0, sigma=0.02)
+        lo, hi = min(STRIKES), max(STRIKES)
+        points = 4_001
+        negatives = [
+            lo + i * (hi - lo) / (points - 1)
+            for i in range(points)
+            if risk_neutral_density(bad, lo + i * (hi - lo) / (points - 1)) < 0.0
+        ]
+        width = max(negatives) - min(negatives)
+        scan_step = (hi - lo) / 400
+        assert width > 20 * scan_step, f"breach width {width} vs scan step {scan_step}"
+
+    def test_the_asymptotic_butterfly_condition_IS_lees_bound(self) -> None:
+        """A derived identity, and the reason the butterfly scan needs no margin beyond the quotes.
+
+        As `|k| → ∞` the slice has `w' → b(1±ρ)`, `w'' → 0` and `1 − k w'/(2w) → ½`, so
+
+            g(±∞) = ¼ − (b(1±ρ))²/16 ≥ 0  ⟺  b(1±ρ) ≤ 2
+
+        — the asymptotic no-butterfly condition is **exactly** ch 7's wing bound. So Lee certifies
+        the tails analytically and the numerical scan certifies the interior; a widened scan was
+        dead config, which the mutation sweep found by narrowing it back with nothing dying."""
+        for params in (
+            SLICE,
+            SviParams(a=0.02, b=1.2, rho=-0.5, m=0.0, sigma=0.1),
+            SviParams(a=0.03, b=0.9, rho=0.4, m=-0.1, sigma=0.2),
+        ):
+            for sign, wing in ((+1, params.wing_slopes()[0]), (-1, params.wing_slopes()[1])):
+                predicted = 0.25 - wing * wing / 16.0
+                far = sign * 1e7
+                # g computed here from w, w', w'' -- not recovered from the density, both because
+                # that is the independent route and because `n(d-)` underflows to 0.0 this far out,
+                # so dividing it back out is a zero division rather than a measurement.
+                variance = params.total_variance(far)
+                first = params.slope(far)
+                second = params.curvature(far)
+                skew = 1.0 - far * first / (2.0 * variance)
+                g_far = skew * skew - (first * first / 4.0) * (1.0 / variance + 0.25) + second / 2.0
+                assert g_far == pytest.approx(predicted, abs=1e-6), f"{params} wing {sign}"
+                # and the equivalence to Lee's bound, which is the point
+                assert (predicted >= 0.0) == (wing <= 2.0)
 
     def test_an_arbitrageable_slice_is_refused(self) -> None:
         """The T33b premise: supply an input the guard rejects, or its negative branch is never in
@@ -440,3 +500,52 @@ class TestTheParameterGuards:
         SviParams(a=floor + 1e-9, b=B, rho=RHO, m=M, sigma=SIGMA)
         with pytest.raises(ValueError, match="negative"):
             SviParams(a=floor - 1e-6, b=B, rho=RHO, m=M, sigma=SIGMA)
+
+
+class TestTheBoundaryAndTheStart:
+    """Three guards the first mutation sweep found unreached — `annualised_vol` had no test at all,
+    the minimum-quote count had none, and the data-driven start was interchangeable with a constant
+    on every fixture. Each is closed by the narrowest fixture that discriminates it."""
+
+    def test_annualised_vol_divides_by_the_horizon(self) -> None:
+        """C14's boundary in the other direction: `σ_BS(k) = √(w(k)/T)`. The premise is `T ≠ 1` —
+        at one year the division is invisible, which is the `τ=1` trap that ruling 1 corrected in
+        the spec's own wing formula."""
+        years = 2.0
+        assert years != 1.0, "a one-year horizon cannot see a missing division"
+        for k in STRIKES:
+            expected = math.sqrt(SLICE.total_variance(k) / years)
+            assert annualised_vol(SLICE, k, years) == pytest.approx(expected, abs=1e-15)
+            # and it is NOT the undivided total variance, which a dropped `/years` would give
+            assert annualised_vol(SLICE, k, years) != pytest.approx(
+                math.sqrt(SLICE.total_variance(k)), rel=1e-6
+            )
+
+    @pytest.mark.parametrize("years", [0.0, -1.0])
+    def test_annualised_vol_refuses_a_non_positive_horizon(self, years: float) -> None:
+        with pytest.raises(ValueError, match="positive horizon"):
+            annualised_vol(SLICE, 0.0, years)
+
+    def test_a_fit_needs_at_least_five_quotes(self) -> None:
+        """Five parameters, so four quotes cannot determine them — the fit refuses rather than
+        returning one arbitrary member of a one-parameter family of exact fits."""
+        four = STRIKES[:4]
+        with pytest.raises(ValueError, match="five"):
+            fit_svi_slice(four, tuple(SLICE.total_variance(k) for k in four))
+
+    def test_mismatched_lengths_are_refused(self) -> None:
+        with pytest.raises(ValueError, match="one total variance per log-strike"):
+            fit_svi_slice(STRIKES, tuple(SLICE.total_variance(k) for k in STRIKES[:-1]))
+
+    def test_the_data_driven_start_fits_a_slice_a_constant_start_misses(self) -> None:
+        """**The one case in 432 that justifies the start heuristic.** Sweeping admissible slices,
+        the data-driven start (`b₀` = the quotes' rise over their span) and a constant `b₀ = 0.1`
+        agree on 314, both fail on 117, and this slice is the single one where the data-driven
+        start converges and the constant does not — a shallow, strongly-skewed smile whose vertex
+        sits near the span edge. Without it, replacing the heuristic with a constant survives the
+        whole file; with it, the heuristic has to earn its keep on every run."""
+        shallow = SviParams(a=0.04, b=0.15, rho=-0.7, m=0.4, sigma=0.05)
+        quotes = tuple(shallow.total_variance(k) for k in STRIKES)
+        fitted = fit_svi_slice(STRIKES, quotes)
+        for k, quote in zip(STRIKES, quotes, strict=True):
+            assert fitted.total_variance(k) == pytest.approx(quote, abs=1e-6)
