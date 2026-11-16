@@ -15,11 +15,11 @@ are a hard rule (transcendental results differ 1-2 ULP across runtimes)."* `cmat
 and `cmath.sqrt` are exactly that, and CI duly disagreed with this machine by **1 to 4 ULP** on both
 runners.
 
-So the committed form is a **ULP-distance** assertion with a stated margin — still four orders of
-magnitude tighter than any behavioural tolerance in the tree, and tight enough that a real change
-to the inversion could not hide inside it, while being a claim the test is actually entitled to
-make. The in-process bit-identity measurement stays the purity argument; this is its portable
-regression.
+So the committed form is a **relative** tolerance with a measured margin — and even that took two
+tries, because a ULP distance sounded stronger and was the wrong instrument for a sum of 4001
+transcendental terms (see `_RELATIVE_BUDGET`). The in-process bit-identity measurement stays the
+purity argument; this file is its portable regression, and the distinction between the two is the
+whole point.
 
 The test also guards the move in the other direction: `_LOWER` and `FourierGrid` moved with the
 inversion, and `tests/L4/test_heston_fourier.py`'s cutoff test had been patching
@@ -118,24 +118,22 @@ REFERENCES = [
 ]
 
 
-#: How far a reference value may drift. Measured: the extraction is bit-identical in-process, and
-#: CI disagreed with the capturing machine by **1 to 4 ULP** on both runners — pure libm variation
-#: in `cmath.exp`/`log`/`sqrt`, which §9 names as a hard rule rather than a surprise. 32 leaves room
-#: for a slower runtime or a future libm without admitting anything real: 32 ULP on a price near 10
-#: is about 6e-14 relative, four orders tighter than the tightest behavioural oracle in the tree,
-#: and any actual change to the inversion moves prices by vastly more.
-_ULP_BUDGET = 32
-
-
-def _ulp_distance(left: float, right: float) -> int:
-    """Signed-magnitude doubles compared as integers — the distance in representable steps.
-
-    Comparing bit patterns as *integers* rather than as floats is what makes "within 4 ULP" a
-    statement one can assert; a relative tolerance at this scale is dominated by the exponent."""
-    def ordered(value: float) -> int:
-        bits = int.from_bytes(struct.pack("<d", value), "little")
-        return bits if bits < (1 << 63) else (1 << 63) - bits
-    return abs(ordered(left) - ordered(right))
+#: How far a reference value may drift, as a RELATIVE tolerance.
+#:
+#: **This is the third metric tried, and the first correct one — the other two are the lesson.**
+#: The extraction is bit-identical *in-process*, so the first committed form asserted the captured
+#: bits for equality; CI disagreed by 1-4 ULP on both runners, because §9's hard rule is exactly
+#: that transcendental results differ across runtimes. The second form asserted a **ULP distance**,
+#: which sounded stronger and was simply the wrong instrument: a Fourier price is a sum of 4001
+#: transcendental terms, so its cross-platform difference accumulates as a *relative* quantity, and
+#: ULP counts representable steps whose absolute size follows the exponent. A price of `0.00158`
+#: came out **25,475 ULP** away while being **3.5e-12** relative; `0.278` was 353 ULP and 7e-14.
+#: Neither is a change in the code — both are a sum of small libm disagreements.
+#:
+#: So the bound is relative, set at `1e-9` against a measured worst of **3.5e-12**: about 300x
+#: headroom for a slower runtime or a future libm, and still six orders tighter than the tightest
+#: behavioural oracle in this tree. Any real change to the inversion moves prices by vastly more.
+_RELATIVE_BUDGET = 1e-9
 
 
 @pytest.mark.parametrize("kappa,theta,sigma_v,rho,v0,days,strike,expected", REFERENCES)
@@ -143,17 +141,13 @@ def test_the_extraction_changed_no_heston_number(
     kappa: float, theta: float, sigma_v: float, rho: float, v0: float,
     days: int, strike: float, expected: str,
 ) -> None:
-    """Within `_ULP_BUDGET` of the pre-extraction value — see the module docstring for why this is
-    a ULP bound and not equality."""
+    """Within `_RELATIVE_BUDGET` of the pre-extraction value — see above for why this is a relative
+    tolerance and not equality, and not a ULP count either."""
     params = HestonParams(kappa=kappa, theta=theta, sigma_v=sigma_v, rho=rho, v0=v0)
     expiry = VAL + timedelta(days=days)
     price = heston_call_price(params, UNDERLYING, strike, expiry, (CURVE, GRID))
     reference = struct.unpack("<d", bytes.fromhex(expected))[0]
-    distance = _ulp_distance(price, reference)
-    assert distance <= _ULP_BUDGET, (
-        f"{price!r} is {distance} ULP from the pre-extraction {reference!r} "
-        f"(budget {_ULP_BUDGET}) — a real change, not libm variation"
-    )
+    assert price == pytest.approx(reference, rel=_RELATIVE_BUDGET)
 
 
 def test_THE_EXCLUDED_REGIME_is_named_and_still_fails(self=None) -> None:
@@ -171,13 +165,13 @@ def test_THE_EXCLUDED_REGIME_is_named_and_still_fails(self=None) -> None:
         assert abs(struct.unpack("<d", bytes.fromhex(row[7]))[0]) >= 1e-3
 
 
-def test_the_ulp_budget_would_catch_a_real_change() -> None:
-    """The budget is only meaningful if it rejects something. A 1e-9 *relative* perturbation — far
-    below any behavioural tolerance in this tree, and the sort of thing a quietly reordered
-    quadrature produces — is already millions of ULP away."""
+def test_the_budget_would_catch_a_real_change() -> None:
+    """A budget is only meaningful if it rejects something. A 1e-7 relative perturbation — four
+    orders below the loosest tolerance anywhere in this suite, and the size a quietly reordered
+    quadrature would produce — sits a hundredfold outside it."""
     reference = struct.unpack("<d", bytes.fromhex(REFERENCES[0][7]))[0]
-    assert _ulp_distance(reference, reference) == 0
-    assert _ulp_distance(reference * (1.0 + 1e-9), reference) > 1_000 * _ULP_BUDGET
+    assert reference == pytest.approx(reference, rel=_RELATIVE_BUDGET)
+    assert reference * (1.0 + 1e-7) != pytest.approx(reference, rel=_RELATIVE_BUDGET)
 
 
 def test_the_cutoff_constant_lives_where_the_quadrature_reads_it() -> None:

@@ -27,8 +27,12 @@ floating-point operations, and a verbatim move does.
 equality** — which is not a weakening of the argument but the limit of what a test running on other
 machines may claim. §9 states the rule: transcendental results differ 1-2 ULP across runtimes, and
 `cmath.exp`/`log`/`sqrt` are exactly that. The first version of `tests/L4/test_fourier_inversion.py`
-asserted the captured bits for equality and failed on both CI runners by 1 to 4 ULP; it now asserts
-a ULP distance with a stated budget, still four orders tighter than any behavioural tolerance here.
+asserted the captured bits for equality and failed on both CI runners by 1 to 4 ULP. A second form
+asserted a ULP *distance*, which sounded stronger and was the wrong instrument: a Fourier price is a
+sum of 4001 transcendental terms, so its cross-platform difference accumulates as a **relative**
+quantity (a price of 0.00158 came out 25,475 ULP away while being 3.5e-12 relative). The committed
+form is a relative tolerance of 1e-9 against a measured worst of 3.5e-12 — six orders tighter than
+the tightest behavioural oracle here.
 
 **The characteristic function arrives already bound to its maturity and carry**, as `phi(u)` alone.
 The inversion has no business knowing what parameters a model carries, and a signature taking
@@ -40,7 +44,7 @@ Provenance:
   source: BROCKHAUS-2016 (docs/references.md) ch 16.2 - the Gil-Pelaez form of the inversion
           integral, unchanged from tranche 33; this module is an extraction, not a new
           transcription
-  oracle: tests/L4/test_fourier_inversion.py - the 120-point ULP-bounded regression that the
+  oracle: tests/L4/test_fourier_inversion.py - the 54-point relative-tolerance regression that the
           extraction changed no Heston number (bit-identical in-process; see above for why the
           committed form is a ULP bound), and the inversion's own requirements against a Gaussian
           characteristic function, whose two probabilities have exact closed forms

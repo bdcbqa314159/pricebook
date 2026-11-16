@@ -57,11 +57,15 @@ doubles, same interpreter, before versus after, every bit equal.
 patterns were asserted for *equality*, which turns an in-process measurement into a cross-platform
 claim — and §9 states the rule it breaks: transcendental results differ 1-2 ULP across runtimes.
 `cmath.exp`/`log`/`sqrt` duly disagreed with the capturing machine by **1 to 4 ULP** on both
-runners, 12 tests failing. The committed form is now a **ULP-distance** assertion with a stated
-budget of 32 — about 6e-14 relative on these prices, four orders tighter than the tightest
-behavioural oracle in the tree, and shown to reject a 1e-9 relative perturbation by a factor of a
-thousand. The in-process bit-identity remains the purity argument; the portable regression is what a
-test running elsewhere is entitled to assert.
+runners, 12 tests failing. A second attempt asserted a **ULP distance** — which sounded stronger and
+was the wrong instrument, and is the more interesting half of the lesson: a Fourier price is a sum of
+4001 transcendental terms, so its cross-platform difference accumulates as a **relative** quantity,
+while ULP counts representable steps whose absolute size follows the exponent. A price of `0.00158`
+came out **25,475 ULP** away while being **3.5e-12** relative. The committed form is a relative
+tolerance of `1e-9` against a measured worst of 3.5e-12 — six orders tighter than the tightest
+behavioural oracle in the tree. The in-process bit-identity remains the purity argument; the portable
+regression is what a test running elsewhere is entitled to assert, and reaching for the
+strongest-sounding metric rather than the one the quantity calls for cost two CI rounds.
 
 **And the reference set is 54 of 60, with the six exclusions named.** A regression needs a number the
 engine can resolve, and six deep out-of-the-money short-dated points sit below `1e-3` on a spot of
