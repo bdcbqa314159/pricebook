@@ -144,9 +144,11 @@ every number attributed to the library and its oracle, never read off a plot.
 
 ---
 
-## `CREPEY-2026` — *XVA Analysis* (the XVA spine arc: T25–, in progress)
+## `CREPEY-2026` — *XVA Analysis* (the XVA spine arc: T25–T29, **CLOSED** v0.35.0)
 
-Routes recorded as the arc runs; the full set lands at the checkpoint `CP_xva_spine.md`. So far:
+Routes recorded as the arc ran; the full set is in the checkpoint `CP_xva_spine.md`. The recorded routes:
+*(header corrected at re-audit #4 — the arc closed at re-audit #2 (T29, v0.35.0) but this line still read
+"in progress", stale through two re-audits; a register-accuracy miss recorded in `reaudit_04_findings.md`.)*
 
 1. **The amortising exposure profile over a swap's life — the realistic "hump".** T26 pins Leg B's
    martingale anchor exactly by observing the swap only over `(0, T_first]`, where the claim is fixed,
@@ -216,12 +218,13 @@ all three `τ=1` instances (F-1.2, F-3.1, F-3.2).
 
 ---
 
-## `OKANE-2008` — *Modelling Single-name and Multi-name Credit Derivatives* (the credit arc: T38–, in progress)
+## `OKANE-2008` — *Modelling Single-name and Multi-name Credit Derivatives* (the credit arc: T38–T44b, **CLOSED** v0.52.0)
 
-Routes recorded as the arc runs; the full deferred set (bonds & asset swaps ch 4, CDS indices + index
+Routes recorded as the arc ran; the full deferred set (bonds & asset swaps ch 4, CDS indices + index
 options ch 10–11, CMDS ch 9.4, implied/compound correlation ch 19, the copula-skew zoo ch 21, CPPI/
-CPDO/CDO²/tranchelets ch 22, and the ch 23 dynamic models as a possible `out_of_method` candidate) lands
-at the checkpoint `CP_okane_credit.md`. So far:
+CPDO/CDO²/tranchelets ch 22, the base-correlation surface / bespoke mapping / tranche hedging ch 20.6–20.9,
+the ρ_B interpolation convention ch 20.4, and the ch 23 dynamic models as a possible `out_of_method`
+candidate) is the completion ratio in the checkpoint `CP_okane_credit.md`. The recorded routes:
 
 1. **The non-knockout default swaption (ch 9.3).** T40 built the **knockout** swaption (the standard
    contract). The non-knockout variant is, by O'Kane's own decomposition, **knockout + front-end

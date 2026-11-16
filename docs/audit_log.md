@@ -13,6 +13,8 @@ This file is the **counter**, so the trigger is mechanical, not remembered.
 | — | — | — | — | mechanism established 2026-11-07 (cadence 11, Bernardo). |
 | #1 (**complete**) | v0.27.0 | T22 | **2 HOLES + 1 MED + 3 LOW** | first re-audit, Jäckel arc close, whole tree T1–T22; run independently of the builder from two fresh contexts (Code built all 22), findings → `docs/audit/reaudit_01_findings.md`, ruled by Cowork. See below. |
 | #2 (**complete**) | v0.35.0 | T29 | **CLEAN — 0 holes + 1 LOW (fixed)** | **XVA arc close** (arc-boundary trigger, not the cadence counter — eight tranches since #1). Whole tree **T1–T29**, independent. No oracle holes, no silent weakening from the XVA refactors, charter clean; one LOW (stale conventions-register summary) fixed in place. Findings + rulings → `docs/audit/reaudit_02_findings.md`. |
+| #3 (**complete**) | v0.44.1 | T37 | **CLEAN src — 0 holes; 2 blind oracles (fixed T37)** | **equity & hybrids arc close.** Whole tree T1–T36b; oldest-first. No `src/` defect; the τ=1 degeneracy bit a second and third instrument (F-3.1 bootstrap, F-3.2 vol surface — blind oracles, test-only fix at T37). Mechanical τ=1 guard assessed and declined (dynamic, 7-of-14). One charter edit (§9 gateability boundary). `docs/audit/reaudit_03_findings.md`. |
+| #4 (**open**) | v0.52.0 | T44b | **(3)+(4) DONE: 2 stale headers fixed; (1)+(2) PENDING Code** | **credit-derivatives arc close.** Cowork register + charter passes done (OKANE + CREPEY stale "in progress" headers fixed; CREPEY stale since #2, missed twice). Oracle-power sweep scope set oldest-first, **the proactive invariant-6 / historical-flow sweep the first named item** (the tenth-shape escalation's first run). `docs/audit/reaudit_04_findings.md`. |
 
 ## Re-audit #2 — result (2026-11-10, v0.35.0, T1–T29)
 
@@ -114,9 +116,38 @@ built prototypes and declined** — τ=1 load-bearing-ness is a dynamic property
 boundary, guard → `to_go_deeper`. Re-audit #3 is complete; no `src/` defect was ever present (all holes
 were blind oracles), no new debt, one charter edit (the §9 gateability boundary).
 
-**Next due:** re-arms at whichever of {next arc close, 11 tranches since **re-audit #3**} comes first.
-(The "≈ T40" in re-audit #2's note was the cadence-counter estimate; the arc-close trigger fired first,
-as it has every time — the counter has never been the firing trigger.)
+**Next due (superseded — re-audit #4 ran at the credit arc close; see below):** re-arms at whichever of
+{next arc close, 11 tranches since **re-audit #4**} comes first.
+
+---
+
+## Re-audit #4 — the credit-derivatives arc close (v0.52.0, T44b, 2026-11-16) — OPEN
+
+Fired by the **arc-close trigger** (the cadence counter sits at ten since re-audit #3 at T37; arc-close
+fires first, as every time). Full scope and the two completed Cowork passes:
+`docs/audit/reaudit_04_findings.md`.
+
+- **(3) Register accuracy — DONE (Cowork).** Two stale `to_go_deeper` arc headers fixed in place: the
+  `OKANE-2008` header ("T38–, in progress" → "T38–T44b CLOSED v0.52.0") and the **`CREPEY-2026` header**,
+  stale ("T25–, in progress") since the XVA arc closed at re-audit #2 (T29) and **read past by re-audits
+  #2 and #3**. `references.md`/`OPEN.md`/`conventions_register.md`/arc plan all clean (and the register's
+  own id/citation integrity is now gated by `verify.py conventions`, T41c). A mechanical register-header
+  gate is flagged as a candidate (statically decidable, thrice-adjacent) — not built, for a ruling.
+- **(4) Charter staleness — DONE (Cowork): clean.** The arc's §4/§9/§3.5 additions describe reality;
+  the deliberate non-additions (three dissolved questions, the vacuous-oracle restatement) left the
+  charter leaner-relative-to-coverage, as at the equity capstone.
+- **(1) Oracle power — PENDING (Code), scope set oldest-first.** FIRST named item: the proactive
+  invariant-6 / historical-flow sweep (the tenth-shape escalation's first run — drop the filter on every
+  module that has one, confirm a straddling fixture kills it; **verify, do not trust, the T43/T44a/T44b
+  straddle claims**). Then the single-killer re-run table (below), the new L0/credit closed forms (first
+  sweep — probe for the T43 scale-invariance and T39 reduction-anchor blind spots), then T1–T37.
+- **(2) Duplication — PARTIAL.** The T44a tranche-composition duplication (flagged, likely resolved by
+  `models/tranche_loss.py`'s one protocol + free functions — **Code verifies**, content until shown);
+  `dividends_before(T)` still owed (no equity touch this arc); C2 still the widest OWED convention.
+
+**Conduct rule for #4 (this arc's own lesson):** a surface's report that it did something is content, not
+the artifact — Code re-derives each premise it reports; a sweep "no survivors" is evidence only of what
+was swept.
 
 ### Accumulating for re-audit #4
 
