@@ -209,6 +209,68 @@ def test_a_swap_struck_at_its_PAR_rate_prices_to_zero() -> None:
 
 
 # ── oracle 5: the valuation-date partition and failures ─────────────────────────────────────
+def test_a_SEASONED_swap_EXCLUDES_its_settled_periods() -> None:
+    """Re-audit #4, F-4.4/F-4.5 — the two comprehension guards were invisible.
+
+    `test_a_matured_swap_is_PV_ZERO…` below values the swap *after its last payment*, so **every**
+    period is settled and both comprehensions — the fixed leg's value and the par-rate annuity —
+    are empty with or without their `is_historical` filter. Dropping either survived the whole
+    suite. What discriminates is a valuation date **inside** the schedule: some periods settled,
+    some live, so the filter has something to filter and a settled period left in would be
+    discounted at a negative `t`, i.e. a factor **above 1** (T40's defect class).
+
+    The matured test is kept — it asserts the whole-swap invariant-6 guard, a different line — and
+    this one covers the two comprehensions it cannot reach.
+    """
+    from pricebook.engine.yoy import (
+        yoy_fixed_leg_value,
+        yoy_inflation_leg_value,
+        yoy_par_rate,
+    )
+
+    inside = DATES[2] + timedelta(days=1)
+    settled = [pay for _, pay, _ in SCHEDULE.periods() if pay <= inside]
+    live = [pay for _, pay, _ in SCHEDULE.periods() if pay > inside]
+    assert len(settled) >= 2 and len(live) >= 2, (settled, live)
+
+    # the full snapshot (both curves and the fixings), re-anchored to a valuation date INSIDE the
+    # schedule — the only change from `_model()` is the date, which is the whole point
+    seasoned = JarrowYildirim(
+        MarketSnapshot(
+            valuation_date=inside,
+            curves=CurveSet(
+                {
+                    NOMINAL_KEY: DiscountCurve.flat(inside, 0.03, DC),
+                    REAL_KEY: DiscountCurve.flat(inside, 0.01, DC),
+                }
+            ),
+            fixings={HICP: _level_series(100.0)},
+        ),
+        JYParams(NOM_P, REAL_P, SI, CORR),
+    )
+    nominal = seasoned.market.curves.discount(EUR)
+
+    # the fixed leg must sum ONLY the live periods
+    want = N * sum(
+        FIXED * psi * nominal.df(pay)
+        for _, pay, psi in SCHEDULE.periods() if pay > inside)
+    assert yoy_fixed_leg_value(_swap(), seasoned) == pytest.approx(want, rel=1e-14)
+
+    # and the settled periods are material: including them would be a double-digit overstatement,
+    # with their discount factors above 1 (a negative `t`)
+    whole = N * sum(
+        FIXED * psi * nominal.df(pay) for _, pay, psi in SCHEDULE.periods())
+    assert whole / want - 1.0 > 0.5, (whole, want)
+    assert max(nominal.df(pay) for pay in settled) > 1.0, "a settled flow discounts at t < 0"
+
+    # the par-rate annuity is the same comprehension and must agree
+    par = yoy_par_rate(_swap(), seasoned)
+    assert par > 0.0
+    assert yoy_fixed_leg_value(_swap(fixed=par), seasoned) == pytest.approx(
+        yoy_inflation_leg_value(_swap(), seasoned), rel=1e-12)
+
+
+
 def test_a_matured_swap_is_PV_ZERO_and_a_missing_curve_is_a_failure() -> None:
     after = DATES[-1] + timedelta(days=1)
     matured = JarrowYildirim(

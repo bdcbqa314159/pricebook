@@ -6,6 +6,56 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.52.1] - 2026-11-16
+
+### Fixed — tranche 45, re-audit #4 remediation (test-only, no `src/` change)
+
+Re-audit #4's **proactive invariant-6 sweep found five blind oracles on its first run** — the guard
+present and correct in `src/`, and no fixture making it bite. All five closed the way the degeneracy
+always is: a fixture where the two branches produce **different numbers**, so dropping the guard
+fails a test.
+
+| # | site | why it was invisible | the fixture now |
+|---|---|---|---|
+| F-4.1 | `engine/equity_vanilla.py` | the expired-option test struck the call at 105 against a spot of 100, so the fall-through **intrinsic was `0`** — the same number PV-0 gives | expired and **in the money** (85), so intrinsic 15 ≠ 0 |
+| F-4.2 | `engine/heston_fourier.py` | the registered pricer's guard had **no test at all** — every test called `heston_call_price` directly | an engine-level expired **ITM** option, plus a live-option premise |
+| F-4.3 | `engine/forward_cds.py` | no expired-swaption fixture existed | an expired option on a **live** underlying, struck deep in the money |
+| F-4.4 | `engine/yoy.py` (fixed leg) | the matured test values the swap *after its last payment*, so every period is settled and the comprehension is empty either way | a valuation date **inside** the schedule |
+| F-4.5 | `engine/yoy.py` (par annuity) | same cause | the same straddling fixture |
+
+Severity, for the record: F-4.1/4.2/4.3 would have priced an expired in-the-money option at its
+intrinsic instead of PV 0 — a live number for a settled trade. F-4.4/4.5 would discount a settled
+period at **negative `t`**, a factor above 1, in an engine shipped since tranche 4; the new fixture
+asserts that factor exceeds 1, so the defect is named rather than merely excluded.
+
+**The matured YoY test is kept beside the new one**, because it asserts a *different* line — the
+whole-swap invariant-6 guard — which the straddling fixture cannot reach. Not a degenerate fixture
+left lying around: a narrower one, now labelled.
+
+**Verified as the spec demands, with the applied count** (§9's new clause): all six sites —
+the five plus `yoy.py:101` as a control — **applied 6/6, killed 6, survived 0**.
+
+### The shape question, ruled
+
+Not a new eleventh shape. The five split across two **existing** shapes and surfaced together only
+because they share one guard: F-4.3/4.4/4.5 are the **tenth** (the boundary is never reached), while
+F-4.1/4.2 are the catalogue's **first** — "a zero makes a factor invisible" — wearing the
+invariant-6 guard's clothes. The fixture straddled correctly and the branches still coincided
+*through a zero*. The catalogue is of mechanisms, not of the guards they are found behind.
+
+### Charter — two edits, both corrections rather than additions
+
+1. **§4: the tenth-shape premise sharpened.** The standing sweep asserted "the fixture straddles";
+   its own first run proved that **necessary but not sufficient**. The general premise is that the
+   two branches must *differ* — which for an option bypass additionally requires the expired option
+   **in the money**.
+2. **§9: the sweep's own instrument.** A whole-sweep "zero survivors" is meaningless without the
+   applied count beside it. This run's first execution printed *"survivors: 0"* from 21 mutants that
+   had all **failed on the command line** (a missing `pytest-timeout`), caught only because every
+   row read "error" rather than "killed". The per-mutant form of that rule was old; the aggregate
+   form is the dangerous one, because the sweep runs unattended.
+
+
 ## [0.52.0] - 2026-11-15
 
 ### Added — tranche 44b, base correlation (the credit arc's last build)

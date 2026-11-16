@@ -271,8 +271,24 @@ class TestTheGuardsAreReachable:
         assert not isinstance(out, PricingResult), out
 
     def test_an_EXPIRED_option_is_PV_zero_invariant_6(self) -> None:
-        expired = EuropeanEquityOption(ACME, STRIKE, VAL, NOTIONAL, EquityOptionKind.CALL)
+        """Strengthened at tranche 45 — it was **out of the money** and could not see the guard.
+
+        The original fixture struck the expired call at `STRIKE = 105` against a spot of 100. With
+        the invariant-6 guard bypassed, `year_fraction(expiry) = 0` so the total variance is zero
+        and `black_price` returns the **intrinsic** — `max(100 − 105, 0) = 0`, the same number PV-0
+        gives. The fixture straddled correctly and still hid the guard, because the two branches
+        coincided *through a zero*: the catalogue's first degenerate shape wearing the invariant-6
+        guard's clothes (re-audit #4, F-4.1).
+
+        Struck **in the money** the branches differ — intrinsic 15 against PV 0 — so dropping the
+        guard now fails."""
+        in_the_money = 85.0
+        assert in_the_money < SPOT, "the premise: the expired call must be ITM, or intrinsic is 0"
+        expired = EuropeanEquityOption(
+            ACME, in_the_money, VAL, NOTIONAL, EquityOptionKind.CALL)
         assert _pv(expired, _market()) == 0.0
+        # and the number the bypass would return is materially different from zero
+        assert (SPOT - in_the_money) * NOTIONAL.amount > 1.0
 
     def test_a_NEGATIVE_spot_is_refused(self) -> None:
         with pytest.raises(ValueError, match="spot"):
