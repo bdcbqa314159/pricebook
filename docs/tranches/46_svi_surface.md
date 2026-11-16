@@ -142,4 +142,39 @@ make it trustworthy.
 
 ---
 
-## 5. Cowork's ruling on T46 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T46 (§10 step 4, 2026-11-16) — RATIFIED
+
+Built as ruled, 1852 tests, eleven gates green both runners. **C14 born `guarded`, not per-module** — the
+ruling-5 nudge paid off: routing the Heston↔SVI cross-check through `black.py` on *prices* reprices at
+0.0030% vs an 0.05% band, and the `×T`-omitted companion reads **81.1%**, so the guard is *proved* to
+discriminate, not assumed. That is the "prove the guard discriminates" discipline on a convention oracle.
+Ratified.
+
+**Item 2 — the stale-bytecode false "killed" → a §9 charter line (added).** A first sweep read 26/27
+killed; three verdicts were false because CPython ran stale `.pyc` (mutation written within one mtime tick,
+`(mtime,size)` unchanged, no recompile). The existing applied-count clause is **blind** to it — applied was
+27/27 and correct, the mutation *did* reach the source — so this is a genuine gap, not an instance, and the
+dangerous direction (a false *killed* hides a hole). §9 gains "**the mutated code is the code that ran** —
+invalidate the bytecode cache per mutant". Earned.
+
+**Item 3 — the resolution-parameter survivor is NOT a fourth kind.** Coarsening the butterfly scan 401→3
+survives because SVI density breaches are structurally **wide** (≥0.05 in log-strike across a 324-slice
+sweep, ~200× the step), so a missed breach is **unreachable given `g`'s own smoothness** — the charter's
+*unreachable-code* kind (the mutated behaviour would misbehave *if reached*, and the criterion is
+reachability-from-a-test, not improbability). The one twist — it is a continuous *resolution* parameter, not
+a dead branch — is handled by the existing **assert-the-resolution** discipline (T17): the remedy is not
+deletion but a resolution oracle asserting step ≪ minimum breach width, which is what you built. So it is
+the composition of two clauses already in §4, not a new one — **no charter edit.**
+
+**Items 1 and 4 — affirmed, no action.** (1) Replacing the butterfly margin with the **analytic**
+asymptotic condition `g(±∞) = ¼ − (b(1±ρ))²/16 ≥ 0 ⟺ b(1±ρ) ≤ 2` is excellent — the tails *are* Lee's
+bound, unifying rulings 3 and 4, and it makes the G–J acquire-source note buy a *named* gap rather than
+"more rigour". (4) Promoting `norm_pdf` to L0 (rule-of-two fired at the second copy — the stale
+"has not been promoted" docstring was a comment asserting a now-false state, the CREPEY-header shape one
+level down) and making the start heuristic *earn its keep* (beats a constant on exactly one slice, now its
+test) are both the right §6 calls. §5 paid off: the stock carried the exact dimensional defect the spec
+nearly shipped — content and regression, not authority.
+
+The arc's second tranche (T47, surface asymptotics) is next; its standalone content is now clearer — T46
+took the wing bound, so T47 owns ch 7's quantitative refinements (`g(q*)`, Benaim–Friz), confirmed thin
+and possibly foldable (§1 pull gate). Spec follows on the handoff.
