@@ -466,6 +466,44 @@ class TestTheRegisteredPricer:
         expected = bates_call_price(PARAMS, UNDERLYING, 100.0, LONG_EXPIRY, (CURVE, GRID))
         assert out.pv.amount / 1_000_000.0 == pytest.approx(expected, rel=1e-6)
 
+    def test_the_registered_pricer_is_CONVERGED_AT_SHORT_MATURITY(self) -> None:
+        """**The hole the sweep found.** `TestTheInversionIsConverged` oracles the grid constant's
+        *value*; nothing oracled the registered pricer's *use* of it, because the pricer test above
+        runs at 730 days where tranche 33's narrower `upper=200` is already accurate to 1e-14. So
+        narrowing `_DEFAULT_GRID` back survived the whole file — the T33b input-population shape
+        one level up: the constant was tested, the code path that reads it was not.
+
+        **And the strike matters as much as the maturity**, which the first attempt at this test got
+        wrong. Truncation is an *absolute* error, so it is negligible against a large price and
+        ruinous against a small one: at 60 days `upper=200` is off by 1.7e-08 at the money and by
+        **2.9e-05 at K=130**, 1.4e-04 at K=150. A tolerance of 1e-7 on an at-the-money option
+        therefore still let the narrowed grid through; the fixture has to be **deep out of the
+        money and short dated** — which is exactly the region an SVJ model is bought for."""
+        strike = 130.0
+        option = EuropeanEquityOption(
+            ASSET, strike, SHORT_EXPIRY, self.NOTIONAL, EquityOptionKind.CALL
+        )
+        out = price(option, self._model())
+        assert isinstance(out, PricingResult), out
+        reference = bates_call_price(
+            PARAMS, UNDERLYING, strike, SHORT_EXPIRY, (CURVE, FourierGrid(1200.0, 24001))
+        )
+        assert out.pv.amount / 1_000_000.0 == pytest.approx(reference, rel=1e-7)
+        # the premise: at the money the same narrowing is invisible, so this fixture is load-bearing
+        narrow = FourierGrid(200.0, 4001)
+        at_the_money = abs(
+            bates_call_price(PARAMS, UNDERLYING, 100.0, SHORT_EXPIRY, (CURVE, narrow))
+            / bates_call_price(PARAMS, UNDERLYING, 100.0, SHORT_EXPIRY, (CURVE, FourierGrid(1200.0, 24001)))
+            - 1.0
+        )
+        in_the_wing = abs(
+            bates_call_price(PARAMS, UNDERLYING, strike, SHORT_EXPIRY, (CURVE, narrow)) / reference
+            - 1.0
+        )
+        assert at_the_money < 1e-7 < in_the_wing, (
+            f"the wing is where the grid shows: ATM {at_the_money:.2e}, wing {in_the_wing:.2e}"
+        )
+
     def test_an_EXPIRED_in_the_money_option_is_PV_zero_invariant_6(self) -> None:
         """The tenth-shape premise, with the T45 sharpening: the fixture must be **in the money**,
         or the fall-through returns an intrinsic of 0 and the guard is invisible."""
