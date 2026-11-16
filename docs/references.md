@@ -313,6 +313,40 @@ Candidate map (ruled per-tranche at build; the arc plan is `docs/okane_credit_ar
 premium leg / risky PV01 (eqs 6.2/6.4) are built and oracled in
 `engine/credit_default_swap.py`.
 
+### `GATHERAL-2006` — `in-hand`
+
+Gatheral, J., *The Volatility Surface: A Practitioner's Guide*, Wiley Finance Series, 2006. 210 pp.
+Held at `_stock/NewDocuments/Gatheral - The Volatility Surface, A Practitioner's Guide copy.pdf`
+(gitignored — copyrighted; only this record is tracked).
+
+**The dedicated volatility-surface authority — project six (Bernardo, 2026-11-16).** The canonical
+practitioner text on the implied-volatility surface. Much of its model layer the equity arc already holds —
+local volatility (Dupire, T32), the Heston model by Fourier inversion (T33), the variance swap by static
+replication (T31), SABR (`models/sabr_model.py`), the implied-vol surface (T9/T32) — so this arc pulls what
+Gatheral adds *on top*: the **SVI** parameterization of the surface (ch 3, eq 3.20) and its no-arbitrage
+conditions, the **surface asymptotics** (ch 7, Lee's moment formula / wing slopes), **volatility
+derivatives** beyond the variance swap (ch 11, the volatility swap's convexity, options on variance), and
+**stochastic-volatility-plus-jumps / Bates** (ch 5) extending T33. A **second source** for Heston, local
+vol and the variance swap we already hold — so a cross-source independence check is available where it and
+`BROCKHAUS-2016` render the same object (§4's same-formula caveat applies).
+
+Candidate map (ruled per-tranche at build; the arc plan is `docs/gatheral_vol_surface_arc.md`):
+
+| ch | what | reuse / status |
+|---|---|---|
+| 1–2 | local vol, Heston | **already held** (T32, T33) — not rebuilt |
+| 3 | the **SVI** surface parameterization (eq 3.20) + no-arbitrage (calendar, butterfly/wings) | new; reuses the implied-vol surface (T9/T32) + total variance (T31) |
+| 7 | **volatility surface asymptotics** — Lee's moment formula, the wing slopes ≤ 2 | new closed-form reductions; cross-check vs Heston (T33) and SABR |
+| 11 | **volatility derivatives** — the vol swap's convexity, options on variance | extends the variance swap (T31) |
+| 5 | **SV + jumps / Bates** — the jump term in the characteristic function | extends the Heston Fourier pricer (T33), reduces to it at zero jump intensity |
+| 4, 6, 8–10 | Heston-Nandi, default risk (Merton jump-to-ruin), skew dynamics, barriers, cliquets | `to_go_deeper`; some re-tread (ch 6 vs T35) or MC-exotic (ch 9–10) |
+
+**Status `in-hand`** (held, TOC + the SVI section ch 3 and the Lee asymptotics ch 3/7 read, 2026-11-16);
+flips to `worked-from` at the first build (T46, the SVI surface). The full butterfly/no-arbitrage SVI
+conditions in their rigorous form are Gatheral–Jacquier (2014), which the 2006 text may not carry — ruled
+at T46's build whether the density-non-negativity requirement oracle suffices or that paper must be
+obtained (a `to_go_deeper` "acquire source" note if so).
+
 ---
 
 ## Named-but-not-in-hand — NOT citable as `source:` until obtained
