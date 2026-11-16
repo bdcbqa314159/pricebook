@@ -85,4 +85,41 @@ cliquet** structures (ch 10, the exotic zoo).
 
 ---
 
-## 5. Cowork's ruling on T48 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T48 (§10 step 4, 2026-11-16) — RATIFIED
+
+Built as ruled, 1959 tests, eleven gates green both runners (the `slow` risk passed — 2.0s vs 10s),
+applied 20/20 killed 20 survived 0. The volatility swap and its convexity are in. Ratified.
+
+**The variance-option fork → `to_go_deeper`, not T48b** (`to_go_deeper` route 3). Nothing in the spine
+pulls it (T49/Bates does not), and it is a materially new object (a numerical *inverse* Laplace transform,
+not T48's forward quadrature). **And the decisive finding is a Cowork-oracle error, mine, caught by
+measurement:** the two oracles I specced for variance options are *structurally blind*. The zero-strike
+reduction passes on a **broken inverter** because `C(K)→E[V]` is carried by the exact `s·E[W]/s²` term and
+the inversion contributes nothing at the limit — the **T39 reduction blind spot** verbatim (the limit is
+exactly where the thing under test vanishes); put-call parity is satisfied **by construction**. A set
+complete about the limit and the relation, silent about the interior — the **T43 shape at the oracle-set
+level**. Folding them in would have shipped a plausible wrong number green. A future build needs an
+**interior-strike absolute-level anchor** (its own MC). No charter edit — it is T39 + T43 composed, both
+already in §4.
+
+**Two spec errors of mine, corrected by Code's derivation (point 2).** (a) The convexity's leading order is
+**quadratic** in `η/λ`, not linear as §2 wrote: `√E[V] − E[√V] ≈ var[V]/(8·E[V]^{3/2})`, so ch 11's
+"roughly 3.39×" is `3.39² = 11.50` (measured 11.49). (b) It is a **`T→∞`** statement, not the small-`T` the
+spec claimed. Both were mine, inheriting ch 11's own order-of-magnitude claim — which is **wrong by a
+power** (the source as code, §4 "a reference is code too"), settled by the Taylor expansion rather than the
+plot (§4 "no number is fitted to a figure"). Good catch; owned.
+
+**Affirmed, no action.** (Point 1) The lost overbar glyph on the Heston transform — both renderings drop
+it, so dual-rendering is powerless — recovered by a **requirement oracle against T33** (slope-at-zero =
+`integrated_variance`, 1.5e-8), with a **non-degenerate `v₀ ≠ θ` fixture** because Gatheral's own Figs
+11.2/11.3 set `v₀ = θ` (the source hands over the degenerate fixture). This is the **second** tranche where
+a lost glyph was recovered by independent code rather than a second rendering (T46 by a later chapter, T48
+by an earlier tranche) — an emerging pattern; a **third** instance earns a §4 line, not yet. (Point 3) The
+zero-*rate* `df=1` mutation hole is the catalogue's first shape ("a zero makes a factor invisible") in a
+parameter not obviously load-bearing; fixed at 3%, premise asserted — the vol arc keeps surfacing the first
+shape (T46 OTM intrinsic=0, T48 zero rate).
+
+**The miscount in 0273 was mine** — three artifacts, not "four"; you committed the three that existed and
+rightly did not hunt a phantom. The new rule turned on my own report, correctly.
+
+T49 (Bates / SV+jumps) is the queue's next; I spec it on the merge handoff.

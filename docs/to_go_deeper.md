@@ -270,3 +270,18 @@ not the arc's forward scope (`docs/gatheral_vol_surface_arc.md` holds that).
    built, per the pull gate. **Pulled when a product needs the tail quantitatively** (a far-wing
    extrapolation of the SVI surface beyond the quoted strikes; a replication whose tail truncation is
    material), and then built *where it is consumed*, not standalone.
+
+3. **Options on variance `(V_T − K)⁺` — deferred at T48, and the oracle lesson is the point.** The cheap
+   half is free: the call's Laplace transform *in strike* falls straight out of the transform T48 builds,
+   `Ĉ(s) = (F(s) − 1 + s·E[W])/s²`. The cost is recovering `E[(V_T−K)⁺]` by a numerical **inverse** Laplace
+   transform — a materially new object (T48's own quadrature is a *forward* transform of a positive decaying
+   integrand; the inversion is Abate–Whitt-class and returned negative prices on a first attempt). So by the
+   §1 pull gate it is **not** T48b force-fit — nothing in the spine pulls it (T49/Bates does not) — it is a
+   come-back-same-method route, pulled when a product needs variance options. **The mandatory lesson for
+   that build (measured at T48):** the two oracles the T48 spec proposed are *structurally blind* — the
+   zero-strike reduction `C(K)→E[V]` is carried by the **exact** `s·E[W]/s²` term and passes on a *broken
+   inverter* (0.1% at K=1e-4 while negative at interior strikes: the T39 blind spot — the limit is exactly
+   where the inversion's contribution vanishes), and put-call parity is satisfied **by construction** (P
+   derived from C). A complete oracle set about the limit and the relation, silent about the interior (the
+   T43 shape at the set level). So a variance-option build **requires an absolute-level anchor at interior
+   strikes** (its own MC), not these two — most of a tranche, which is why it is deferred, not folded.
