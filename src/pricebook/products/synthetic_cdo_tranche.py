@@ -67,3 +67,24 @@ class SyntheticCDOTranche:
     spread: float
     notional: Money
     reference_entity: ReferenceEntity
+
+
+@dataclass(frozen=True)
+class TrancheQuote:
+    """A market quote: a tranche shape and the par spread it trades at.
+
+    **Market data that lives at L2, not L1**, and the layer is forced rather than chosen: a quote
+    is *about* a `TrancheBounds`, and `market/` importing a product would be the upward edge
+    `verify.py acyclic` forbids. So it sits with the shape it quotes.
+    """
+
+    bounds: TrancheBounds
+    spread: float
+
+    def __post_init__(self) -> None:
+        if not self.spread > 0.0:
+            raise ValueError(
+                f"a tranche quote needs a positive spread, got {self.spread}: a zero or negative "
+                f"spread implies a tranche that loses nothing or gains, which is the one "
+                f"configuration where the base-correlation monotonicity could fail — so it is "
+                f"refused at the door rather than bootstrapped into an arbitrageable curve")
