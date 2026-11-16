@@ -355,8 +355,20 @@ not an oracle. Ruled principles:
   is load-bearing is *dynamic* (the τ=1 gateability boundary, §9), it is the mutation sweep's job, never a
   static gate; name it here so a spec carries the premise before the sweep has to. Tenth appearance, and
   the first where the degeneracy is a *cross-tranche fixture convention* rather than a property of one
-  fixture. *(T40/T42; flag for re-audit #4 — if it bites a third time it earns a proactive sweep, the τ=1
-  cadence.)* Mutation is also the
+  fixture. *(T40/T42/**T44b**; the flag fired — it bit a **third** time, so the proactive sweep is armed:
+  this degeneracy now joins `τ=1` as one the periodic re-audit **proactively sweeps** for — dropping the
+  invariant-6 / historical-flow filter on every module that has one — rather than waiting on per-tranche
+  premise assertion, and re-audit #4 is its first run. **The third bite is itself the sharpest lesson: the
+  premise-assertion held in T43 and T44a where it was written and failed in T44b where it was only
+  *believed* written** — `base_tranche_par_spread`'s fixture began *at* the valuation date (`range(11)`, no
+  straddle, no assertion), and a dropped invariant-6 filter survived the whole file. A static gate for it
+  is still declined (T37: load-bearing-ness is dynamic, a 7-of-14 exemption list cannot fail); what the
+  bite adds is one level in from §5's "our own docs are not an authority" and §9's re-audit independence —
+  **a surface's report that it DID something (asserted a premise, built a guard) is content, not the
+  artifact; re-derive the artifact, never ratify on the recollection.** Cowork nearly ratified #62 on
+  Code's report that all three fixtures straddled; the 0253 caveat — "a reported premise I have not
+  re-derived is content, not an oracle" — is what caught it, and it is now a rule, not a caveat: the
+  reviewing surface re-derives a load-bearing premise it is about to rule on.)* Mutation is also the
   **mandatory recovery when pre-registration
   was missed** — the empirical proof of power that RED-first would otherwise have given, never a
   licence to skip RED-first. **A surviving mutant is a hole — unless it is an *equivalent mutant*,
