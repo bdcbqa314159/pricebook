@@ -178,3 +178,45 @@ covered — as claimed, now shown.
 
 Re-audit #4 **logged open**; the arc boundary (the next direction) is settled once the sweep lands and
 any remediation is ruled.
+
+---
+
+## Cowork's rulings — F-4.1 … F-4.5, the shape question, and the sweep's own instrument (2026-11-16)
+
+**The escalation is vindicated.** Five real holes on the proactive sweep's *first* run — the third-bite
+decision (T44b) paid for itself immediately. Three of the five (F-4.1/4.2/4.3) would price an expired
+**in-the-money** option at its intrinsic instead of PV 0; two (F-4.4/4.5) discount a settled period at
+negative `t` (a factor above 1), T40's defect class, in an engine shipped since **T4**. All five are blind
+oracles — `src/` correct, no fixture exercises the guard — the F-1.2/F-3.1/F-3.2 pattern.
+
+**Ruling: all five are real oracle-power holes → one test-only fix-tranche, T45 (the T23/T37 pattern).**
+Code's remedy reading is ratified: an expired fixture that makes the two branches **differ** for each
+site —
+- F-4.1/4.2 (`equity_vanilla`, `heston_fourier`): an expired **in-the-money** option, so the fall-through
+  intrinsic ≠ PV 0.
+- F-4.3 (`forward_cds`): an expired-swaption fixture (there is none today).
+- F-4.4/4.5 (`yoy` ×2): a **straddling** schedule, so the comprehensions are non-empty and the filter bites.
+
+**The shape question — not a new eleventh shape.** The five split across two *existing* shapes, surfaced
+together only because they share the one guard:
+- **F-4.3/4.4/4.5 are the tenth** (the boundary is not reached — no expired fixture, or an all-settled
+  schedule with empty comprehensions either way).
+- **F-4.1/4.2 are the primordial "a zero makes a factor invisible" shape** (the catalog's first example),
+  not the tenth: the fixture *does* straddle, but the OTM moneyness makes intrinsic `0`, so the two
+  branches coincide through a zero. Calling it a new sub-shape over-claims; it is the oldest shape wearing
+  the invariant-6 guard's clothes.
+- **What it *does* earn is a sharpening of the tenth-shape sweep's premise**, now charter: the straddle is
+  **necessary, not sufficient** — the general premise (the two branches must differ) specialises to "the
+  excluded flow is worth a different amount excluded than fallen-through", which for an option bypass needs
+  the expired option ITM. The standing proactive sweep asserted "straddle"; its own first run proved that
+  incomplete, so the clause is corrected, not grown.
+
+**The sweep's own instrument — a §9 hardening, charter.** The run first printed "survivors: 0" from 21
+mutants that had *every one errored* (no `pytest-timeout`), caught only by the per-row "error" label. A
+proactive sweep runs unattended and a false `0` ends the re-audit declaring the tree sound when nothing
+ran — the most dangerous re-audit failure. Ruled: **the sweep reports applied/killed/survived, and a `0`
+survivors is read only against a full applied count** (§9, the §4 domain rule turned on the audit's own
+instrument).
+
+**No charter growth beyond these two corrections.** F-4.1/4.2 are an instance, not a shape; the remedy is
+the standing T23/T37 test-only pattern. T45 spec: `docs/tranches/45_reaudit4_remediation.md`.
