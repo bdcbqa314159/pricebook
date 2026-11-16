@@ -497,6 +497,36 @@ class TestTheGuardsAreReachable:
         with pytest.raises(ValueError, match=expected):
             ForwardPeriod(CouponSchedule(FULL_DATES, DC), bad)
 
+    def test_an_EXPIRED_swaption_is_PV_zero_invariant_6(self) -> None:
+        """Re-audit #4, F-4.3 — this guard had **no fixture at all**, so bypassing it survived.
+
+        Every swaption test above expires in the future, so `is_historical(period.start, …)` was
+        never reached. The fixture has to make the two branches differ: a swaption whose expiry has
+        passed but whose underlying CDS has not matured, **struck well inside the money**, so the
+        value the bypass computes is materially non-zero rather than coincidentally zero (the shape
+        that hid the same guard in the two equity engines, F-4.1/F-4.2)."""
+        seasoned = tuple(VAL + timedelta(days=round(182.5 * i)) for i in range(-4, 7))
+        schedule = CouponSchedule(seasoned, DC)
+        expired_at = seasoned[2]
+        assert expired_at < VAL < seasoned[-1], "the premise: expired option, live underlying"
+
+        deep_in_the_money = 0.0010
+        product = CreditDefaultSwaption(
+            ForwardPeriod(schedule, expired_at), deep_in_the_money, NOTIONAL,
+            SwaptionDirection.PAYER, ACME)
+        out = price(product, _swaption_model())
+        assert isinstance(out, PricingResult), out
+        assert out.pv.amount == 0.0
+
+        # and the same contract with a FUTURE expiry on the same schedule is worth real money, so
+        # the guard is the only thing producing the zero
+        live_at = seasoned[6]
+        assert live_at > VAL
+        alive = CreditDefaultSwaption(
+            ForwardPeriod(schedule, live_at), deep_in_the_money, NOTIONAL,
+            SwaptionDirection.PAYER, ACME)
+        assert price(alive, _swaption_model()).pv.amount > 1.0
+
     def test_a_NEGATIVE_vol_is_refused(self) -> None:
         with pytest.raises(ValueError, match="volatility"):
             CreditSwaptionModel(_credit(), -0.1)

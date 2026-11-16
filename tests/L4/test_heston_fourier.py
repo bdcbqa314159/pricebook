@@ -26,8 +26,12 @@ from pricebook.foundation.day_count import DayCountConvention
 from pricebook.market import DiscountCurve
 from pricebook.market.equity import DividendSchedule, EquityUnderlying, dividend_forward
 from pricebook.models.black import black_price
-from pricebook.models.heston import HestonParams
-from pricebook.products.equity_option import EquityOptionKind
+from pricebook.engine import price
+from pricebook.foundation import Currency, Money, PricingResult
+from pricebook.market import CurveKey, CurveRole, CurveSet, MarketSnapshot
+from pricebook.market.equity import EquityAsset
+from pricebook.models.heston import HestonModel, HestonParams
+from pricebook.products.equity_option import EquityOptionKind, EuropeanEquityOption
 
 VAL = date(2026, 1, 1)
 DC = DayCountConvention.ACT_365_FIXED
@@ -198,3 +202,46 @@ class TestTheGuardsAreReachable:
     def test_an_EXPIRED_option_has_no_characteristic_function(self) -> None:
         with pytest.raises(ValueError, match="positive horizon"):
             heston_call_price(PARAMS, UNDERLYING, FORWARD, VAL, (CURVE, GRID))
+
+
+class TestTheEnginesInvariantSixGuard:
+    """Re-audit #4, F-4.2 — the registered pricer's expired-option guard had **no test at all**.
+
+    Everything above exercises `heston_call_price` directly, so the engine's
+    `is_historical(product.expiry, …)` branch was never reached from any test: bypassing it
+    survived the whole suite. The fixture that makes the two branches differ is an expired option
+    **in the money**, because at `t = 0` the integrated variance is zero, the pricer falls through
+    to the intrinsic, and an out-of-the-money intrinsic is `0` — the same number PV-0 gives (that
+    is exactly how F-4.1 hid the same guard in the Black engine).
+    """
+
+    ASSET = EquityAsset("ACME")
+    EUR = Currency("EUR")
+    IN_THE_MONEY = 85.0
+
+    def _model(self) -> HestonModel:
+        market = MarketSnapshot(
+            valuation_date=VAL,
+            curves=CurveSet({CurveKey(CurveRole.DISCOUNT, self.EUR): CURVE}),
+            equities={self.ASSET: UNDERLYING})
+        return HestonModel(market, PARAMS)
+
+    def test_an_EXPIRED_in_the_money_option_is_PV_zero_invariant_6(self) -> None:
+        assert self.IN_THE_MONEY < UNDERLYING.spot, "the premise: ITM, or the intrinsic is 0"
+        expired = EuropeanEquityOption(
+            self.ASSET, self.IN_THE_MONEY, VAL, Money(1_000_000.0, self.EUR),
+            EquityOptionKind.CALL)
+        out = price(expired, self._model())
+        assert isinstance(out, PricingResult), out
+        assert out.pv.amount == 0.0
+        # the number the bypass would return instead, so the test is not vacuously satisfied
+        assert (UNDERLYING.spot - self.IN_THE_MONEY) * 1_000_000.0 > 1.0
+
+    def test_THE_PREMISE_a_LIVE_option_prices_through_this_engine(self) -> None:
+        """So the guard is the only thing standing between the fixture and a number."""
+        live = EuropeanEquityOption(
+            self.ASSET, self.IN_THE_MONEY, EXPIRY, Money(1_000_000.0, self.EUR),
+            EquityOptionKind.CALL)
+        out = price(live, self._model())
+        assert isinstance(out, PricingResult), out
+        assert out.pv.amount > 1.0
