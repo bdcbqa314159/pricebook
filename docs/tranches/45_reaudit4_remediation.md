@@ -61,4 +61,33 @@ Branch `tranche/45-reaudit4-remediation`. `test` (RED: the five mutation tests +
 (the two charter edits, the findings-doc rulings, this spec) → `chore(release): v0.52.1`. Draft PR;
 mark ready only at §10 step 6.
 
-## 6. Cowork's ruling (reserved for §10 step 4, after the build)
+## 6. Cowork's ruling (§10 step 4, 2026-11-16) — RATIFIED
+
+T45 reviewed on #64. All five holes closed test-only (applied 6/6, killed 6, survived 0 — the five sites
+plus `yoy.py:101` as control, reported *with* the applied count the new §9 clause demands), **no `src/`
+line changed**, so nothing was misdiagnosed. The fixtures make the two branches differ exactly as the
+sharpened premise requires: expired **ITM** (85 vs spot 100 → intrinsic 15) for the option engines, a
+valuation date **inside** the schedule with the settled flows' `df > 1` *asserted* for the YoY
+comprehensions. Ratified.
+
+**The one judgement call — keeping the matured YoY test beside the straddling one — is correct, and NOT
+the trap §2 warns about.** Re-derived from `engine/yoy.py` rather than taken from the report (this arc's
+rule): the three guards are **distinct**. `:169` is the whole-swap-matured guard *in the registered
+pricer* (`if all(is_historical(pay,…)) : return PV 0`), which fires **only** when every period is
+historical — a straddling fixture never reaches it. `:136`/`:152` are the helper comprehensions
+(`yoy_fixed_leg_value`, `yoy_par_rate`), which a straddling fixture is needed to exercise. So the matured
+fixture is the **sole killer of `:169`**; "strengthening it in place" into a straddling one would have
+*opened* a hole at `:169`. The spec's strengthen-in-place rule targets a fixture that is degenerate for
+**every** guard it touches (false comfort beside a good test); a fixture that is the necessary non-
+degenerate killer of a **distinct** guard stays — and is labelled by the guard it kills, which Code did.
+This is "count the copies of a guard" (§4, T30) read forward: before removing a fixture, check what it is
+the sole killer *of*. No charter edit — the existing clause covers it.
+
+**Two articulations from the build worth keeping (no charter change):** (a) *"the catalogue is of
+mechanisms, not of sites"* — the right lens; filing F-4.1/4.2 by the invariant-6 guard they were found
+behind is what misread the first shape as a new one, and reading them by the mechanism (a zero hiding a
+factor) refiles them correctly. (b) F-4.2 exposed that the Heston **registered** pricer's expiry guard had
+*no test at all* (the file only ever called `heston_call_price` directly) — a genuine uncovered-dispatch
+path, a touch more than a degenerate fixture, now closed.
+
+On #64's merge, re-audit #4 is complete and the library is at a fresh arc boundary.
