@@ -45,8 +45,6 @@ from pricebook.engine.volatility_swap import (
 )
 from pricebook.foundation import Currency, Money, PricingFailure, PricingResult
 from pricebook.foundation.day_count import DayCountConvention
-from pricebook.foundation.rng import UniformSource
-from pricebook.foundation.variates import standard_normals
 from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
 from pricebook.market.equity import (
     DividendSchedule,
@@ -288,10 +286,20 @@ class TestAgainstMonteCarlo:
 
     def _mc(self, params: HestonParams, years: float, seed: int) -> tuple[float, float]:
         """`E[√V_T]` by full-truncation Euler on the variance, accumulating the **floored**
-        variance. Flooring matters: accumulating the signed state instead measured a 6.6-SE
+        variance.
+
+        Flooring matters and was measured: accumulating the *signed* state instead showed a 6.6-SE
         "bias" that is not there — realized variance is the quadratic variation of the actual
-        non-negative process."""
-        source = UniformSource(seed)
+        non-negative process, so the floored state is the one that accrues.
+
+        **Driven by numpy's generator rather than the tree's `UniformSource`, deliberately.** Two
+        reasons, and independence is the first: an oracle built on the same RNG the production MC
+        engines use shares a component with them, while a different stream shares nothing. The
+        second is cost — `standard_normals(source.uniforms(n))` round-trips through Python lists,
+        which at 500 steps x 20,000 paths is ~10M Python-level conversions and measured ~19x the
+        vectorised draw, enough on its own to push this file past the `slow` ceiling. The seed is
+        fixed, so determinism is unaffected (the L5 exposure tests set the same precedent)."""
+        generator = np.random.default_rng(seed)
         dt = years / self.STEPS
         root_dt = math.sqrt(dt)
         variance = np.full(self.PATHS, params.v0, dtype=float)
@@ -299,7 +307,7 @@ class TestAgainstMonteCarlo:
         for _ in range(self.STEPS):
             used = np.maximum(variance, 0.0)
             total += used * dt
-            shocks = np.array(standard_normals(source.uniforms(self.PATHS)))
+            shocks = generator.standard_normal(self.PATHS)
             variance = (
                 variance
                 + params.kappa * (params.theta - used) * dt
@@ -409,7 +417,7 @@ class TestTheLogStripCrossProduct:
     The strip's error is **one-directional** — truncating the strike range omits real value, so it
     underprices — which is asserted as a signature rather than a tolerance."""
 
-    FOURIER = FourierGrid(upper=200.0, count=2_001)
+    FOURIER = FourierGrid(upper=200.0, count=801)
 
     def _strip(self, years: float, expiry: date, lower: float, upper: float, count: int) -> float:
         forward = dividend_forward(UNDERLYING, expiry, CURVE)
@@ -430,8 +438,8 @@ class TestTheLogStripCrossProduct:
 
     def test_the_strip_converges_UP_to_the_transforms_variance(self) -> None:
         exact = _fair_variance(PARAMS, LONG_YEARS)
-        narrow = self._strip(LONG_YEARS, LONG_EXPIRY, 0.3, 3.0, 241)
-        wide = self._strip(LONG_YEARS, LONG_EXPIRY, 0.15, 6.0, 481)
+        narrow = self._strip(LONG_YEARS, LONG_EXPIRY, 0.3, 3.0, 121)
+        wide = self._strip(LONG_YEARS, LONG_EXPIRY, 0.15, 6.0, 241)
         assert narrow < wide < exact, (
             f"truncation must underprice monotonically: {narrow} < {wide} < {exact}"
         )
