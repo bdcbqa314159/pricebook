@@ -6,6 +6,94 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-11-16
+
+### Added — tranche 46, the SVI surface parameterization (project six opens)
+
+`models/svi.py` (L3): Gatheral eq 3.20 as a closed form in five parameters, with the no-arbitrage
+conditions that decide whether a fitted slice is admissible. First build of the volatility-surface
+arc; `GATHERAL-2006` → `worked-from`.
+
+**The quantity is TOTAL variance `w(k) = σ²_BS(k)·T`, and the spec was wrong about it before the
+build.** The spec wrote Lee's wing bound as `b(1+|ρ|) ≤ 2` against *annualised* variance; ch 7 bounds
+`σ²_BS(k,T)·T/|k|`, so the annualised form carries a `T` and the two agree **only at `T = 1`**. That
+is the `τ=1` degeneracy living in a **formula** rather than a fixture — a one-year fixture would have
+passed it silently. Caught by a dimension check before RED, ruled by Cowork, recorded as **C14**
+(guarded: the Heston↔SVI path reprices end-to-end at a measured **0.0030%** against an 0.05% band,
+while the same path with the `×T` omitted reads **81.1%**, asserted in a companion test). The
+archived predecessor had the same defect shipped — it declares `w = σ²_BS × T` and then tests
+`b(1+|ρ|) ≤ 4/T`.
+
+**Neither `pdftotext` rendering shows eq 3.20's square root, and §4's dual-rendering rule cannot
+see it** — both are faithful to a lossy extraction. What recovers it is two things the renderings
+*do* carry plus one the source carries three chapters later:
+
+* `√` survives extraction **123 times** elsewhere in the book, so 3.20 is not a generic glyph loss;
+  what sits in its place is a large-math **vinculum**, which also appears over displayed fractions.
+* The vinculum's **measured span** pins the *scope*: it begins at column 47 and covers the radicand
+  at columns 51–66, while `ρ (k − m)` sits at columns 33–45, outside it. The v0.4.0 mis-nesting
+  hazard is therefore covered by the extraction.
+* The radical's **identity** is forced by ch 7: with it the wings are linear in `k`, without it `w`
+  is quadratic, which violates Lee's model-independent `β*, α* ∈ [0,2]` unboundedly. §4's
+  derivation-step independence, **across chapters** rather than across two steps of one derivation.
+
+**The butterfly condition is derived, not transcribed.** The 2006 text carries none for SVI, and the
+rigorous `g(k) ≥ 0` is Gatheral–Jacquier 2014, which is **not held** (acquire-source note in
+`docs/to_go_deeper.md`). So the density comes from Breeden–Litzenberger on the fitted smile, and the
+trap is in the first step: for a `(e^X − e^k)⁺` payoff `∂c/∂k = −e^k(1 − P(k))`, so
+`e^k p = c'' − **c'**` and the reflex `p = e^{−k}c''` is wrong by `O(1)` (measured: 24.5% at the
+money). Carried through with Black's `n(d₊) = e^k n(d₋)` it collapses to `p = g·n(d₋)/√w` with
+`g = (1 − kw'/2w)² − (w'²/4)(1/w + 1/4) + w''/2`, confirmed three independent ways — against a
+numerical second difference of Black prices (~1e-7), by integrating to **1.0 ± 3e-11**, and by
+collapsing **exactly** onto the Black–Scholes normal density at `b = 0`, where `g ≡ 1`.
+
+**A derived result replaced a constant the sweep showed was dead config.** The butterfly scan
+originally widened the quoted span by 50%; coarsening it back killed nothing, and working out why no
+fixture could exercise it gave the better answer: as `|k| → ∞`, `w' → b(1±ρ)`, `w'' → 0` and the skew
+term → ½, so
+
+    g(±∞) = ¼ − (b(1±ρ))²/16 ≥ 0   ⟺   b(1±ρ) ≤ 2
+
+— **the asymptotic no-butterfly condition is exactly Lee's bound** (verified to 8 decimals on both
+wings of three slices). So the tails are certified analytically and the interior numerically, the
+margin is deleted, and what the pair does *not* cover — the region between the far quote and the
+asymptotic regime — is named in the code rather than papered over, which is what makes the
+Gatheral–Jacquier acquire-source note an earned one.
+
+### Changed
+
+`foundation/distributions.py` gains **`norm_pdf`**, promoted at its **third** consumer. Two L3
+modules each carried a private copy, and the first one's docstring said *"§6's rule-of-two has not
+fired, so it has not been promoted"* — true when written, false from the moment the second copy
+appeared and nobody noticed. Both were the same expression in the same operation order, so the
+consolidation is **bit-identical** (§4: claimable exactly when the refactor preserves op order), not
+merely equal to a tolerance.
+
+`models/svi.py`'s start heuristic is the second version. The first estimated each wing's slope from
+the vertex to its endpoint, which has a degenerate case no obvious fixture shows: a **one-sided**
+smile puts the smallest quote *at* an endpoint, so that side has no data, its slope is exactly zero,
+`ρ₀` pins to its clip, and the solve walks out of evaluations at a cost of 2e-10 — a good fit
+reported as non-convergence. Replaced by a one-sided estimate with `ρ₀ = 0`, deliberately
+start-neutral; a sweep of 432 slices finds it beats a constant start on exactly **one**, which is now
+its test.
+
+### Verification
+
+68 new tests (1784 → **1852**). Mutation: **applied 27/27, killed 26, survived 1**, and the applied
+count is load-bearing — the first run was reported `26/27 killed` on **stale bytecode**, which
+silently un-applies a mutation (Python compares mtime and size, and a patch written inside one mtime
+tick is ignored), changing three verdicts. That is §9's "a mutant that did not apply is not a mutant
+that died" one level down: not a mutant that failed to apply, but one that applied to a file the
+interpreter then declined to recompile, with every row still printing a confident verdict.
+
+The sweep found **five** unreached guards, all closed test-only: the fit's Lee refusal (the predicate
+was tested, the fit *consulting* it was not — T33b's input-population degeneracy), `annualised_vol`
+with no test at all, the minimum-quote count, the start heuristic, and the butterfly margin (deleted
+instead). The surviving mutant coarsens the butterfly scan from 401 points to 3 and is **not a
+hole**: SVI's density breaches are structurally wide — measured at **0.58 in log-strike**, ~200× the
+scan step, with none narrower than 0.05 across a 324-slice sweep — so the failing case is unreachable
+given `g`'s own smoothness. Asserted as a resolution oracle rather than argued.
+
 ## [0.52.1] - 2026-11-16
 
 ### Fixed — tranche 45, re-audit #4 remediation (test-only, no `src/` change)
