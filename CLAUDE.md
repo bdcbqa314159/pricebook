@@ -493,6 +493,21 @@ not an oracle. Ruled principles:
   identity — `Pn(Tᵢ)·m = Pn(Tᵢ₋₁)·PrRatio·e^C` — reordering one division, so the JY leg moved rel
   1.6e-15, ~7 ULP, one division round-trip. Keeping bit-identity would have meant keeping JY's
   grouping, which is exactly what makes a second model impossible.)*
+  **And bit-identity is a property of a MEASUREMENT, not of a committed TEST — even when the refactor
+  genuinely is bit-identical.** When op order *is* preserved, the identity holds only *in the same
+  interpreter*; committing the bit patterns as an equality (or an ULP-distance) assertion silently
+  promotes an in-process measurement to a cross-platform claim, which §9's "transcendental results differ
+  1–2 ULP across runtimes" forbids. Use bit-identity as the purity **proof**, in-process; a committed
+  regression running on other machines is entitled to a **tolerance** and nothing more. **And for an
+  accumulated transcendental SUM that tolerance is RELATIVE, not an ULP count** — ULP measures
+  representable steps whose absolute size follows the exponent, so it is the wrong instrument for a sum of
+  thousands of terms, and §9's "1–2 ULP" rule of thumb is for a *single* transcendental, not an
+  accumulation. *(T49: the Gil-Pelaez inversion extracted at its second consumer (§6, rule-of-two —
+  the alternative was a sixth argument breaking §7), bit-identical in-process at 360 doubles, committed
+  first as equality then as ULP-distance — both failed CI, the second reading **25,475 ULP** apart while
+  **3.5e-12 relative** — and finally as a 1e-9 relative tolerance against a measured 3.5e-12. The existing
+  op-order clause above did not stop it, because this is a different failure: not a false bit-identity
+  claim, but a true one committed as the wrong kind of test.)*
 
 These principles bind **Cowork's review as much as Code's build**: a formula "verified term-by-term"
 against the same rendering the code used is not verified.

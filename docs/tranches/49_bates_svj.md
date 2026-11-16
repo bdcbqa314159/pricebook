@@ -88,4 +88,38 @@ European price and its two anchors; with it the vol-surface arc closes.
 
 ---
 
-## 5. Cowork's ruling on T49 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T49 (§10 step 4, 2026-11-16) — RATIFIED; the arc's last build
+
+Built as ruled, 2089 tests, eleven gates green both runners. **The double reduction is the arc's best
+oracle design** — A (→Heston at `m=0`) and B (→Merton at `η=0`) *are* each other's companion, both
+blindnesses asserted (at `m=0`, `α/δ=0.9/1.2` and A still passes); the third T39 instance this arc and the
+first of the mutual-companion shape. This goes in `CP_gatheral_vol.md` as a method high point. Ratified.
+
+**Finding 1 (SVJ needs a wider truncation) — affirmed, handled in T49.** The jump tails make `φ_SVJ` decay
+slower in `u`, worst at short `T`; the grid is config that belongs to *this* model (T44a's "config lives on
+the model, its cost/accuracy determines it"), set to 400 and the constant oracled. Correct.
+
+**Finding 2 (the negative Heston call price already on `main`) → `OPEN.md` + remediation at re-audit #5.
+Ruled.** This is a **real defect**, not `to_go_deeper` (that bin is for unpulled *capabilities*, never for
+a wrong number in shipped code) — a negative call price at `σ_v=0.9, T=30d, K=130` (−2.5e-04 vs the fine
+grid's +1.7e-05), an arbitrage violation in a regime that is actually quoted, merged sixteen tranches ago.
+It is the **"a reference is code too"** shape (T20a/T25): T33's oracle used a committed grid that is itself
+wrong in the extreme regime, so it could not see the production grid was wrong there — the same defect
+Finding 1 fixes one regime over. Disposition:
+- **`OPEN.md` entry (OI-4), added by Code at step 6** — the six excluded regression points with the reason
+  asserted (Code's interim call is right: exclude-with-reason, never pin a wrong number, §8), the measured
+  defect, and the **re-open trigger = re-audit #5's oracle-power pass**.
+- **The fix is a remediation tranche out of re-audit #5** (the T45-from-#4 precedent). Re-audit #5 fires on
+  this merge; it will sweep T33 oldest-first anyway, and this is a **named** target in its scope — an
+  adaptive/regime-aware truncation for the Heston (and SVJ) inversion, oracled against a high-precision
+  reference in the high-vol/short-`T` regime the current one cannot resolve.
+
+**Finding 3 (bit-identity committed as a cross-platform test) → a §4 charter line (added).** The Gil-Pelaez
+extraction to `engine/fourier_inversion.py` is the right §6 rule-of-two call (second consumer; the
+alternative broke §7). The lesson — **bit-identity is a property of a measurement, not a committed test**,
+and an accumulated transcendental sum's committed tolerance is **relative**, not ULP — is genuinely new:
+the existing op-order clause did not stop it, because a *true* bit-identity committed as the wrong kind of
+test is a different failure from a *false* bit-identity claim. One §4 line, earned by two CI rounds.
+
+On merge the vol-surface arc closes: `CP_gatheral_vol.md` + re-audit #5 (carrying the glyph sub-kind and
+first-shape-twice watch items, and OI-4 as a named remediation target).
