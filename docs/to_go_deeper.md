@@ -257,3 +257,16 @@ not the arc's forward scope (`docs/gatheral_vol_surface_arc.md` holds that).
    so this is an acquire-source note rather than a deferred build. With it, the scan is replaced by
    the paper's parameter-space conditions and the certificate becomes global. Until then the gap is
    named in `_butterfly_breach`'s docstring rather than papered over.
+
+2. **Ch 7's quantitative volatility-surface asymptotics — the dropped T47 (§1 pull gate, 2026-11-16).**
+   The arc plan queued a T47 for ch 7's asymptotics; T46 took the one part the arc consumes — **Lee's wing
+   bound `β*, α* ∈ [0,2]`**, which pins eq 3.20's radical and is the no-arbitrage wing condition. The
+   **quantitative remainder** — the `β* ↔ q*` moment inversion (eqs 7.11–7.12), the **Benaim–Friz** limit
+   refinement (eqs 7.13–7.14), `g(q*)`, and the Drăgulescu–Yakovenko/Heston tail-genericity argument
+   (p.99) — has **no consumer** in the committed spine: T48's vol-swap convexity is a Heston computation
+   (ch 11) reusing T31+T33, T49's Bates is a characteristic-function extension, and the Jensen bound is
+   model-independent; none reads the quantitative asymptotics. Oracle-able with our discipline (closed-form
+   limits cross-checked against Heston/SABR tails), so a genuine come-back-same-method route — **not**
+   built, per the pull gate. **Pulled when a product needs the tail quantitatively** (a far-wing
+   extrapolation of the SVI surface beyond the quoted strikes; a replication whose tail truncation is
+   material), and then built *where it is consumed*, not standalone.

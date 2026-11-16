@@ -42,11 +42,15 @@ cross-source check is available where they render the same object (§4's same-fo
   (`market/vol_surface.py`) — decided by what it produces and reads (§2). **Source-boundary Ask:** the
   rigorous butterfly conditions are Gatheral–Jacquier (2014); rule at build whether the density-`g(k)≥0`
   requirement oracle suffices or that paper must be obtained (a `to_go_deeper` acquire-source note if so).
-- **T47 — volatility surface asymptotics (ch 7). Provisional; its standalone content is confirmed after
-  T46.** Lee's moment formula (the wing slope ↔ number of finite moments) and the short-time limit, as
-  model-independent results cross-checking SVI's wings and Heston's/SABR's. **If** the asymptotics reduce
-  to T46's wing requirement oracle with nothing new pulled, T47 folds into T46 (§1 pull gate — a product
-  worth having only if the expansions are themselves used).
+- **~~T47 — volatility surface asymptotics (ch 7)~~ — DROPPED by the §1 pull gate (ruled 2026-11-16, after
+  T46 merged).** T46 took the one consumed part (Lee's wing bound `β*,α* ∈ [0,2]`, which pinned eq 3.20's
+  radical). The quantitative remainder — `g(q*)`, the `β* ↔ q*` inversion, the Benaim–Friz refinement
+  (eqs 7.13–7.14), the Drăgulescu–Yakovenko/Heston tail-genericity (p.99) — has **no consumer** in the
+  committed spine: T48's vol-swap convexity is a Heston computation (ch 11) reusing T31+T33, and the Jensen
+  bound is model-independent; neither needs it. So it is **`to_go_deeper`** (oracle-able, unpulled), pulled
+  only if a tail-sensitive product (a far-wing extrapolation, a tail-sensitive replication) ever needs it —
+  and then built *where consumed*, per Code's 0272 observation. This is the pull gate doing its job: T47 was
+  flagged provisional precisely for this test, and it fails it cleanly.
 
 ### Phase 2 — the derivatives and the model extension
 - **T48 — volatility derivatives (ch 11).** The **volatility swap** (`E[√(realized var)]`) and **options
@@ -70,8 +74,9 @@ closed-form and asymptotic country; flagged only if a surface-fitting objective 
 requirement-identity anchor, ruled at the §1 gate.
 
 ## Decision — the FULL vol-surface capstone is committed (Bernardo, 2026-11-16)
-Bernardo chose the **full capstone** over a focused SVI-only start. **The queue:** T46 (SVI surface) →
-T47 (surface asymptotics, provisional) → T48 (volatility derivatives) → T49 (Bates / SV+jumps) →
+Bernardo chose the **full capstone** over a focused SVI-only start. **The queue:** T46 (SVI surface,
+**merged v0.53.0**) → ~~T47~~ (dropped by the §1 pull gate → `to_go_deeper`) → T48 (volatility derivatives) →
+T49 (Bates / SV+jumps) →
 `CP_gatheral_vol.md` (closes the arc, fires re-audit #5). Cowork writes each per-tranche spec before its
 build (§10); this is the queue, not the specs. **T46 is specced** (`docs/tranches/46_svi_surface.md`); the
 rest follow in turn. `GATHERAL-2006` is registered `in-hand` in `docs/references.md` (flips to
