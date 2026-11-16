@@ -58,7 +58,13 @@ from pricebook.products.volatility_swap import VolatilitySwap
 VAL = date(2026, 1, 1)
 DC = DayCountConvention.ACT_365_FIXED
 EUR = Currency("EUR")
-CURVE = DiscountCurve.flat(VAL, 0.0, DC)
+#: A **non-zero** rate, which the mutation sweep forced. At a flat zero rate `df(T) = 1` exactly,
+#: so the pricer's discounting is a multiplication by one and dropping it survives every test —
+#: the degenerate-fixture catalogue's first shape ("a zero makes a factor invisible") in its purest
+#: form, and invisible to any amount of reading. The premise is asserted in
+#: `TestTheRegisteredPricer.test_the_discount_factor_is_not_one`.
+RATE = 0.03
+CURVE = DiscountCurve.flat(VAL, RATE, DC)
 ASSET = EquityAsset("ACME")
 UNDERLYING = EquityUnderlying(100.0, 0.0, DividendSchedule(continuous_yield=0.0))
 
@@ -82,7 +88,7 @@ BCC = HestonParams(kappa=1.15, theta=0.04, sigma_v=0.39, rho=0.0, v0=0.04)
 def _market(valuation: date = VAL) -> MarketSnapshot:
     return MarketSnapshot(
         valuation_date=valuation,
-        curves=CurveSet({CurveKey(CurveRole.DISCOUNT, EUR): DiscountCurve.flat(valuation, 0.0, DC)}),
+        curves=CurveSet({CurveKey(CurveRole.DISCOUNT, EUR): DiscountCurve.flat(valuation, RATE, DC)}),
         equities={ASSET: UNDERLYING},
     )
 
@@ -498,8 +504,11 @@ class TestTheRegisteredPricer:
         swap = VolatilitySwap(ASSET, LONG_EXPIRY, strike, self.NOTIONAL)
         out = price(swap, _model())
         assert isinstance(out, PricingResult), out
-        expected = 1_000_000.0 * (fair_volatility(PARAMS, LONG_YEARS) - strike)
+        discount = CURVE.df(LONG_EXPIRY)
+        expected = discount * 1_000_000.0 * (fair_volatility(PARAMS, LONG_YEARS) - strike)
         assert out.pv.amount == pytest.approx(expected, rel=1e-12)
+        # ... and the undiscounted number differs, so the factor is load-bearing here
+        assert abs(expected - 1_000_000.0 * (fair_volatility(PARAMS, LONG_YEARS) - strike)) > 100.0
         assert out.pv.currency == EUR
 
     def test_a_swap_struck_at_its_own_fair_volatility_is_worth_nothing(self) -> None:
@@ -508,6 +517,12 @@ class TestTheRegisteredPricer:
         out = price(swap, _model())
         assert isinstance(out, PricingResult), out
         assert out.pv.amount == pytest.approx(0.0, abs=1e-6)
+
+    def test_the_discount_factor_is_not_one(self) -> None:
+        """The premise the sweep demanded: at a zero rate `df = 1` and the pricer's discounting is
+        unobservable, so a dropped `df` survives the whole file."""
+        discount = CURVE.df(LONG_EXPIRY)
+        assert discount < 0.95, f"df={discount} is too close to 1 to see a dropped factor"
 
     def test_an_EXPIRED_swap_is_PV_zero_invariant_6(self) -> None:
         """The tenth-shape premise: the fixture must be **in the money**, or the fall-through
