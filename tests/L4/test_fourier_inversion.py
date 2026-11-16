@@ -50,17 +50,24 @@ GRID = FourierGrid(200.0, 4001)
 
 #: `(kappa, theta, sigma_v, rho, v0, days, strike, the call price's exact bits)` — captured from
 #: the pre-extraction implementation.
+#:
+#: **54 of 60, and the 6 that are excluded are named rather than quietly dropped (§4).** A
+#: regression needs a number the engine can actually resolve, and six of the sweep's deep
+#: out-of-the-money short-dated points are below `1e-3` on a spot of 100 — quadrature residue, not
+#: prices. At `sigma_v = 0.9`, 30 days, `K = 130` the committed grid returns **-2.5e-04** where an
+#: `upper=1200, count=24001` reference gives **+1.7e-05**: a *negative call price*, wrong by 2.7e-04
+#: absolute. That is a pre-existing truncation limit of tranche 33's grid in the far short-dated
+#: wing at high vol-of-vol — the same regime and the same cause as tranche 49's wider SVJ grid, in
+#: code that merged sixteen tranches ago — and it is raised for ruling rather than silently
+#: regression-locked here. Pinning those six would be preserving a wrong number.
 REFERENCES = [
     (1.5, 0.04, 0.6, -0.7, 0.05, 30, 60.0, "ec9307a83f054440"),
     (1.5, 0.04, 0.6, -0.7, 0.05, 30, 95.0, "2ac3bd60cde51740"),
     (1.5, 0.04, 0.6, -0.7, 0.05, 30, 100.0, "7694a17086580440"),
-    (1.5, 0.04, 0.6, -0.7, 0.05, 30, 130.0, "02e0864ee8989c3e"),
-    (1.5, 0.04, 0.6, -0.7, 0.05, 30, 200.0, "46bb5da78513a5be"),
     (1.5, 0.04, 0.6, -0.7, 0.05, 180, 60.0, "8b280c9e142d4440"),
     (1.5, 0.04, 0.6, -0.7, 0.05, 180, 95.0, "c71ab7378a342240"),
     (1.5, 0.04, 0.6, -0.7, 0.05, 180, 100.0, "5c1f8dc0fa341740"),
     (1.5, 0.04, 0.6, -0.7, 0.05, 180, 130.0, "2d35ff4ed014a43f"),
-    (1.5, 0.04, 0.6, -0.7, 0.05, 180, 200.0, "d2b61fd1b533b93e"),
     (1.5, 0.04, 0.6, -0.7, 0.05, 730, 60.0, "d2ed66f62f004540"),
     (1.5, 0.04, 0.6, -0.7, 0.05, 730, 95.0, "acf076a363e32c40"),
     (1.5, 0.04, 0.6, -0.7, 0.05, 730, 100.0, "7f62de77dccb2640"),
@@ -74,8 +81,6 @@ REFERENCES = [
     (2.5, 0.06, 0.9, -0.3, 0.02, 30, 60.0, "5ea2f90a44054440"),
     (2.5, 0.06, 0.9, -0.3, 0.02, 30, 95.0, "43cc27e223da1540"),
     (2.5, 0.06, 0.9, -0.3, 0.02, 30, 100.0, "733621bed5e3fa3f"),
-    (2.5, 0.06, 0.9, -0.3, 0.02, 30, 130.0, "22c46ac9ef6130bf"),
-    (2.5, 0.06, 0.9, -0.3, 0.02, 30, 200.0, "e8e6c9aaf1a9193f"),
     (2.5, 0.06, 0.9, -0.3, 0.02, 180, 60.0, "781daa2cc8254440"),
     (2.5, 0.06, 0.9, -0.3, 0.02, 180, 95.0, "29c910c6d48e2040"),
     (2.5, 0.06, 0.9, -0.3, 0.02, 180, 100.0, "8179b872ce4a1440"),
@@ -95,7 +100,6 @@ REFERENCES = [
     (0.8, 0.03, 0.2, 0.4, 0.09, 30, 95.0, "f44f2f8e86bf1940"),
     (0.8, 0.03, 0.2, 0.4, 0.09, 30, 100.0, "01c93fd6b9930b40"),
     (0.8, 0.03, 0.2, 0.4, 0.09, 30, 130.0, "b055f0f01c09783f"),
-    (0.8, 0.03, 0.2, 0.4, 0.09, 30, 200.0, "256e0eedc882b3bd"),
     (0.8, 0.03, 0.2, 0.4, 0.09, 180, 60.0, "e6e56a7577204440"),
     (0.8, 0.03, 0.2, 0.4, 0.09, 180, 95.0, "660f6ac14d582540"),
     (0.8, 0.03, 0.2, 0.4, 0.09, 180, 100.0, "4b125964654e2040"),
@@ -110,7 +114,8 @@ REFERENCES = [
     (0.8, 0.03, 0.2, 0.4, 0.09, 1825, 95.0, "343b62fe65823640"),
     (0.8, 0.03, 0.2, 0.4, 0.09, 1825, 100.0, "7b3a9d2055753440"),
     (0.8, 0.03, 0.2, 0.4, 0.09, 1825, 130.0, "66f7686301992740"),
-    (0.8, 0.03, 0.2, 0.4, 0.09, 1825, 200.0, "65f500bd731b1040"),]
+    (0.8, 0.03, 0.2, 0.4, 0.09, 1825, 200.0, "65f500bd731b1040"),
+]
 
 
 #: How far a reference value may drift. Measured: the extraction is bit-identical in-process, and
@@ -149,6 +154,21 @@ def test_the_extraction_changed_no_heston_number(
         f"{price!r} is {distance} ULP from the pre-extraction {reference!r} "
         f"(budget {_ULP_BUDGET}) — a real change, not libm variation"
     )
+
+
+def test_THE_EXCLUDED_REGIME_is_named_and_still_fails(self=None) -> None:
+    """The six excluded points are excluded for a measured reason, asserted here so the exclusion
+    cannot quietly become a hole: in that regime the committed grid genuinely disagrees with a far
+    finer one, and at `sigma_v = 0.9` it returns a negative call price."""
+    params = HestonParams(kappa=2.5, theta=0.06, sigma_v=0.9, rho=-0.3, v0=0.02)
+    expiry = VAL + timedelta(days=30)
+    committed = heston_call_price(params, UNDERLYING, 130.0, expiry, (CURVE, GRID))
+    fine = heston_call_price(params, UNDERLYING, 130.0, expiry, (CURVE, FourierGrid(1200.0, 24001)))
+    assert committed < 0.0 < fine, f"committed={committed}, fine={fine}"
+    assert abs(committed - fine) > 1e-4, "the disagreement must be real, not rounding"
+    # and every kept reference is comfortably above that residue
+    for row in REFERENCES:
+        assert abs(struct.unpack("<d", bytes.fromhex(row[7]))[0]) >= 1e-3
 
 
 def test_the_ulp_budget_would_catch_a_real_change() -> None:

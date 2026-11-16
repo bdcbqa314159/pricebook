@@ -63,6 +63,14 @@ behavioural oracle in the tree, and shown to reject a 1e-9 relative perturbation
 thousand. The in-process bit-identity remains the purity argument; the portable regression is what a
 test running elsewhere is entitled to assert.
 
+**And the reference set is 54 of 60, with the six exclusions named.** A regression needs a number the
+engine can resolve, and six deep out-of-the-money short-dated points sit below `1e-3` on a spot of
+100 — quadrature residue rather than prices. One of them is a finding in its own right, raised for
+ruling rather than regression-locked: at `σ_v = 0.9`, 30 days, `K = 130`, tranche 33's committed grid
+returns **−2.5e-04** where an `upper=1200, count=24001` reference gives **+1.7e-05** — a *negative
+call price*, wrong by 2.7e-04 absolute. Same regime and same cause as this tranche's wider SVJ grid,
+in code that merged sixteen tranches ago. Pinning it would have preserved a wrong number.
+
 The extraction also made the inversion testable **with no model at all**, which a Heston-only test
 could never do: handed a Gaussian characteristic function, both probabilities have exact closed
 forms, and `P1`'s — the **Esscher tilt**, which shifts the mean by exactly `σ²` — pins the
@@ -85,7 +93,7 @@ prices long-dated options perfectly and short-dated ones wrongly. `_DEFAULT_GRID
 
 ### Verification
 
-66 new tests (2027 → **2093**; the extraction added 68 before this tranche's own). Mutation:
+2027 → **2089** tests (the extraction's own file plus this tranche's 66, less the six excluded references). Mutation:
 **applied 22/22, killed 22, survived 0** — after one real hole that took two attempts to close, and
 the second attempt is the lesson. Narrowing `_DEFAULT_GRID` back to Heston's 200 survived the whole
 file: the grid constant's *value* was oracled, but the **registered pricer's use of it** was not,
