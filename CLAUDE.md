@@ -466,7 +466,14 @@ not an oracle. Ruled principles:
   *(F-5.3, re-audit #5: `local_vol_mc`'s repricing band was measured to resolve an 8.9-SE Dupire drift
   defect — correct — yet could not resolve a 1.4-SE dropped discount factor (6.18%, inside an 11.8–33.1%
   band at every strike), a T32 hole the satisfied-looking resolution test hid until the sweep dropped `df`
-  directly.)*
+  directly.)* **And when a band cannot resolve a defect, the first question is whether that quantity needs
+  a band at all — not how to widen it.** A band belongs to a quantity that is a Monte-Carlo estimate; a
+  *closed-form* sub-quantity that merely lives next to an MC one inherited the band by accident and should
+  be oracled **pointwise** (exact), not given a bigger share of its neighbour's noise. Widening the band
+  spends paths to resolve what an exact check resolves for free. *(F-5.3 resolved, T51: the dropped `df`
+  sat inside the `4·SE` band (11.4–30%) and would have taken 40,000 paths / 2.8s to resolve — but
+  `surface_call_price` is closed form, so the oracle is pointwise at ~1e-12, no paths; the band was there
+  because the *neighbouring* repriced value is MC, not because this one is.)*
 - **A reference is code too — it needs its own accuracy argument in the regime where it is used.**
   §4's independence rule says the test computes its own reference; this is the sharp corollary: that
   reference is an implementation with its own error, and in an extreme regime (a deep tail, a near-unit

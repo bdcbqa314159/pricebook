@@ -242,6 +242,65 @@ class TestTheEnginesInvariantSixGuard:
         # the number the bypass would return instead, so the test is not vacuously satisfied
         assert (UNDERLYING.spot - self.IN_THE_MONEY) * 1_000_000.0 > 1.0
 
+    @pytest.mark.parametrize("moneyness", [0.8, 1.0, 1.25])
+    def test_a_PUT_prices_through_the_registered_engine(self, moneyness: float) -> None:
+        """**F-5.1, re-audit #5.** Nothing in this tree priced a put through *this* engine, so the
+        registered pricer's put arm was never taken and dropping its discount factor survived the
+        whole suite — a path the branch *condition* covers (reversing it kills, because a call then
+        takes the put arm) while the arm's own arithmetic goes untested.
+
+        The anchor is the reduction this file already trusts, extended to the put: at `σ_v = 0` the
+        variance is deterministic, so Heston must be **Black on the integrated variance** — and the
+        reference is Black's put, computed here, not the engine's call rearranged. A dropped `df` in
+        the put arm misses it by `1/df − 1`."""
+        deterministic = HestonParams(kappa=1.5, theta=0.04, sigma_v=0.0, rho=0.0, v0=0.05)
+        strike = moneyness * FORWARD
+        option = EuropeanEquityOption(
+            self.ASSET, strike, EXPIRY, Money(1_000_000.0, self.EUR), EquityOptionKind.PUT
+        )
+        market = MarketSnapshot(
+            valuation_date=VAL,
+            curves=CurveSet({CurveKey(CurveRole.DISCOUNT, self.EUR): CURVE}),
+            equities={self.ASSET: UNDERLYING},
+        )
+        out = price(option, HestonModel(market, deterministic))
+        assert isinstance(out, PricingResult), out
+        expected = DF * black_price(
+            FORWARD, strike, deterministic.integrated_variance(YEARS), EquityOptionKind.PUT
+        )
+        assert out.pv.amount / 1_000_000.0 == pytest.approx(expected, rel=1e-7)
+
+    def test_THE_PREMISE_the_put_arm_is_DISCOUNTED_materially(self) -> None:
+        """So the test above has power over the `df` specifically: at a zero rate the put arm's
+        discounting is a multiplication by one and the hole would be invisible however many puts
+        were priced (the catalogue's first shape, which is how F-5.1's sibling F-5.3 hid)."""
+        assert DF < 0.97, f"df={DF} is too close to 1 to see a dropped discount factor"
+
+    def test_the_put_satisfies_parity_THROUGH_the_engine_on_BOTH_sides(self) -> None:
+        """Parity asserted with **both** legs priced by the engine — the F-5.2 lesson, which is that
+        a relation satisfied by test-side arithmetic leaves the engine's own side untested."""
+        strike = 1.25 * FORWARD
+        market = MarketSnapshot(
+            valuation_date=VAL,
+            curves=CurveSet({CurveKey(CurveRole.DISCOUNT, self.EUR): CURVE}),
+            equities={self.ASSET: UNDERLYING},
+        )
+        model = HestonModel(market, PARAMS)
+
+        def pv(kind: EquityOptionKind) -> float:
+            out = price(
+                EuropeanEquityOption(
+                    self.ASSET, strike, EXPIRY, Money(1_000_000.0, self.EUR), kind
+                ),
+                model,
+            )
+            assert isinstance(out, PricingResult), out
+            return out.pv.amount / 1_000_000.0
+
+        assert pv(EquityOptionKind.CALL) - pv(EquityOptionKind.PUT) == pytest.approx(
+            DF * (FORWARD - strike), rel=1e-9
+        )
+
     def test_THE_PREMISE_a_LIVE_option_prices_through_this_engine(self) -> None:
         """So the guard is the only thing standing between the fixture and a number."""
         live = EuropeanEquityOption(

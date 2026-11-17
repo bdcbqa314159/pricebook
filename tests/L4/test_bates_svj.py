@@ -504,6 +504,36 @@ class TestTheRegisteredPricer:
             f"the wing is where the grid shows: ATM {at_the_money:.2e}, wing {in_the_wing:.2e}"
         )
 
+    @pytest.mark.parametrize("moneyness", [0.85, 1.0, 1.2])
+    def test_a_PUT_prices_through_the_registered_engine(self, moneyness: float) -> None:
+        """**F-5.2, re-audit #5 — and the sharpest of the three holes.** `TestPutCallParity` in this
+        very file asserts put-call parity, and it did *not* protect the engine: it computes the put
+        **test-side** from `bates_call_price`, so the registered pricer's put arm is never taken and
+        dropping its discount factor survived the whole suite.
+
+        *Asserting a relation in a test does not exercise the engine's code for that relation* — the
+        reachability rule (T18) applied to an arm rather than a step. The killer prices the put
+        **through `price(product, model)`** and compares it to parity computed from an independently
+        obtained call, so the engine's own arm is the thing under test."""
+        expiry = LONG_EXPIRY
+        forward = _forward(expiry)
+        strike = moneyness * forward
+        discount = CURVE.df(expiry)
+        option = EuropeanEquityOption(
+            ASSET, strike, expiry, self.NOTIONAL, EquityOptionKind.PUT
+        )
+        out = price(option, self._model())
+        assert isinstance(out, PricingResult), out
+        call = bates_call_price(PARAMS, UNDERLYING, strike, expiry, (CURVE, GRID))
+        expected = call - discount * (forward - strike)
+        assert out.pv.amount / 1_000_000.0 == pytest.approx(expected, rel=1e-6)
+        assert expected > 0.0, "the premise: a live put, not a zero"
+
+    def test_THE_PREMISE_the_put_arm_is_DISCOUNTED_materially(self) -> None:
+        """Power over the `df` specifically: at a zero rate the put arm's discounting is a
+        multiplication by one and no number of puts would reveal the hole."""
+        assert CURVE.df(LONG_EXPIRY) < 0.97, "the discount factor is too close to 1"
+
     def test_an_EXPIRED_in_the_money_option_is_PV_zero_invariant_6(self) -> None:
         """The tenth-shape premise, with the T45 sharpening: the fixture must be **in the money**,
         or the fall-through returns an intrinsic of 0 and the guard is invisible."""

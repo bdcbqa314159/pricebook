@@ -181,6 +181,78 @@ class TestTheInversionAnchor:
             f"K/F={moneyness}: {got.mean} +/- {got.standard_error} vs surface {target}"
         )
 
+    def test_THE_DISCOUNTING_is_pinned_POINTWISE_not_by_the_MC_band(self) -> None:
+        """**F-5.3, re-audit #5 — and the charter line it earned.** The repricing band below is a
+        correct, measured resolution statement *about the Dupire drift*: dropping the `(r−q)K ∂C/∂K`
+        term moves the worst repricing by 8.9 SE. It reads as "resolution asserted" and it is silent
+        about a different defect — dropping `surface_call_price`'s **discount factor** is worth
+        `1/df − 1 = 6.18%` here, against a `4·SE` band measured at **11.8% / 18.5% / 33.1%** of the
+        price at `K/F = 0.85 / 1.00 / 1.15`. Inside the band at every strike, so the mutant lived.
+
+        **A band's resolution is per-defect, not a property of the band** (§4), so the discounting
+        gets its own oracle rather than a wider MC. And the right instrument is not a band at all:
+        `surface_call_price` is a closed form, so it is pinned **pointwise** against this file's own
+        `_price`, which composes the discount factor, the forward, the surface and Black
+        independently. The resolution is then ~1e-12 relative rather than tens of percent — five
+        orders inside the defect it must catch, with no path count involved."""
+        for moneyness in (0.85, 1.0, 1.15):
+            strike = moneyness * FORWARD
+            assert surface_call_price(
+                SURFACE, UNDERLYING, strike, EXPIRY, CURVE
+            ) == pytest.approx(_price(strike, YEARS), rel=1e-12)
+
+    def test_the_discounting_has_a_SECOND_INDEPENDENT_killer(self) -> None:
+        """§9: an oracle guarding a **previously-shipped** hole wants a second independent killer,
+        or deleting one test silently reopens it. The pointwise check above leans on this file's
+        `_price`; this one shares no code with it.
+
+        Two curves chosen to hold the **carry** fixed — `r − q = 0.05` in both, as `(6%, 1%)` and
+        `(11%, 6%)` — give the *same* forward, so the surface's vol and the undiscounted Black value
+        are identical by construction and the only thing that differs is the discount factor. The
+        ratio of the two prices must therefore be exactly the ratio of the discount factors, which
+        isolates `df` and nothing else. Measured agreement: **2e-16**. Drop the discount factor and
+        both prices become undiscounted, so the ratio collapses to `1.0` — 4.88% away.
+
+        (The alternative second killer, a higher-path MC band, needs 40,000 paths to resolve 6.18%
+        and costs 2.8s of simulation. This is exact and free.)"""
+        high_rate, high_yield = 0.11, 0.06
+        assert high_rate - high_yield == pytest.approx(RATE - YIELD, abs=1e-15), (
+            "the premise: equal carry, or the forwards differ and the undiscounted values are not "
+            "comparable"
+        )
+        other_curve = DiscountCurve.flat(VAL, high_rate, DC)
+        other_underlying = EquityUnderlying(
+            100.0, 0.0, DividendSchedule(continuous_yield=high_yield)
+        )
+        assert dividend_forward(other_underlying, EXPIRY, other_curve) == pytest.approx(
+            FORWARD, rel=1e-15
+        )
+        expected = DF / other_curve.df(EXPIRY)
+        assert expected > 1.04, "the premise: the two discount factors differ materially"
+        for moneyness in (0.85, 1.0, 1.15):
+            strike = moneyness * FORWARD
+            ours = surface_call_price(SURFACE, UNDERLYING, strike, EXPIRY, CURVE)
+            theirs = surface_call_price(
+                SURFACE, other_underlying, strike, EXPIRY, other_curve
+            )
+            assert ours / theirs == pytest.approx(expected, rel=1e-12)
+
+    def test_THE_PREMISE_the_discount_factor_is_material_and_the_BAND_cannot_see_it(self) -> None:
+        """Both halves of F-5.3's diagnosis, asserted so the oracle above is justified rather than
+        merely added: the defect is real (`df` is materially below 1), and the MC band genuinely
+        cannot resolve it — which is why a second oracle was needed instead of a tighter band."""
+        assert DF < 0.95, f"df={DF} is too close to 1 for a dropped factor to show"
+        dropped = 1.0 / DF - 1.0
+        spots = self._spots()
+        for moneyness in (0.85, 1.0, 1.15):
+            strike = moneyness * FORWARD
+            estimate = local_vol_call_estimate(spots, strike, DF)
+            band = 4.0 * estimate.standard_error / estimate.mean
+            assert dropped < band, (
+                f"at K/F={moneyness} the {dropped:.2%} discounting defect is OUTSIDE the "
+                f"{band:.2%} band — the premise for a separate oracle no longer holds"
+            )
+
     def test_the_repricing_band_is_tight_enough_to_RESOLVE_a_dupire_defect(self) -> None:
         """The band's power, measured rather than hoped: dropping the `(r-q)K dC/dK` term moves the
         worst repricing by **8.9 SE** on this fixture, well outside the 4-SE band. Stated so a green

@@ -6,6 +6,59 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.55.2] - 2026-11-17
+
+### Fixed — tranche 51, re-audit #5's three blind oracles (test-only, no `src/` change)
+
+Re-audit #5's discount-factor sweep found three sites where dropping the discounting survived the
+whole suite. All three are **blind oracles** — the production code is correct and untouched; the
+oracle's domain excluded the failure. `src/` has no change, which is this tranche's own test of
+whether the diagnosis was right.
+
+| # | site | why it survived | the killer |
+|---|---|---|---|
+| **F-5.1** | `engine/heston_fourier.py` put arm | **no test priced a put through this engine**, so the registered pricer's put *arm* was never taken — the branch *condition* is covered (reversing it kills, because a call then takes the put arm) while the arm's own arithmetic was not | a put priced **through `price(product, model)`**, anchored on the `σ_v = 0` reduction to **Black's put** (computed in the test, not the engine's call rearranged), plus parity with **both** legs priced by the engine |
+| **F-5.2** | `engine/bates_fourier.py` put arm | the same, inherited by building T49 in T33's shape | a put priced through the registered Bates engine |
+| **F-5.3** | `engine/local_vol_mc.py` `surface_call_price` | the MC repricing band **absorbs** it: `4·SE` measured at **11.4% / 17.6% / 30.0%** of the price against a **6.18%** defect | the discounting pinned **pointwise** against this file's independent `_price`, resolution ~1e-12 — and a second, independent killer |
+
+**F-5.2 is the one worth naming.** `test_bates_svj.py` already asserted put-call parity, and it did
+not protect the engine: it computes the put **test-side** from `bates_call_price`, so the registered
+pricer's put arm is never entered. *Asserting a relation in a test does not exercise the engine's
+code for that relation* — the reachability rule (T18) applied to a branch arm rather than a step.
+
+**F-5.3 shows why the charter line this re-audit earned was needed.** The same file carries
+`test_the_repricing_band_is_tight_enough_to_RESOLVE_a_dupire_defect`, a correct and measured
+resolution statement — about the Dupire drift, at 8.9 SE. It reads as "resolution asserted" while
+being silent about a defect of smaller signal. So the discounting got its own oracle, and the right
+instrument was **not a band at all**: `surface_call_price` is a closed form, so it is pinned
+pointwise, with ~1e-12 resolution rather than tens of percent and no path count involved.
+
+### A second independent killer for F-5.3
+
+§9 asks that an oracle guarding a **previously-shipped** hole have a second independent killer, so
+deleting one test cannot silently reopen it. The pointwise check leans on the file's own `_price`;
+the second shares no code with it.
+
+Two curves chosen to hold the **carry** fixed — `r − q = 0.05` as `(6%, 1%)` and `(11%, 6%)` — give
+the *same* forward, so the surface's vol and the undiscounted Black value are identical by
+construction and the only difference is the discount factor. The ratio of the two prices must then be
+exactly the ratio of the discount factors: measured agreement **2e-16**, and a dropped `df` collapses
+the ratio to `1.0`, 4.88% away. The alternative the spec offered — a higher-path band — needs
+**40,000 paths** to resolve 6.18% and costs 2.8s of simulation; this is exact and free.
+
+### Verification
+
+12 new tests (2133 → **2145**). Mutation: **applied 5/5, killed 5, survived 0** — the three sweep
+survivors, plus a parity sign flip and a strike/forward swap to show the new tests are specific
+rather than broadly sensitive. Every site now has **at least two** independent killers (F-5.1 three,
+F-5.2 two, F-5.3 two).
+
+Premises asserted in each case, because every one of these holes is the catalogue's first shape one
+step away: at a zero rate a put arm's discounting is a multiplication by one and no number of puts
+would reveal it, so `df < 0.97` is a stated premise in both engines; and F-5.3 asserts both that the
+defect is material **and** that the MC band genuinely cannot resolve it, so the second oracle is
+justified rather than merely added.
+
 ## [0.55.1] - 2026-11-17
 
 ### Fixed — tranche 50: OI-4, the Fourier-inversion truncation defect

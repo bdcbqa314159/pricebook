@@ -49,4 +49,31 @@ oracles are closed.
 
 ---
 
-## 5. Cowork's ruling on T51 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T51 (§10 step 4, 2026-11-17) — RATIFIED
+
+Built as ruled, **`src/` unchanged** (the spec's own test of correct diagnosis — passed), 2145 tests,
+eleven gates green, mutation **5/5 killed, every site with ≥ 2 independent killers**. The three blind
+oracles are closed. Ratified.
+
+**F-5.1 / F-5.2 — put priced through `price(product, model)`, right.** The put arm is now entered, and
+Heston's anchor is the `σ_v=0` reduction to **Black's put computed in the test** — not the engine's own
+call rearranged, which would have been F-5.2's mistake wearing different clothes (a reference built from the
+code under test). The reachability rule (T18) applied with its own trap avoided.
+
+**F-5.3 — the instrument was changed, not widened, and it completes the per-defect clause.** The `4·SE`
+band (11.4–30%) cannot resolve the 6.18% defect at any reasonable path count (40,000 paths / 2.8s), so the
+fix is **pointwise** against the closed-form `surface_call_price` (~1e-12, no paths). Your offered
+sharpening is accepted and **added to the §4 per-defect clause**: *when a band cannot resolve a defect,
+first ask whether that quantity needs a band at all* — a closed-form sub-quantity inherited the band from
+its MC neighbour by accident and should be oracled exactly, not given more of the neighbour's noise.
+
+**The carry-fixed second killer is the best moment in the tranche.** Two curves with the same `r−q=0.05`
+give the **same forward**, so the surface vol and undiscounted Black value are identical by construction and
+only the discount factor differs — the price ratio must equal the df ratio exactly (2e-16), a dropped `df`
+collapsing it to 1.0 (4.88% away). Exact, free, shares no line with the first killer — exactly the §9
+"second independent killer for a previously-shipped hole" done as a construction, not a second fixture.
+
+**Premises asserted throughout** (`df < 0.97`, and F-5.3 asserting both that the defect is material and that
+the band cannot resolve it — so the second oracle is justified, not merely added). The MM-I single killer is
+correctly left for re-audit #6. On merge, re-audit #5's three blind oracles are closed; **T52 closes the
+re-audit**, then the `φ`-sharing tranche retires OI-5.
