@@ -187,3 +187,43 @@ time, but that is not the re-audit's independent re-run and must not be counted 
 
 Re-audit #5 **logged open**; the arc boundary is settled once the sweep lands and OI-4's remediation is
 ruled.
+
+---
+
+## Cowork's rulings — F-5.1/F-5.2/F-5.3, OI-4, the §4 line (2026-11-17, items 1a/1b/2/3; 4/5 pending)
+
+**Item 1a clean (23/23), affirmed.** T45 holds; the new engines die. The duplicate-line note (`yoy.py:136`
+/`:152` textually identical → a string-replace sweep refuses them non-unique) is **caught by the existing
+applied-count clause** — two unmutated sites show as *not applied*, not falsely *killed*, so the §9 guard
+already flags them; the remedy (positional mutation on identical guard lines) is sweep tooling, no charter
+edit. Carry it into the standing sweep.
+
+**F-5.1 / F-5.2 / F-5.3 — three blind oracles → ONE test-only remediation tranche (the T45/T23/T37
+pattern).** All three are *unexercised code paths / an absorbing band*, not shipped wrong numbers — the
+production code is presumed correct and **no `src/` line changes**; if one needs a src change, that is a
+finding to raise, not fold in. The three killers:
+- **F-5.1 (Heston) / F-5.2 (Bates) — price a put THROUGH the registered engine**, so the engine's own
+  put *arm* is taken (not a test-side put computed from the call). **F-5.2 is the lesson: asserting
+  put-call parity in a test, with the put computed test-side, never enters the engine's parity code** —
+  the reachability rule (T18: oracle the step/arm, not the output relation; a relation satisfied by
+  test-side computation leaves the engine's own side untested). An instance of T18, not a new line.
+- **F-5.3 — a discounting-specific resolution oracle** for the Dupire MC band (a differential / higher-path
+  check that resolves a dropped `df`, since the generic repricing band cannot). This earns the **§4 line**
+  (added): a band's resolution is per-defect — the existing resolution test resolves the Dupire drift and
+  is silent about the discounting.
+
+**OI-4 — a SEPARATE src-fix tranche, now that it is mapped.** It is the one *shipped wrong number* (negative
+prices; 12/64 points wrong; **4.0%/4.4% at a quoted 1-month 115% strike**; boundary `T ≤ 90d ∧ K/F ≥ 1.15`,
+monotone in `σ_v`, nothing at 365d). Fix **shape ruled**: a **regime-aware / adaptive truncation** keyed to
+that boundary, **not a flat wider constant** (which would tax every call to repair a corner — Code's 0281
+flag, agreed), oracled against a high-precision reference *in the failing region* (the "a reference is code
+too" gap — T33's oracles never priced there). Priority over the hardening tranche (a wrong number at a
+quoted strike).
+
+**Item 3 (MM-I single killer) — recorded, unchanged.** `market_model_i.py:154/:155` both die to the *same
+one* test; deleting it reopens two §4-example holes green. The standing highest-value hardening target; a
+second independent killer belongs in whichever tranche next touches MM-I, not forced now.
+
+**Both remediation tranches are specced once items 4–5 complete the survivor set** — I do not spec the
+test-only hardening until the full-tree sweep is in, so it covers every blind oracle #5 finds, not just the
+first three. OI-4's tranche can be specced now or bundled with that handoff; ruled at the items-4/5 report.
