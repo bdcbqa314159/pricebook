@@ -13,7 +13,7 @@ exists in `src/` or `tests/` (verified at v0.6.0).
 
 ## Other open items
 
-### OI-4 · The Heston/SVJ Fourier grid returns a NEGATIVE call price in the far short-dated wing — OPEN (found at tranche 49, ruled 2026-11-16)
+### OI-4 · The Heston/SVJ Fourier grid returned a NEGATIVE call price in the far short-dated wing — CLOSED (fixed at v0.55.1, tranche 50)
 
 **The defect.** `engine/heston_fourier.py`'s committed inversion grid (`upper=200`) does not resolve
 the deep out-of-the-money, short-dated corner at high vol-of-vol. Measured at
@@ -50,8 +50,38 @@ inversion, oracled against a high-precision reference *in the regime the present
 resolve*. A fixed wider constant is not obviously right either — it would cost every pricing call to
 fix a corner — so the shape of the fix is part of the tranche, not assumed here.
 
-**Re-open trigger:** re-audit #5's oracle-power pass, where it is a **named** target. Re-audit #5
-fires on tranche 49's merge and sweeps tranche 33 oldest-first regardless.
+**Resolution (tranche 50, `v0.55.1`).** Fixed by an **adaptive truncation** keyed to the integrand's
+measured decay, `engine/fourier_inversion.adaptive_grid` — not a wider constant, which would have
+taxed every pricing call to repair a corner. The range doubles from tranche 33's `upper = 200` until
+`|φ(u)|/u` falls below `1e-13`, at fixed node spacing so only the truncation error moves; everywhere
+the old bound already sufficed the search stops at once, so the benign path selects the same grid and
+returns the same numbers.
+
+**And the severity sweep found a second thing the ledger did not predict:** truncation error falls
+under refinement only until it reaches an *arithmetic* floor and then stalls. `P1 = ½ + I/π` cancels
+two `O(½)` quantities, so it carries an absolute noise floor of ~2e-13 whatever the grid, and a price
+inherits `forward × 2e-13`. So `checked_call_price` reads a raw inversion output in three branches: a
+price above the floor; `0.0` within it (zero is the honest rendering of a number smaller than the
+arithmetic that produced it); and a **refusal** below it, because a materially negative call price
+means the method failed rather than that the option is cheap. The refusal is what keeps the zero
+honest — a bare clamp would have turned this very defect into a clean-looking `0.0`, and seven orders
+separate the two.
+
+Over a 600-point `(σ_v, T, K/F)` sweep: **113 materially negative prices on the shipped grid, zero on
+the fixed one.** The mapped region reprices to a high-precision reference at 1e-6 relative or better.
+Mutation: applied 17/17, killed 17, survived 0 — after two gaps the sweep found and the oracles did
+not (the rule could walk to its 25,600 cap with every price still correct, and the SVJ engine never
+reached the floor rule at all).
+
+**The six excluded regression points stay excluded**, and deliberately: their bit patterns were
+captured on the broken grid, so restoring them would pin the wrong numbers (§8). The regime's
+correctness now lives in `tests/L4/test_oi4_adaptive_truncation.py`;
+`tests/L4/test_fourier_inversion.py`'s guard records the repair rather than the defect.
+
+**What remains, stated rather than closed silently:** prices below `forward × 1e-12` are returned as
+zero because the Gil-Pelaez form cannot resolve them — a limit of the *parameterisation*, not of the
+grid. A formulation that integrates the option value directly (Carr–Madan, or a COS expansion) would
+not cancel that way; that is a new object, not a fix, and is recorded in `docs/to_go_deeper.md`.
 
 ### OI-3 · `norm_cdf` lower-tail cancellation — CLOSED (fixed at v0.25.0, tranche 20c)
 

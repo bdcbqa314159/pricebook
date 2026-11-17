@@ -284,3 +284,18 @@ Opened at T46 (SVI), closed at T49 (SVJ); the completion ratio is in `CP_gathera
    derived from C). A complete oracle set about the limit and the relation, silent about the interior (the
    T43 shape at the set level). So a variance-option build **requires an absolute-level anchor at interior
    strikes** (its own MC), not these two — most of a tranche, which is why it is deferred, not folded.
+
+4. **A non-cancelling inversion (Carr–Madan / COS) — the limit tranche 50 could not fix.** T50 made
+   the Fourier truncation adaptive and repaired OI-4, but it also measured a floor the truncation
+   cannot reach past: `P1 = ½ + I/π` is a difference of two `O(½)` quantities, so it carries an
+   absolute noise floor of ~2e-13 **whatever the grid**, and a price inherits `forward × 2e-13`.
+   Below that the sign of a deep out-of-the-money price is arithmetic noise, which is why
+   `checked_call_price` returns zero there rather than pretending to a number.
+   **Route:** this is a property of the *parameterisation*, not of the quadrature — an inversion that
+   integrates the option value directly (Carr–Madan's damped transform, or a COS cosine expansion)
+   never forms `½ + I/π` and so never cancels that way. Oracle-able with our discipline (the existing
+   high-precision reference, plus agreement with the present pricer wherever the present pricer is
+   above its floor). **Unpulled:** nothing needs deep-OTM short-dated prices below `1e-10` of spot
+   today, and the §1 pull gate says a capability arrives with the product that needs it. Pulled if a
+   product ever prices in that regime — a far-wing tail hedge, or a replication whose weights blow up
+   out there.
