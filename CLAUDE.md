@@ -651,7 +651,19 @@ unconditionally only for the fraction.)*
   evidence the gate passes there. Twice this arc a file was reported green on a local re-time and failed
   `slow` on *both* CI runners (T42: a Windows failure at 10.6s/10.0s against a local pass; T44a: 18.3s
   Linux / 10.1s Windows against **5.3s local**). So for a file with real numerical cost, the CI run —
-  both runners — is the reading; "re-timed locally" is not sufficient to call it green. **The floor
+  both runners — is the reading; "re-timed locally" is not sufficient to call it green. **When a file
+  cannot meet the `slow` ceiling without trading the oracle for the stopwatch, the honest move is a ledgered
+  exemption, not gaming the gate.** The reductions that avoid an exemption must be **lossless** (memoise a
+  repeated pricer, drop a redundant assertion a stronger one implies, split a file along a *real* subject
+  seam) — but **trimming the oracle's own domain to beat the clock is the timing gate shrinking an oracle's
+  power** (§4 "contain the failure in its domain"): the region sweep that costs the seconds is exactly what
+  caught a 16-tranche defect, so cutting it to pass `slow` would satisfy one gate by gutting another.
+  Decline that and the over-splitting of files to fit a clock; take the `slow-test-exempt` with an `OPEN.md`
+  ledger entry carrying its measurement and a **named removal trigger** (a real optimisation that retires
+  it). An honest exemption beats a gamed green. *(OI-5, T50: the OI-4 oracle's region sweep held at ~11s
+  Windows after every lossless reduction (5.9→2.8s local); the exemption's removal trigger is sharing one
+  `φ(u)` across a maturity's strikes in `gil_pelaez_probabilities` — a 4–10× smile speedup in production,
+  not only the test, raised as its own unit rather than smuggled into a correctness fix.)* **The floor
   gate's own discovery must be total** — the `tests` floor counts only the directories it enumerates,
   so a test directory it does not discover runs *unfloored* and escapes the floor silently; discovery
   enumerates every test dir, not a fixed `tests/L*` set (layer dirs first, so the lowest layer still
