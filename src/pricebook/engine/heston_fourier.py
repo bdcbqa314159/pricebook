@@ -45,7 +45,12 @@ from __future__ import annotations
 import math
 from datetime import date
 
-from pricebook.engine.fourier_inversion import FourierGrid, gil_pelaez_probabilities
+from pricebook.engine.fourier_inversion import (
+    FourierGrid,
+    adaptive_grid,
+    checked_call_price,
+    gil_pelaez_probabilities,
+)
 from pricebook.engine.registry import register
 from pricebook.foundation.money import Money
 from pricebook.foundation.results import PricingFailure, PricingResult
@@ -60,7 +65,7 @@ def heston_probabilities(
     underlying: EquityUnderlying,
     strike: float,
     expiry: date,
-    quadrature: tuple[CurveHandle, FourierGrid],
+    quadrature: CurveHandle | tuple[CurveHandle, FourierGrid],
 ) -> tuple[float, float]:
     """`(P1, P2)` by Gil-Pelaez inversion - named surface, because the oracles reach for them.
 
@@ -68,7 +73,7 @@ def heston_probabilities(
     *probabilities* (in `[0,1]`, falling in the strike) and lets put-call parity be checked from the
     same two numbers the call is built from (§4 - extract the step a test must see).
     """
-    discount, grid = quadrature
+    discount, requested = quadrature if isinstance(quadrature, tuple) else (quadrature, None)
     years = discount.time_measure.year_fraction(expiry)
     if years <= 0.0:
         raise ValueError(f"the inversion needs a positive horizon, got {years}")
@@ -79,6 +84,10 @@ def heston_probabilities(
     def characteristic(u: complex) -> complex:
         return heston_characteristic_function(params, u, years, carry)
 
+    # A grid the caller named is used as given -- a test pinning the old truncation must get it,
+    # and that is how this tranche's oracles show the defect. Otherwise it is chosen by measuring
+    # the decay of this very characteristic function (tranche 50, OI-4).
+    grid = requested if requested is not None else adaptive_grid(characteristic)
     return gil_pelaez_probabilities(characteristic, log_strike, grid)
 
 
@@ -87,13 +96,14 @@ def heston_call_price(
     underlying: EquityUnderlying,
     strike: float,
     expiry: date,
-    quadrature: tuple[CurveHandle, FourierGrid],
+    quadrature: CurveHandle | tuple[CurveHandle, FourierGrid],
 ) -> float:
     """`df(T) * (F*P1 - K*P2)` - the European call under Heston."""
-    discount, _ = quadrature
+    discount = quadrature[0] if isinstance(quadrature, tuple) else quadrature
     first, second = heston_probabilities(params, underlying, strike, expiry, quadrature)
     forward = dividend_forward(underlying, expiry, discount)
-    return discount.df(expiry) * (forward * first - strike * second)
+    raw = discount.df(expiry) * (forward * first - strike * second)
+    return checked_call_price(raw, forward)
 
 
 #: The inversion grid the registered pricer uses. Numerical config with a *default* here rather than

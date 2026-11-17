@@ -8,7 +8,7 @@ cut the integrand off while it was still material. Mapped at re-audit #5: bounda
 
 **The mechanism, measured.** The integrand's magnitude is `|φ(u)|/u`. At `u = 200`:
 
-| regime | `\|φ(200)\|/200` |
+| regime | the integrand at `u = 200` |
 |---|---|
 | `σ_v = 0.3`, `T = 1y` (benign) | 4.2e-47 — truncation is free |
 | `σ_v = 1.2`, `T = 7d` (the corner) | **1.7e-04** — the tail is larger than the price |
@@ -117,22 +117,33 @@ class TestTheDefectIsRealAndTheFixtureReachesIt:
         assert at_benign < 1e-30, f"the benign integrand at u=200 is {at_benign:.2e}"
         assert at_corner / at_benign > 1e20, "the two regimes must differ by orders, not margins"
 
-    def test_the_committed_grid_RETURNS_NEGATIVE_PRICES_in_the_region(self) -> None:
-        """The defect itself, as a failing property of the old grid — so the oracle below is known
-        to be testing something real rather than asserting an already-true fact."""
-        negatives = 0
+    def test_the_committed_grid_PRODUCES_REFUSED_PRICES_in_the_region(self) -> None:
+        """The defect itself, as a failing property of the old grid — so the oracles below are known
+        to test something real rather than assert an already-true fact.
+
+        Stated as *refusals* rather than as negative numbers, because the floor rule now intercepts
+        them: handed the shipped grid, the inversion produces values a call price may not take, and
+        the count is what makes the region's breadth concrete."""
+        refused = 0
         for vol_of_vol in VOL_OF_VOL:
             for days in SHORT_DAYS:
                 expiry = VAL + timedelta(days=days)
                 forward = dividend_forward(UNDERLYING, expiry, CURVE)
                 for moneyness in OUT_OF_MONEY:
-                    params = _params(vol_of_vol)
-                    price = heston_call_price(
-                        params, UNDERLYING, moneyness * forward, expiry, (CURVE, COMMITTED)
-                    )
-                    if price < -forward * 1e-12:
-                        negatives += 1
-        assert negatives > 0, "the committed grid must actually be broken here, or there is no defect"
+                    try:
+                        heston_call_price(
+                            _params(vol_of_vol),
+                            UNDERLYING,
+                            moneyness * forward,
+                            expiry,
+                            (CURVE, COMMITTED),
+                        )
+                    except ValueError:
+                        refused += 1
+        assert refused >= 5, (
+            f"only {refused} of 36 mapped points are refused on the shipped grid — the defect "
+            "must be broad, or this fixture is not the mapped region"
+        )
 
 
 class TestTheNoArbitrageRequirementOverTheMappedRegion:
@@ -162,7 +173,7 @@ class TestTheNoArbitrageRequirementOverTheMappedRegion:
             heston_call_price(params, UNDERLYING, m * forward, expiry, CURVE)
             for m in (1.0, 1.1, 1.15, 1.2, 1.3, 1.45, 1.6)
         ]
-        for lower, higher in zip(prices, prices[1:], strict=True):
+        for lower, higher in zip(prices, prices[1:]):
             assert higher <= lower + 1e-15, f"a vertical spread is negative: {prices}"
 
 
@@ -229,12 +240,49 @@ class TestTheFixIsLOCALtoTheDefect:
         grid = adaptive_grid(_characteristic(_params(vol_of_vol), VAL + timedelta(days=days)))
         assert grid == COMMITTED
 
+    def test_ORDINARY_FIXTURES_ACROSS_THE_TREE_pay_nothing(self) -> None:
+        """**The ruling's actual rationale, oracled.** "Not a wider constant" was chosen so benign
+        pricing would not be taxed to repair a corner — and nothing asserted that, so the first
+        threshold I committed (`1e-14`) silently doubled the node count for the tree's own standard
+        Heston fixture, which sits at `|φ(200)|/200 = 3.7e-14`. It bought a price change of 9.6e-15
+        relative: nothing, for twice the work.
+
+        So the cost property is a test, not a hope: the parameter sets this tree actually prices
+        with must select the committed grid. A threshold tightened past the arithmetic floor fails
+        here, which is the only thing that stops the rationale eroding."""
+        ordinary = (
+            HestonParams(kappa=1.5, theta=0.04, sigma_v=0.6, rho=-0.7, v0=0.05),  # the Heston fixture
+            HestonParams(kappa=2.5, theta=0.06, sigma_v=0.6, rho=-0.3, v0=0.02),  # the re-audit set
+            HestonParams(kappa=1.5, theta=0.04, sigma_v=0.6, rho=-0.7, v0=0.05),  # the SVJ fixture
+        )
+        for params in ordinary:
+            for days in (365, 730):
+                grid = adaptive_grid(_characteristic(params, VAL + timedelta(days=days)))
+                assert grid == COMMITTED, (
+                    f"an ordinary fixture pays {grid.count / COMMITTED.count:.0f}x for nothing: "
+                    f"{params} at {days}d selected {grid}"
+                )
+
+    def test_and_what_DOES_extend_extends_because_the_price_MOVES(self) -> None:
+        """The other side of the same coin — the rule must not be so loose that it leaves a real
+        error behind. A high-vol-of-vol one-year slice does extend, and its price shifts by ~6.5e-10
+        relative, a few hundred times the arithmetic floor. Measured, so "it extends" is justified
+        rather than tolerated."""
+        params = HestonParams(kappa=1.5, theta=0.04, sigma_v=0.9, rho=-0.7, v0=0.05)
+        expiry = VAL + timedelta(days=365)
+        forward = dividend_forward(UNDERLYING, expiry, CURVE)
+        assert adaptive_grid(_characteristic(params, expiry)).upper > COMMITTED.upper
+        adaptive = heston_call_price(params, UNDERLYING, forward, expiry, CURVE)
+        stale = heston_call_price(params, UNDERLYING, forward, expiry, (CURVE, COMMITTED))
+        shift = abs(adaptive / stale - 1.0)
+        assert shift > 100.0 * (1e-12), f"the extension changed nothing material: {shift:.2e}"
+
     def test_the_corner_SELECTS_a_wider_grid(self) -> None:
         """The premise for the whole tranche: the rule must actually extend where it matters."""
         corner = adaptive_grid(_characteristic(_params(1.2), VAL + timedelta(days=7)))
         assert corner.upper > COMMITTED.upper
-        assert corner.upper / corner.count == pytest.approx(
-            COMMITTED.upper / COMMITTED.count, rel=1e-9
+        assert corner.upper / (corner.count - 1) == pytest.approx(
+            COMMITTED.upper / (COMMITTED.count - 1), rel=1e-9
         ), "the node SPACING is preserved — only the range extends"
 
 
@@ -318,7 +366,7 @@ class TestTheSVJInversionGetsTheSameFix:
             for m in (1.0, 1.15, 1.3, 1.6)
         ]
         assert all(p >= 0.0 for p in prices), f"negative SVJ price: {prices}"
-        for lower, higher in zip(prices, prices[1:], strict=True):
+        for lower, higher in zip(prices, prices[1:]):
             assert higher <= lower + 1e-15, f"SVJ vertical spread negative: {prices}"
 
     def test_the_svj_grid_is_at_least_as_wide_as_hestons(self) -> None:
