@@ -6,6 +6,117 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.55.0] - 2026-11-16
+
+### Added — tranche 49, the SVJ / Bates model (the vol-surface arc's last build)
+
+`models/bates.py` (L3) and `engine/bates_fourier.py` (L4): Heston plus Merton-style lognormal jumps
+in the underlying, priced by **tranche 33's Fourier inversion reused whole**. Ch 5's argument for the
+model is the one T46 met from the other side — jumps supply the steep short-dated skew stochastic
+volatility alone cannot, which is the gap the SVI fit exposed.
+
+`φ_SVJ = φ_Heston · φ_jump`, with
+`ψ(u) = m(e^{iuα − u²δ²/2} − 1) − iu·m(e^{α+δ²/2} − 1)` transcribed from ch 5 p.65 in both
+renderings and reconciled. The eight SVJ numbers bundle as `HestonParams` + a three-field
+`JumpParams`, which keeps `BatesParams` inside §7's limit without inventing a nine-field object.
+
+**A notation trap the spec defused before RED:** Gatheral writes `λ` for Heston's **mean-reversion
+speed** and `λ_J` for the **jump intensity**, in the same formula. The reduction to Heston is at zero
+*intensity*; `λ → 0` would destroy the variance process instead.
+
+### The oracle is a double reduction, and each one's blindness is asserted
+
+* **Reduction A — zero intensity ⇒ Heston.** Exact, reuses T33 — and **blind to every jump
+  parameter**, since it is taken where the jumps vanish. Asserted directly: at `m = 0`, `α` and `δ`
+  can be anything (`-0.5/0.4`, `0/0.01`, `0.9/1.2`) and A still passes.
+* **Reduction B — zero vol-of-vol with `v₀ = v̄` ⇒ the Merton jump diffusion.** An *independent closed
+  form* (the Poisson-weighted Black series, not the Heston CF), non-degenerate in exactly what A
+  kills, and symmetrically blind to the stochastic volatility. The series is the test's own
+  derivation — conditional on `n` jumps, `log S_T` is normal with forward `F·e^{−mkT}·e^{n(α+δ²/2)}`
+  and total variance `V + nδ²` — checked against an MC of the jump diffusion before being committed
+  (0.07 to 1.39 SE over five cases) and equal to plain Black **bit-identically** at `m = 0`.
+
+Third tranche running where the T39 blind spot bit (T46's `b→0`, T48's `η→0`, here), and the first
+where the two reductions are each other's companion rather than one needing a companion bolted on.
+
+**One spec correction from the tree's own convention:** §2 asked for `φ_SVJ(−i) = 1`, which holds
+only at zero carry — this tree's Heston factor ends in `+ iu·carry·T`, so `φ_SVJ(−i) = F/S₀` and it
+is the **jump factor alone** that must be 1. `φ_jump(−i) = 1` exactly is what pins the compensator,
+and both forms are asserted so the correction is visible rather than silently substituted.
+
+### Changed — the Gil-Pelaez inversion extracted at its second consumer
+
+`engine/fourier_inversion.py` (new) holds the inversion, `FourierGrid` and the `_LOWER` cutoff;
+`heston_fourier.py` keeps what is Heston-specific. SVJ differs from Heston in *exactly one thing* —
+its characteristic function — so §6's rule-of-two fires on a genuinely shared shape, and the
+alternative (a sixth argument on `heston_probabilities`) would have broken §7's limit for something
+that is not vocabulary. **The move is proved bit-identical on 120 Heston reference values** — 360
+doubles, same interpreter, before versus after, every bit equal.
+
+**And the first committed form of that proof was wrong in a way CI caught.** The captured bit
+patterns were asserted for *equality*, which turns an in-process measurement into a cross-platform
+claim — and §9 states the rule it breaks: transcendental results differ 1-2 ULP across runtimes.
+`cmath.exp`/`log`/`sqrt` duly disagreed with the capturing machine by **1 to 4 ULP** on both
+runners, 12 tests failing. A second attempt asserted a **ULP distance** — which sounded stronger and
+was the wrong instrument, and is the more interesting half of the lesson: a Fourier price is a sum of
+4001 transcendental terms, so its cross-platform difference accumulates as a **relative** quantity,
+while ULP counts representable steps whose absolute size follows the exponent. A price of `0.00158`
+came out **25,475 ULP** away while being **3.5e-12** relative. The committed form is a relative
+tolerance of `1e-9` against a measured worst of 3.5e-12 — six orders tighter than the tightest
+behavioural oracle in the tree. The in-process bit-identity remains the purity argument; the portable
+regression is what a test running elsewhere is entitled to assert, and reaching for the
+strongest-sounding metric rather than the one the quantity calls for cost two CI rounds.
+
+**And the reference set is 54 of 60, with the six exclusions named.** A regression needs a number the
+engine can resolve, and six deep out-of-the-money short-dated points sit below `1e-3` on a spot of
+100 — quadrature residue rather than prices. One of them is a finding in its own right, raised for
+ruling rather than regression-locked: at `σ_v = 0.9`, 30 days, `K = 130`, tranche 33's committed grid
+returns **−2.5e-04** where an `upper=1200, count=24001` reference gives **+1.7e-05** — a *negative
+call price*, wrong by 2.7e-04 absolute. Same regime and same cause as this tranche's wider SVJ grid,
+in code that merged sixteen tranches ago. Pinning it would have preserved a wrong number.
+
+The extraction also made the inversion testable **with no model at all**, which a Heston-only test
+could never do: handed a Gaussian characteristic function, both probabilities have exact closed
+forms, and `P1`'s — the **Esscher tilt**, which shifts the mean by exactly `σ²` — pins the
+share-measure line against a formula derived in the test. (A point mass, `φ ≡ 1`, is the obvious
+degenerate check and a trap: its CF never decays, so the truncated quadrature measures the grid
+rather than the inversion.)
+
+And one guard the move created: `tests/L4/test_heston_fourier.py` had been patching
+`heston_fourier._LOWER`, which after the move would have been a **silent no-op** — the test passing
+while measuring nothing, the §9 can't-fail shape inside a test. The constant's home is now asserted.
+
+### Fixed — SVJ needs a wider truncation than Heston, and it hides where no one looks
+
+Jump tails make `φ_SVJ` decay more slowly in `u` than `φ_Heston`, and the damage is worst at
+**short** maturity, where the diffusion has contributed least. Measured against an
+`upper=1200, count=24001` reference at 60 days, tranche 33's `upper=200` is wrong by **2.9e-05**
+relative while `upper=400` is at 2.7e-11; at 730 days both sit at 1e-14. So a Heston-shaped default
+prices long-dated options perfectly and short-dated ones wrongly. `_DEFAULT_GRID` is now
+`upper=400`, and the constant's *value* is oracled rather than chosen.
+
+### Verification
+
+2027 → **2089** tests (the extraction's own file plus this tranche's 66, less the six excluded references). Mutation:
+**applied 22/22, killed 22, survived 0** — after one real hole that took two attempts to close, and
+the second attempt is the lesson. Narrowing `_DEFAULT_GRID` back to Heston's 200 survived the whole
+file: the grid constant's *value* was oracled, but the **registered pricer's use of it** was not,
+because the pricer test ran at 730 days where the narrow grid is already accurate to 1e-14 (the T33b
+input-population shape one level up — the constant was tested, the code path reading it was not).
+The first fix added a short-dated pricer test **at the money** and the mutant *still* survived:
+truncation is an **absolute** error, so it is negligible against a large price and ruinous against a
+small one — 1.7e-08 at the money versus 2.9e-05 at `K=130` and 1.4e-04 at `K=150`. The fixture had to
+be deep out of the money *and* short dated, which is exactly the region an SVJ model is bought for.
+Both premises are now asserted, including that the at-the-money fixture is invisible.
+
+Also oracled: the compensator identity `φ_jump(−i) = 1` with its non-vacuity shown; the
+factorisation as a structural identity; put-call parity across strikes and maturities; an independent
+MC of the jump diffusion banded at `4·SE` with the inversion's own error measured separately and the
+band's resolution stated (the jump effect is 13.8% of the price against a `4·SE` band of ~2%, a ~7×
+margin); and the **cross-arc tie-back** — an SVI fit (T46) to an SVJ smile has a materially steeper
+short-dated at-the-money skew than one fitted to a Heston smile, asserted as an **ordering** only,
+since ch 5's results are plots.
+
 ## [0.54.0] - 2026-11-16
 
 ### Added — tranche 48, volatility derivatives (the volatility swap and its convexity)

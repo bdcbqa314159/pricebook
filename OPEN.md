@@ -13,6 +13,46 @@ exists in `src/` or `tests/` (verified at v0.6.0).
 
 ## Other open items
 
+### OI-4 · The Heston/SVJ Fourier grid returns a NEGATIVE call price in the far short-dated wing — OPEN (found at tranche 49, ruled 2026-11-16)
+
+**The defect.** `engine/heston_fourier.py`'s committed inversion grid (`upper=200`) does not resolve
+the deep out-of-the-money, short-dated corner at high vol-of-vol. Measured at
+`HestonParams(kappa=2.5, theta=0.06, sigma_v=0.9, rho=-0.3, v0=0.02)`, 30 days, `K = 130` on a spot
+of 100:
+
+| grid | price |
+|---|---|
+| committed `upper=200, count=4001` | **−2.499781e-04** |
+| reference `upper=1200, count=24001` | **+1.747280e-05** |
+
+A **negative call price** — an arbitrage violation, not merely an inaccurate one — wrong by 2.7e-04
+absolute. It has been on `main` since tranche 33, sixteen tranches.
+
+**Why no oracle saw it.** This is §4's *"a reference is code too"* shape (T20a, T25) in its sharpest
+form: tranche 33's oracles checked the engine against *the same kind of grid the engine uses*, so in
+the one regime where that grid is wrong, the reference was wrong with it. Nothing in the suite priced
+a deep-OTM short-dated option at high vol-of-vol against a high-precision reference. It is the same
+defect **tranche 49 fixed one regime over** — SVJ's jump tails make `φ` decay even more slowly, which
+is why `engine/bates_fourier.py` commits `upper=400` and oracles that constant's value; chasing that
+measurement backwards is what surfaced this.
+
+**Interim handling, and what was deliberately NOT done.** `tests/L4/test_fourier_inversion.py`'s
+regression set is 54 of 60 points: the six that fall below `1e-3` absolute (quadrature residue rather
+than prices, this one among them) are **excluded with the reason asserted in the test**, not pinned.
+Pinning would have regression-locked a wrong number, which §8 forbids — debt may never buy a green
+oracle. The exclusion is itself guarded by `test_THE_EXCLUDED_REGIME_is_named_and_still_fails`, which
+asserts the committed grid *does* disagree with a fine one there, so the exclusion cannot quietly
+become a hole.
+
+**The fix** is a remediation tranche out of **re-audit #5** (the T45-from-re-audit-#4 precedent), not
+a patch bolted onto the arc close: an adaptive or regime-aware truncation for the Gil-Pelaez
+inversion, oracled against a high-precision reference *in the regime the present grid cannot
+resolve*. A fixed wider constant is not obviously right either — it would cost every pricing call to
+fix a corner — so the shape of the fix is part of the tranche, not assumed here.
+
+**Re-open trigger:** re-audit #5's oracle-power pass, where it is a **named** target. Re-audit #5
+fires on tranche 49's merge and sweeps tranche 33 oldest-first regardless.
+
 ### OI-3 · `norm_cdf` lower-tail cancellation — CLOSED (fixed at v0.25.0, tranche 20c)
 
 `foundation/distributions.py`'s `norm_cdf` computes `Phi(x) = (1 + erf(x/√2))/2`, which cancels

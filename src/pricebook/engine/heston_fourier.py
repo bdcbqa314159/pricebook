@@ -21,6 +21,12 @@ refinement instead of trusting the endpoint.
 them explicitly, in the same shape tranche 31 used for its strike strip. A defaulted upper limit
 would silently decide how much of the tail the price contains.
 
+**The inversion itself moved to `engine/fourier_inversion.py` at tranche 49**, when SVJ became its
+second consumer; `FourierGrid` and `_LOWER` went with it, and this module keeps what is specific to
+Heston — binding the characteristic function, and the `(product, model)` registration. The move was
+verbatim and is proved bit-identical on 120 reference values, so every number here is the number it
+was at tranche 33.
+
 Provenance:
   stock:  none
   source: BROCKHAUS-2016 (docs/references.md) ch 16.2 - the Fourier inversion of the Heston
@@ -36,11 +42,10 @@ Provenance:
 
 from __future__ import annotations
 
-import cmath
 import math
-from dataclasses import dataclass
 from datetime import date
 
+from pricebook.engine.fourier_inversion import FourierGrid, gil_pelaez_probabilities
 from pricebook.engine.registry import register
 from pricebook.foundation.money import Money
 from pricebook.foundation.results import PricingFailure, PricingResult
@@ -49,43 +54,6 @@ from pricebook.market.curve import CurveHandle
 from pricebook.market.equity import EquityUnderlying, dividend_forward
 from pricebook.models.heston import HestonModel, HestonParams, heston_characteristic_function
 from pricebook.products.equity_option import EquityOptionKind, EuropeanEquityOption
-
-#: Where the quadrature starts, since `1/(iu)` is undefined at 0 while the integrand's limit there
-#: is finite. **The omitted sliver `[0, _LOWER]` is a bias, and it is LINEAR in this constant** -
-#: measured against the `sigma_v = 0` Black reduction, the relative price error is 1.16e-06 at
-#: `1e-6`, 1.16e-08 at `1e-8`, 1.16e-10 at `1e-10` and 1.16e-12 at `1e-12`, reaching the
-#: double-precision floor (1.4e-14) by `1e-14`. One-directional and grid-independent, so refining or
-#: extending the grid never removes it - which is exactly how it was identified: the reduction's
-#: error sat unchanged across three grids and only moved when this did.
-#:
-#: Set to `1e-12`, where the bias is five orders below the tightest oracle in this tranche. Not
-#: `1e-14`: the integrand is evaluated at `u` down there and a smaller start buys nothing once the
-#: bias is under the floating-point noise of everything else.
-_LOWER = 1e-12
-
-
-@dataclass(frozen=True)
-class FourierGrid:
-    """Where the inversion integral is truncated, and how finely it is sampled.
-
-    Both are error sources and they fail differently: too low an `upper` **omits** tail
-    contribution (a one-directional bias), too small a `count` adds trapezoid error of either sign.
-    The oracle asserts each separately rather than hiding them in one tolerance.
-    """
-
-    upper: float
-    count: int
-
-    def __post_init__(self) -> None:
-        if self.upper <= 0.0:
-            raise ValueError(f"the integration upper limit must be positive, got {self.upper}")
-        if self.count < 2:
-            raise ValueError(f"the quadrature needs at least two nodes, got {self.count}")
-
-    def nodes(self) -> tuple[float, ...]:
-        step = (self.upper - _LOWER) / (self.count - 1)
-        return tuple(_LOWER + step * k for k in range(self.count))
-
 
 def heston_probabilities(
     params: HestonParams,
@@ -108,26 +76,10 @@ def heston_probabilities(
     forward = dividend_forward(underlying, expiry, discount)
     carry = math.log(forward / underlying.spot) / years
     log_strike = math.log(strike / underlying.spot)
-    shift = heston_characteristic_function(params, -1j, years, carry)
+    def characteristic(u: complex) -> complex:
+        return heston_characteristic_function(params, u, years, carry)
 
-    def integrands(u: float) -> tuple[float, float]:
-        phase = cmath.exp(-1j * u * log_strike)
-        plain = heston_characteristic_function(params, complex(u), years, carry)
-        tilted = heston_characteristic_function(params, complex(u) - 1j, years, carry) / shift
-        return (tilted * phase / (1j * u)).real, (plain * phase / (1j * u)).real
-
-    nodes = grid.nodes()
-    values = [integrands(u) for u in nodes]
-    first = _trapezoid([v[0] for v in values], nodes)
-    second = _trapezoid([v[1] for v in values], nodes)
-    return 0.5 + first / math.pi, 0.5 + second / math.pi
-
-
-def _trapezoid(values: list[float], nodes: tuple[float, ...]) -> float:
-    area = 0.0
-    for i in range(len(nodes) - 1):
-        area += 0.5 * (values[i] + values[i + 1]) * (nodes[i + 1] - nodes[i])
-    return area
+    return gil_pelaez_probabilities(characteristic, log_strike, grid)
 
 
 def heston_call_price(
