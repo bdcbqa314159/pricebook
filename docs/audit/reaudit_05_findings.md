@@ -166,20 +166,64 @@ re-run:
   so the thinness is known; it is **recorded again, unhardened**, and is the re-audit's standing
   highest-value hardening target.
 
-### Items 4 and 5 — NOT YET RUN
+### Item 4 — the new vol-arc closed forms, first independent sweep: **CLEAN**
 
-Stated plainly rather than implied: the first sweep of the new vol-arc closed forms against the
-T43/T39 blind spots (item 4) and the standing T1–T37 full-tree sweep (item 5) have **not** been
-executed in this pass. The per-tranche sweeps covered T46 (27 mutants), T48 (20) and T49 (22) at build
-time, but that is not the re-audit's independent re-run and must not be counted as it.
+**applied 12/12, killed 12, survived 0.** Deliberately *not* a re-run of the per-tranche sweeps (T46's
+27, T48's 20, T49's 22) but a probe of the two blind spots this arc repeatedly paid, which those
+sweeps did not try:
+
+- **T43 — the uniform rescale.** The shape that survived three oracles at T43 is a *shape-preserving,
+  level-breaking* mutation, so each new closed form was rescaled rather than altered in structure:
+  the SVI slice ×1.02, its density ×1.05, its wing slopes ×1.1, its closed-form minimum ×1.03; the
+  volatility swap's `K_vol` ×1.01, its transform ×0.999, its root-variance leg ×1.005; the inversion's
+  two probabilities ×1.001 and its `1/π` → `1/(2π)`. All twelve die. The absolute-level oracles added
+  during the arc (T46's vertex value, T48's measured convexity magnitude) are what kill them, which is
+  the T43 lesson having actually landed rather than been written down.
+- **T39 — does the double reduction's asserted mutual blindness hold?** Confirmed in both directions:
+  scaling the jump CF (×1.01) and the jump intensity (×1.1) each leave Reduction A green — as A's
+  asserted blindness requires — and are killed by B; scaling the Heston factor kills both. The
+  mutual-companion design does what T49 claimed for it.
+
+### Item 5 — the standing T1–T37 sweep, oldest-first: **CLEAN**
+
+**applied 21/21, killed 21, survived 0.** Load-bearing numerics across the oldest layers, chosen where
+a transcription error would actually live and excluding what items 1a/1b already swept:
+
+| layer | mutants | all killed |
+|---|---|---|
+| **L0** | ACT/365 → /360; the accrual taken from the wrong end; `periods()` dropping the last period; the bivariate normal's product term and its comonotone branch; the Gauss-Hermite weight | 6 |
+| **L1** | the discount factor's sign; the zero-curve interpolation inverted; the protection leg's `(1−R)` → `R` (**both** call sites); `segment_breaks` dropping the interior pillars | 6 |
+| **L3** | Black's `d₂ = d₁ + v`, its `+V²/2`, and `_d_plus`'s half-variance; Hull-White's `β` sign and its `β²`; the copula's `threshold − βZ` sign and its `/scale`; the LHP's loss-given-default; the exercise boundary's `ω` and its `>` → `>=` | 9 |
+
+**Scope stated honestly (§4 applied to the audit's own instrument).** This is a *sample* of
+load-bearing numerics, not an exhaustive enumeration of every line in T1–T37 — 21 mutants across 13
+modules, chosen for where a transcription error lands. Items 1a and 1b were the exhaustive passes
+(every `is_historical` site, every terminal discounting), and they are where the holes were. Calling
+item 5 "the full tree" without that qualifier would be the same overclaim the re-audit exists to
+catch.
+
+### A sweep-tooling defect that has now bitten TWICE in one re-audit
+
+Item 1a hit it at `yoy.py:136`/`:152` and item 5 hit it again at `credit_legs.py:140`/`:250`: **two
+textually identical load-bearing lines in different functions**, which a string-replacement sweep
+refuses as non-unique. Both times the sites were re-run positionally and both times they died, so
+nothing is hiding — and Cowork's ruling is right that the existing applied-count clause catches it
+(they report as *not applied*, never as falsely *killed*).
+
+But it is now a twice-observed failure mode of the instrument rather than a one-off, and the cost of
+missing it is two real sites silently uncounted in a sweep whose headline is a count. **Raised as an
+`Ask:`** — positional-by-default mutation is a small change to how the sweep is written, and whether
+the sweep tool should become a committed artifact (there is already a `tests/tooling/` directory) is
+a scope decision, not mine to make.
 
 ---
 
 ## Status
 
 - (3) and (4): **DONE** (Cowork). One stale header fixed in place; no fix-tranche.
-- (1) and (2): **PARTIAL** — items 1a (invariant-6, clean), 1b (first shape, **3 holes**), 2 (OI-4
-  mapped) and 3 (single-killer re-run) done; **items 4 and 5 not yet run.**
+- (1): **COMPLETE.** 1a invariant-6 clean (23/23), 1b first-shape **3 holes**, 2 OI-4 mapped,
+  3 single-killer re-run, 4 new closed forms clean (12/12), 5 the oldest-first sweep clean (21/21).
+  **Total: applied 71/71, killed 68, survived 3** — the three being F-5.1/F-5.2/F-5.3.
 - **Three holes for Cowork to rule: F-5.1, F-5.2, F-5.3** (two in merged code, T33 and T32), plus a
   §4 charter-line candidate from F-5.3 and an unhardened single-killer target (MM-I).
 - OI-4's remediation (the Fourier-grid fix) is a **separate tranche** out of this re-audit, fix shape ruled
