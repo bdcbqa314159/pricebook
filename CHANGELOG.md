@@ -6,6 +6,76 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.56.0] - 2026-11-17
+
+### Added — tranche 52: the mutation sweep as a committed instrument
+
+`tests/tooling/mutation_sweep.py`. §9 makes a whole-tree mutation sweep a standing obligation — every
+arc close and every eleven tranches — and for five re-audits it was an ad-hoc script rewritten from
+scratch each time: **the one part of the method with no provenance**, and the one that re-introduced
+the same tooling bugs twice. The engine is now versioned, reviewed, and tested against known answers.
+
+**It is the engine, never the audit.** Mutation *selection* stays the re-audit's judgement — where a
+transcription error would land, which blind spot to probe (the T43 uniform rescale, the T39 reduction
+blindness), oldest-first scoping. A tool that chose its own mutations would sweep where it is easy
+rather than where the failure lives, which is §9's can't-fail gate wearing an instrument's clothes.
+It is not a gate and nothing runs it on a push.
+
+**What it encodes as code rather than as things to remember:**
+
+- **Positional addressing.** A mutation names a *line*, and the fragment is matched within that line
+  only, so two textually identical load-bearing lines in different functions are two real sites. A
+  string-replacement sweep refuses them as non-unique and silently leaves them uncounted — which bit
+  twice in re-audit #5 alone (`yoy.py:136/:152`, `credit_legs.py:140/:250`). Carrying both the line
+  and the fragment is deliberate: the line makes identical sites distinct, the fragment keeps the
+  intent readable and turns a stale line number into a loud *not applied* instead of a silent
+  mutation of whatever moved there.
+- **Per-mutant bytecode invalidation** (T46). A mutation written inside one filesystem mtime tick
+  leaves the `.pyc`'s `(mtime, size)` unchanged, so CPython declines to recompile and the run tests
+  the *original* while printing a confident verdict. At T46 that produced a false **killed** and
+  flipped three verdicts once caches were cleared.
+- **`is_clean` requires all three conditions** — every mutation applied, nothing survived, nothing
+  errored — so re-audit #4's "survivors: 0" from 21 runs that all errored is **not expressible**.
+
+### Found by the instrument's own known-answer test: an errored run is not a kill
+
+The clause that did not exist before this tranche, and the argument for having built the tool. By
+return code alone an import error, a usage error or a collection failure is **indistinguishable from
+a test failure**, so every errored run reads as *killed* — the dangerous direction. The applied-count
+guard cannot catch it, because those mutations genuinely do reach the source; that is precisely the
+shape re-audit #4 suffered.
+
+So a kill is specifically pytest exit **1** (tests ran, one failed). Exits 2–5 are `errored`, counted
+apart and never as a kill. The tool's planted-hole fixture surfaced this immediately: the known
+survivor came back *killed*, because the inner run was erroring for an unrelated reason.
+
+**And the baseline is verified before anything is mutated.** Tests that do not pass on the unmutated
+tree make every mutant "fail" for a reason that is not the mutation — a false clean sheet. The
+verdict is memoised on a **content digest** of the tree rather than re-run per sweep, which is sound
+rather than a shortcut: a sweep restores every file it touches, so consecutive sweeps face a
+byte-identical tree. Deliberately *not* keyed on mtimes — that is the very signal the T46 defect
+exploited, and keying the guard's own memo on it would repeat the mistake one level up.
+
+### Verification
+
+14 new tests (2145 → **2159**), all against a **known answer** rather than trusting the verdict: a
+tiny subject module whose oracle is deliberately weak in one place, so it is known in advance which
+mutation must be killed and which must survive. A sweep that mis-scores is worse than none, because
+it launders false confidence.
+
+One mixed sweep demonstrates all four verdict categories at once — killed, survived, not applied,
+errored — which is both the cheaper shape (each inner `pytest` costs ~0.27s of startup whatever it
+runs) and the clearer one, since keeping those four apart is the instrument's whole job. The subject
+is rewritten immediately before that sweep, so every mutation in it is written inside one mtime tick
+of a fresh `.pyc`: the T46 window, making the `killed` verdict a regression test for the bytecode
+guard rather than a separate run.
+
+Also asserted: the subject is restored afterwards (a sweep that left the tree mutated would be a
+worse failure than any verdict), an empty mutation set is refused (it would report `applied 0/0,
+survived 0` and be trivially "clean" — the can't-fail shape), a no-op mutation is refused at
+construction (it would be scored as a mutant while testing the original), and a red baseline is
+refused rather than swept.
+
 ## [0.55.2] - 2026-11-17
 
 ### Fixed — tranche 51, re-audit #5's three blind oracles (test-only, no `src/` change)

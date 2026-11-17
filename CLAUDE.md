@@ -715,7 +715,21 @@ unconditionally only for the fraction.)*
   the bytecode cache per mutant. This is the dangerous direction — a false *"killed"*, which hides a hole
   exactly as a false green does. *(T46: a first sweep read 26/27 killed; clearing caches per mutant flipped
   three verdicts (M25–M27, survived→killed) to applied 27/27, killed 26, survived 1 — the applied count was
-  correct throughout and could not have caught it.)* **A drifted discipline is gated
+  correct throughout and could not have caught it.)* **And the sweep is now a COMMITTED INSTRUMENT —
+  `tests/tooling/mutation_sweep.py` — so these clauses are code rather than things to remember.** Five
+  re-audits of ad-hoc scripts rewritten from scratch made it the one part of the method with no provenance,
+  and it re-introduced the same tooling bugs twice; the engine encodes positional addressing (identical
+  lines are separate sites), per-mutant bytecode invalidation, a **verified baseline** (tests that are
+  already red make every mutant look killed), and an **ERRORED verdict that is never a kill** — pytest exit
+  1 means killed, while 2-5 mean the run returned no verdict, which is re-audit #4's false clean sheet
+  exactly. `is_clean` is false unless every mutation applied, nothing survived and nothing errored, so
+  "survivors: 0" from a run that never ran is not expressible. **It is the engine, never the audit:**
+  *which* mutations to apply stays the re-audit's judgement — where a transcription error lands, which
+  blind spot to probe — because a tool choosing its own would sweep where it is easy rather than where the
+  failure lives, which is the can't-fail gate wearing an instrument's clothes. *(T52. The ERRORED clause
+  was found by the instrument's own known-answer test, which is the argument for having built it: the
+  applied-count guard cannot see that shape, because those mutations do reach the source.)*
+  **A drifted discipline is gated
   (§7's references precedent) only when its violation is STATICALLY decidable; when the violation is a
   dynamic/semantic property — *is this accrual load-bearing in the path the fixture exercises?* — no CI
   gate can see it and it stays the mutation sweep's job.** The references discipline was static (header
