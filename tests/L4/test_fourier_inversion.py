@@ -150,17 +150,28 @@ def test_the_extraction_changed_no_heston_number(
     assert price == pytest.approx(reference, rel=_RELATIVE_BUDGET)
 
 
-def test_THE_EXCLUDED_REGIME_is_named_and_still_fails(self=None) -> None:
-    """The six excluded points are excluded for a measured reason, asserted here so the exclusion
-    cannot quietly become a hole: in that regime the committed grid genuinely disagrees with a far
-    finer one, and at `sigma_v = 0.9` it returns a negative call price."""
+def test_THE_EXCLUDED_REGIME_is_now_REPAIRED_by_tranche_50(self=None) -> None:
+    """The six excluded reference points were excluded because the engine could not resolve them —
+    OI-4, the truncation defect. **Tranche 50 fixed it**, so this guard records the resolution
+    rather than the defect.
+
+    What it still guarantees is the same thing it always did: the exclusion cannot quietly become a
+    hole. Handed the *shipped* grid the inversion still produces a value a call price may not take
+    (so the exclusion was justified), while the adaptive path returns a correct positive price.
+
+    The six points are **not** restored to `REFERENCES`, and deliberately: those bit patterns were
+    captured on the broken grid, so pinning them would regression-lock the wrong numbers §8 forbids.
+    The regime's correctness lives in `tests/L4/test_oi4_adaptive_truncation.py`, where it is
+    oracled against a high-precision reference; this file's job is only the extraction regression."""
     params = HestonParams(kappa=2.5, theta=0.06, sigma_v=0.9, rho=-0.3, v0=0.02)
     expiry = VAL + timedelta(days=30)
-    committed = heston_call_price(params, UNDERLYING, 130.0, expiry, (CURVE, GRID))
-    fine = heston_call_price(params, UNDERLYING, 130.0, expiry, (CURVE, FourierGrid(1200.0, 24001)))
-    assert committed < 0.0 < fine, f"committed={committed}, fine={fine}"
-    assert abs(committed - fine) > 1e-4, "the disagreement must be real, not rounding"
-    # and every kept reference is comfortably above that residue
+    with pytest.raises(ValueError, match="materially negative"):
+        heston_call_price(params, UNDERLYING, 130.0, expiry, (CURVE, GRID))
+    repaired = heston_call_price(params, UNDERLYING, 130.0, expiry, CURVE)
+    fine = heston_call_price(params, UNDERLYING, 130.0, expiry, (CURVE, FourierGrid(6400.0, 128_001)))
+    assert repaired > 0.0
+    assert repaired == pytest.approx(fine, rel=1e-6)
+    # and every kept reference is still comfortably above the residue
     for row in REFERENCES:
         assert abs(struct.unpack("<d", bytes.fromhex(row[7]))[0]) >= 1e-3
 

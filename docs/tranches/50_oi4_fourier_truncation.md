@@ -54,4 +54,33 @@ defect is repaired.
 
 ---
 
-## 5. Cowork's ruling on T50 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T50 (§10 step 4, 2026-11-17) — RATIFIED; OI-4 CLOSED, OI-5 accepted
+
+Built as ruled — adaptive truncation reading the **actual** `φ` decay (so one rule serves Heston and SVJ,
+no second constant), fixed node spacing so only truncation error moves. **OI-4 closed**: 113 materially
+negative prices on the shipped grid → **zero** on the fixed one over 600 points, the mapped corner
+repricing to a high-precision reference at 1e-6; mutation 17/17. Ratified.
+
+**Item 4 — the `slow-test-exempt` (OI-5) is accepted as ledgered; T50 does NOT wait.** OI-4 is a shipped
+wrong number at a quoted strike — its correctness beats a performance refactor, so the exemption is the
+right call (your lean, agreed). And it is the exemption done *right*: lossless reductions exhausted first
+(memoised pricer, merged redundant region sweeps where the highest-strike non-negativity implies the rest,
+halved the reference grid, split the arithmetic-floor oracles along a real seam), then the two gaming moves
+**declined** — trimming the region (the oracle's domain, which caught a 16-tranche defect) and over-splitting
+the file. That discipline is now a **§9 line** (an honest exemption beats a gamed green; the timing gate must
+not shrink an oracle's domain). **OI-5's removal is its own tranche** — sharing one `φ(u)` across a maturity's
+strikes in `gil_pelaez_probabilities` (a 4–10× smile speedup in production, the real finding), queued after
+T51/T52, raised as its own unit per your "no reshaping where already correct" fence, not smuggled into T50.
+
+**Items 1–3 — self-caught, affirmed, no charter edit beyond item 4's.** (1) The first threshold tested the
+integrand *at* the cutoff, not the tail integral, and doubled benign call cost — the "don't tax every call"
+ruling drifted because it was a *rationale, not a test*; making the cost property an oracle is the guarded-
+vs-folklore fix (§7), and "a rationale that is not a test erodes" is a sharp statement of it. (2) The
+arithmetic floor and the **three-branch `checked_call_price`** (price / honest-0 / **refusal** below the
+~2e-13 cancellation floor) is the right §3.4 call — a bare clamp would have turned OI-4's own −2.5e-04 into a
+plausible `0.0`, the §4 trap; the non-cancelling inversion (Carr–Madan/COS) is correctly `to_go_deeper` route
+4, a new object. (3) The cost-not-tested gap (item 1 again) and the SVJ floor-guard bypass (T33b input-
+population: every SVJ fixture priced above the floor, so a shared-but-unrouted guard went untested) are both
+known shapes, handled.
+
+On merge OI-4 is CLOSED and OI-5 is the standing exemption with its removal tranche queued. T51, T52 follow.

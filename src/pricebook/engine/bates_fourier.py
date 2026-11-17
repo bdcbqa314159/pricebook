@@ -30,6 +30,8 @@ from datetime import date
 
 from pricebook.engine.fourier_inversion import (
     FourierGrid,
+    adaptive_grid,
+    checked_call_price,
     gil_pelaez_probabilities,
 )
 from pricebook.engine.registry import register
@@ -57,10 +59,10 @@ def bates_probabilities(
     underlying: EquityUnderlying,
     strike: float,
     expiry: date,
-    quadrature: tuple[CurveHandle, FourierGrid],
+    quadrature: CurveHandle | tuple[CurveHandle, FourierGrid],
 ) -> tuple[float, float]:
     """`(P1, P2)` under SVJ — the Heston path with `phi_SVJ` bound in place of `phi_Heston`."""
-    discount, grid = quadrature
+    discount, requested = quadrature if isinstance(quadrature, tuple) else (quadrature, None)
     years = discount.time_measure.year_fraction(expiry)
     if years <= 0.0:
         raise ValueError(f"the inversion needs a positive horizon, got {years}")
@@ -72,6 +74,10 @@ def bates_probabilities(
     def characteristic(u: complex) -> complex:
         return bates_characteristic_function(params, u, years, carry)
 
+    # A grid the caller named is used as given -- a test pinning the old truncation must get it,
+    # and that is how this tranche's oracles show the defect. Otherwise it is chosen by measuring
+    # the decay of this very characteristic function (tranche 50, OI-4).
+    grid = requested if requested is not None else adaptive_grid(characteristic)
     return gil_pelaez_probabilities(characteristic, log_strike, grid)
 
 
@@ -80,13 +86,14 @@ def bates_call_price(
     underlying: EquityUnderlying,
     strike: float,
     expiry: date,
-    quadrature: tuple[CurveHandle, FourierGrid],
+    quadrature: CurveHandle | tuple[CurveHandle, FourierGrid],
 ) -> float:
     """`df(T) * (F*P1 - K*P2)` - the European call under SVJ."""
-    discount, _ = quadrature
+    discount = quadrature[0] if isinstance(quadrature, tuple) else quadrature
     first, second = bates_probabilities(params, underlying, strike, expiry, quadrature)
     forward = dividend_forward(underlying, expiry, discount)
-    return discount.df(expiry) * (forward * first - strike * second)
+    raw = discount.df(expiry) * (forward * first - strike * second)
+    return checked_call_price(raw, forward)
 
 
 @register(EuropeanEquityOption, BatesModel)
