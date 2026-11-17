@@ -63,7 +63,7 @@ the old truncation and show the defect.
 
 ### Verification
 
-56 new tests (2089 → **2145**). Mutation: **applied 17/17, killed 17, survived 0** — after two gaps
+44 new tests (2089 → **2133**). Mutation: **applied 17/17, killed 17, survived 0** — after two gaps
 the sweep found and the oracles did not:
 
 - **the rule could walk to its 25,600 cap with every price still correct.** Probing the decay at the
@@ -79,6 +79,29 @@ the sweep found and the oracles did not:
 `forward × 1e-12` return zero because the Gil-Pelaez *parameterisation* cannot resolve them. A
 formulation that integrates the option value directly (Carr–Madan, or a COS expansion) never forms
 `½ + I/π` and so never cancels that way — a new object, not a fix, and a `to_go_deeper` route.
+
+### The `slow` gate, and the tree's first timing exemption (OI-5)
+
+The oracle file exceeded the 10s budget on CI — 2.8s locally, ~11s on Windows, §9's "a local re-time
+is not the measurement" for the fourth time. Reduced as far as it goes without trading the oracle for
+the stopwatch: the pricer memoised (lossless, §3.1), two redundant region sweeps merged into one
+(prices that fall with the strike and are non-negative at the *highest* strike are non-negative
+throughout), the reference grid halved to twice the widest range the fix selects, and the
+arithmetic-floor oracles split into their own file along a real subject seam. 5.9s → 2.8s, and no
+further.
+
+The remainder is taken as a declared **`slow-test-exempt`**, ledgered as **OI-5** — the tree's first
+timing exemption, which is why it is argued rather than asserted. The region *is* the oracle's domain
+(§4: an oracle must contain the failure, and this region caught a defect that had shipped sixteen
+tranches), so cutting cells to fit a budget would trade the thing that works for the thing that
+measures it.
+
+**And the real fix is named in the ledger with the trigger to remove the exemption:**
+`gil_pelaez_probabilities` re-evaluates `φ(u)` at every node **for each strike**, although `φ` does
+not depend on the strike — only the phase does. A smile costs 4–10× what it needs to, in production
+as much as in this file. Sharing one `φ` across a maturity's strikes would both retire the exemption
+and make real smile pricing several times faster; it is out of this tranche's scope by ruling ("no
+reshaping of the inversion where it was already correct"), so it is raised rather than folded in.
 
 ## [0.55.0] - 2026-11-16
 

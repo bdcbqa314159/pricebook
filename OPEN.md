@@ -13,6 +13,37 @@ exists in `src/` or `tests/` (verified at v0.6.0).
 
 ## Other open items
 
+### OI-5 · `tests/L4/test_oi4_adaptive_truncation.py` is `slow-test-exempt` — OPEN (taken at tranche 50)
+
+**The exemption.** The file declares `# slow-test-exempt:` with its reason in place. It establishes
+the **no-arbitrage requirement over OI-4's mapped region** — twelve `(σ_v, T)` cells, four strikes
+each — and every price there is a Fourier inversion at an extended grid (up to 32,001 nodes, two
+characteristic-function evaluations per node). Measured **2.8s locally, ~11s on the Windows CI
+runner** against the 10.0s ceiling.
+
+**Why the exemption rather than a trim.** The region *is* the oracle's domain. §4's floor rule is
+that an oracle must contain the failure, and this region is what caught a defect that had shipped
+for sixteen tranches; cutting cells to fit a stopwatch trades the thing that works for the thing
+that measures it. The work was already reduced as far as it goes without that trade: memoising the
+pricer (lossless — the pricer is pure, §3.1), merging two redundant sweeps into one (prices that
+fall with the strike and are non-negative at the highest strike are non-negative throughout), halving
+the high-precision reference grid to twice the widest range the fix selects, and splitting the
+arithmetic-floor oracles into their own file along a real subject seam. That took it from 5.9s to
+2.8s and no further.
+
+**The real fix, which is why this is debt and not a standing exemption.**
+`gil_pelaez_probabilities` re-evaluates `φ(u)` at every node **for each strike**, although `φ` does
+not depend on the strike — only the `exp(-iuk)` phase does. A smile therefore costs 4-10x what it
+needs to, in production as well as in this file. Sharing one `φ` evaluation across the strikes of a
+given model and maturity would bring this file comfortably back under the budget *and* make real
+smile pricing several times faster. It was **out of tranche 50's scope by ruling** ("No reshaping of
+the inversion where it was already correct" — the waste is not incorrect, just wasteful), so it is
+raised rather than folded in.
+
+**Re-open trigger:** the first tranche that vectorises the inversion over strikes — at which point
+this exemption is removed and the gate protects the file again. Until then the exemption is the
+honest record that the file is heavy, not that the gate is wrong.
+
 ### OI-4 · The Heston/SVJ Fourier grid returned a NEGATIVE call price in the far short-dated wing — CLOSED (fixed at v0.55.1, tranche 50)
 
 **The defect.** `engine/heston_fourier.py`'s committed inversion grid (`upper=200`) does not resolve
