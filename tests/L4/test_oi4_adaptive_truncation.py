@@ -277,6 +277,23 @@ class TestTheFixIsLOCALtoTheDefect:
         shift = abs(adaptive / stale - 1.0)
         assert shift > 100.0 * (1e-12), f"the extension changed nothing material: {shift:.2e}"
 
+    def test_the_rule_STOPS_where_it_should_rather_than_running_to_the_cap(self) -> None:
+        """**Found by mutation.** Probing the decay at the *base* instead of at the current upper
+        leaves every price correct — and silently drives the search to its 25,600 cap, sixteen
+        times the work the corner actually needs. Every oracle passed, because correctness was
+        never the casualty; the cost was.
+
+        So the corner's grid is bounded above as well as below: it must extend (the price is wrong
+        otherwise) and it must stop (or "adaptive" means "always maximal"). Measured: the worst
+        corner in the mapped region selects 1600, well inside the cap."""
+        for vol_of_vol, days in ((1.2, 7), (0.9, 30), (1.2, 30)):
+            grid = adaptive_grid(_characteristic(_params(vol_of_vol), VAL + timedelta(days=days)))
+            assert grid.upper > COMMITTED.upper, f"must extend: {grid}"
+            assert grid.upper <= 4_000.0, (
+                f"σ_v={vol_of_vol} at {days}d selected upper={grid.upper:.0f} — the search is not "
+                "stopping proportionately, it is walking to its cap"
+            )
+
     def test_the_corner_SELECTS_a_wider_grid(self) -> None:
         """The premise for the whole tranche: the rule must actually extend where it matters."""
         corner = adaptive_grid(_characteristic(_params(1.2), VAL + timedelta(days=7)))
@@ -383,3 +400,20 @@ class TestTheSVJInversionGetsTheSameFix:
         assert adaptive_grid(svj).upper >= adaptive_grid(
             _characteristic(_params(1.2), expiry)
         ).upper
+
+    def test_the_svj_path_REACHES_THE_FLOOR_branches_too(self) -> None:
+        """**Found by mutation: bypassing the floor rule in the SVJ engine survived the whole
+        suite**, because every SVJ fixture priced above the floor — the T33b input-population
+        degeneracy again, one engine over. The shared rule being correct is not evidence that both
+        callers route through it.
+
+        At `K/F = 2.2` and seven days the raw inversion is sub-floor, so the zero branch fires; and
+        on the shipped grid the same point is *refused*, so the refusal branch fires. One fixture,
+        both branches, in the engine that was unguarded."""
+        expiry = VAL + timedelta(days=7)
+        forward = dividend_forward(UNDERLYING, expiry, CURVE)
+        strike = 2.2 * forward
+        params = self._bates(1.2)
+        assert bates_call_price(params, UNDERLYING, strike, expiry, CURVE) == 0.0
+        with pytest.raises(ValueError, match="materially negative"):
+            bates_call_price(params, UNDERLYING, strike, expiry, (CURVE, COMMITTED))
