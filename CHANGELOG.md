@@ -6,6 +6,80 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.55.1] - 2026-11-17
+
+### Fixed — tranche 50: OI-4, the Fourier-inversion truncation defect
+
+The Heston/SVJ inversion returned **negative call prices** — arbitrage violations — in the
+short-dated, high-vol-of-vol, out-of-the-money wing. Found at T49, mapped at re-audit #5, and shipped
+since T33: **113 materially negative prices** across a 600-point `(σ_v, T, K/F)` sweep, including
+**4.0%/4.4% error at a one-month 115% strike**, which is a quoted instrument rather than a tail
+curiosity.
+
+**The mechanism.** Heston's characteristic function decays *exponentially* in `u` (not Gaussian, as
+Black's does), at a rate that collapses as `T → 0` and the vol-of-vol grows. Measured at `u = 200`,
+the integrand `|φ(u)|/u` is **4.2e-47** for a one-year benign slice and **1.7e-04** in the seven-day
+high-vol wing — so the committed `upper = 200` truncated while the remaining tail was larger than the
+price it was computing. One constant cannot serve both ends of that range.
+
+**The fix is regime-aware, as ruled.** `adaptive_grid` doubles the range from T33's `upper = 200`
+until the integrand is genuinely negligible, at **fixed node spacing** so only the truncation error
+moves (discretisation and truncation are separate error sources and this is about the second). It
+measures the decay of the actual characteristic function rather than keying off a formula in the
+model's parameters, so it serves Heston and SVJ — whose jump tails decay slower still — without a
+second constant. Result: **zero materially negative prices**, and the mapped region reprices to a
+high-precision reference at 1e-6 relative or better.
+
+**The threshold was wrong on the first attempt, in the direction the ruling cared about.** It tests
+the integrand *at* the cutoff, while what a price feels is the integral of the remaining tail —
+larger by the decay length. At `1e-14` a standard tree fixture sat at `3.7e-14`, so it extended to
+`upper = 400` and **doubled the cost of every benign pricing call** to change the price by 9.6e-15
+relative. That is precisely the "tax every call to repair a corner" the ruling refused, re-introduced
+by a constant chosen for safety rather than measured. At `1e-13` the corner reprices exactly as well
+(worst relative error 2.0e-03 at both thresholds, and that residual is the arithmetic floor below,
+not truncation), ordinary fixtures stay at `upper = 200` and cost what they did — measured at **0.0%
+overhead** — and what still extends does so because its price genuinely moves. **The cost property is
+now an oracle**, not a rationale: nothing had been guarding it, which is why the regression was
+invisible.
+
+### Added — the arithmetic floor, and why a price can now be refused
+
+The severity sweep found a second thing the ledger had not predicted: truncation error falls under
+refinement only until it reaches an *arithmetic* floor, then stalls. Measured at a point whose true
+price is zero to double precision, the computed value runs 1.3e-02 → −1.4e-04 → −4.0e-08 → −1.5e-11
+and then stops improving, because `P1 = ½ + I/π` cancels two `O(½)` quantities and carries an absolute
+noise floor of ~2e-13 whatever the grid. A price inherits `forward × 2e-13`.
+
+So `checked_call_price` reads a raw inversion output in three branches: a **price** above the floor;
+**`0.0`** within it, because zero is the honest rendering of a number smaller than the arithmetic that
+produced it; and a **refusal** below it, because a materially negative call price means the method
+failed in that regime, not that the option is cheap. The third branch is what makes the second
+trustworthy — a bare clamp would have converted this very defect into a clean-looking `0.0` and hidden
+it — and the two cases are separated by seven orders of magnitude, not by a margin.
+
+`heston_call_price` and `bates_call_price` now accept either a curve (choose the grid) or a
+`(curve, grid)` pair (use that grid), which keeps §7's five-argument limit while letting a test pin
+the old truncation and show the defect.
+
+### Verification
+
+56 new tests (2089 → **2145**). Mutation: **applied 17/17, killed 17, survived 0** — after two gaps
+the sweep found and the oracles did not:
+
+- **the rule could walk to its 25,600 cap with every price still correct.** Probing the decay at the
+  *base* rather than at the current upper leaves correctness untouched and silently takes sixteen
+  times the work the corner needs. Every oracle passed, because cost was the casualty and nothing
+  tested cost. The corner's grid is now bounded above as well as below.
+- **the SVJ engine never reached the floor rule at all** — bypassing it there survived the whole
+  suite, because every SVJ fixture priced above the floor. The T33b input-population degeneracy one
+  engine over: the shared rule being correct is not evidence that both callers route through it. A
+  `K/F = 2.2` seven-day fixture now exercises both floor branches in that engine.
+
+**OI-4 is CLOSED.** What remains is recorded rather than closed silently: prices below
+`forward × 1e-12` return zero because the Gil-Pelaez *parameterisation* cannot resolve them. A
+formulation that integrates the option value directly (Carr–Madan, or a COS expansion) never forms
+`½ + I/π` and so never cancels that way — a new object, not a fix, and a `to_go_deeper` route.
+
 ## [0.55.0] - 2026-11-16
 
 ### Added — tranche 49, the SVJ / Bates model (the vol-surface arc's last build)
