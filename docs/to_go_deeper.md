@@ -236,10 +236,9 @@ candidate) is the completion ratio in the checkpoint `CP_okane_credit.md`. The r
 
 ---
 
-## `GATHERAL-2006` — *The Volatility Surface* (project six, in progress)
+## `GATHERAL-2006` — *The Volatility Surface* (the vol-surface arc: T46–T49, **CLOSED** v0.55.0)
 
-Opened at T46 (SVI). The arc is live, so this section records only what T46 itself deliberately left,
-not the arc's forward scope (`docs/gatheral_vol_surface_arc.md` holds that).
+Opened at T46 (SVI), closed at T49 (SVJ); the completion ratio is in `CP_gatheral_vol.md`. The routes:
 
 1. **Gatheral–Jacquier (2014)'s closed-form no-butterfly conditions — an ACQUIRE-SOURCE route, and
    the one place T46's certificate has a stated gap.** The 2006 text carries **no** butterfly
