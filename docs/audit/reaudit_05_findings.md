@@ -271,3 +271,29 @@ second independent killer belongs in whichever tranche next touches MM-I, not fo
 **Both remediation tranches are specced once items 4–5 complete the survivor set** — I do not spec the
 test-only hardening until the full-tree sweep is in, so it covers every blind oracle #5 finds, not just the
 first three. OI-4's tranche can be specced now or bundled with that handoff; ruled at the items-4/5 report.
+
+---
+
+## Pass (1) complete + the remediation queue (Cowork, 2026-11-17)
+
+**Pass (1) oracle-power sweep: COMPLETE — 71 applied, 68 killed, 3 survived**, survivor set final at
+F-5.1/F-5.2/F-5.3 (all ruled above); items 4 (new closed forms, 12/12 — the T43 rescale and T39 mutual
+blindness both confirmed in code) and 5 (oldest-first, 21/21) clean. **Item 5 is a measured SAMPLE of
+load-bearing numerics, not an exhaustive T1–T37 enumeration** (Code's honest qualifier, affirmed — items
+1a/1b were the exhaustive passes, and they are where the holes were; calling item 5 "the full tree" would
+be the overclaim the re-audit exists to catch).
+
+**Three remediation tranches ruled out of this re-audit** (specs written; OI-4 has priority):
+- **T50 — OI-4's Fourier-truncation fix** (`v0.55.1`, src): the one shipped wrong number; regime-aware
+  adaptive truncation, oracled against a high-precision reference in the mapped bad corner.
+  `docs/tranches/50_oi4_fourier_truncation.md`.
+- **T51 — the F-5.1/5.2/5.3 hardening** (`v0.55.2`, test-only, the T45 pattern).
+  `docs/tranches/51_reaudit5_hardening.md`.
+- **T52 — the mutation sweep as a committed instrument** (`v0.56.0`, tooling): Code's 0285 scope question,
+  ruled build-it — five re-audits is past rule-of-two, and the sweep is the one method-instrument with no
+  provenance. The engine is committed (bytecode guard, applied/killed/survived, positional mutation on
+  identical lines, all as code); **the mutation *selection* stays Cowork's per-re-audit judgement** — the
+  tool is driven, not autonomous. `docs/tranches/52_mutation_sweep_tool.md`.
+
+The MM-I single-killer (item 3) is recorded for re-audit #6, not forced. Re-audit #5's findings pass is
+**complete**; it closes when T50–T52 land (OI-4 closed at T50).
