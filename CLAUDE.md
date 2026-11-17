@@ -457,6 +457,16 @@ not an oracle. Ruled principles:
   outside. A green is evidence only about what the band can resolve. *(T17: a flat 3% band mixed a
   0.5% freezing error with ~2% MC error and resolved only a ~20% vol error at 6k paths — a 10% error
   sat inside it; rebanded `4·SE + 1.5%`, with a 12k-path power test where 10% falls outside.)*
+  **And a band's resolution is per-DEFECT, not a property of the band** — a band measured to resolve
+  defect X is silent about a defect Y of smaller signal-to-SE, so "the band resolves a defect" must name
+  *which*, and every load-bearing term the band is meant to guard (the drift, the discounting, the payoff)
+  wants its own resolution measurement. The failure wears a satisfied clause: a correct, §4-compliant
+  resolution test for one defect reads as "resolution asserted" while another defect sits inside the band —
+  the same shape as T49's bit-identity-as-test (a clause satisfied, the failure one step to the side).
+  *(F-5.3, re-audit #5: `local_vol_mc`'s repricing band was measured to resolve an 8.9-SE Dupire drift
+  defect — correct — yet could not resolve a 1.4-SE dropped discount factor (6.18%, inside an 11.8–33.1%
+  band at every strike), a T32 hole the satisfied-looking resolution test hid until the sweep dropped `df`
+  directly.)*
 - **A reference is code too — it needs its own accuracy argument in the regime where it is used.**
   §4's independence rule says the test computes its own reference; this is the sharp corollary: that
   reference is an implementation with its own error, and in an extreme regime (a deep tail, a near-unit
