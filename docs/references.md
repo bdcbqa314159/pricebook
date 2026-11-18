@@ -353,6 +353,41 @@ conditions in their rigorous form are Gatheral–Jacquier (2014), which the 2006
 at T46's build whether the density-non-negativity requirement oracle suffices or that paper must be
 obtained (a `to_go_deeper` "acquire source" note if so).
 
+### `LICHTERS-2015` — `worked-from`
+
+Lichters, R., Stamm, R. & Gallagher, D., *Modern Derivatives Pricing and Credit Exposure Analysis:
+Theory and Practice of CSA and XVA Pricing, Exposure Simulation and Backtesting*, Palgrave Macmillan,
+2015. 491 pp. Held at `_stock/NewDocuments/Modern Derivatives Pricing and Credit Exposure Analysis_ …
+.pdf` (gitignored — copyrighted; only this record is tracked).
+
+**Worked from at T54:** §3.5 "Building the forward projection curves" (the swap-stripping relation
+`c·A^ON = Σ f^δ(t_{i−1},t_i)·δ_i·df^ON_i`, the projection recursion) and §1's eqs (1.1)/(1.2) for the
+forward and its PV identity — the latter being the telescoping test that separates the two eras.
+
+**The dedicated collateralised-pricing authority — project seven (Bernardo, 2026-11-18).** The practitioner
+text on **CSA / collateralised discounting** and credit exposure. It pulls the one layer the tree has
+never had — the post-crisis reality that a collateralised trade discounts at the **collateral rate**
+(OIS), multi-curve (OIS discount + separate forward-projection curves) — and extends the XVA arc's
+exposure machinery with collateralisation. A **second source** for objects we hold (CVA/DVA vs
+`CREPEY-2026`, Jarrow–Yildirim vs `BERHAN-2012`, the short rate vs our Hull-White), so cross-source checks
+are available where they render the same object (§4's same-formula caveat applies).
+
+Candidate map (ruled per-tranche at build; the arc plan is `docs/modern_discounting_arc.md`):
+
+| ch | what | reuse / status |
+|---|---|---|
+| 1–2 | pre-crisis discounting, curve building | our single-curve bootstrap (T1/T8) — the machinery reused |
+| 3 | **OIS / multi-curve bootstrap** | new; reuses T8's par-reprice round-trip |
+| 4 | **global / cross-currency collateralisation**, the cross-currency basis | new (covered-interest-parity oracle) |
+| 5 | **CSA discounting** — collateral rate, collateral choice, thresholds | new; **reduces to single-curve at OIS=Libor** (the pre-crisis limit) |
+| 7–9 | CVA / DVA, single-trade CVA | **held** (the XVA arc T25–T29) — reused, cross-product oracle, not rebuilt |
+| 11 | the **Linear Gauss-Markov (LGM)** short-rate model | new; **LGM is a reparameterisation of Hull-White** — exact reduction |
+| 13.2 | Jarrow–Yildirim inflation | **held** (inflation arc) |
+| 6, 12, 13.3, 14, 5.6 | hedge accounting, FX/equity RFE, Dodgson–Kainth, initial margin | `to_go_deeper` |
+| backtesting (+ `kerkhof.pdf`) | exposure-model backtesting | **`out_of_method` candidate** — statistical/historical validation, no closed-form oracle |
+
+**Status `in-hand`** (held, TOC + ch 1–3 read, 2026-11-18); flips to `worked-from` at the first build (T54).
+
 ---
 
 ## Named-but-not-in-hand — NOT citable as `source:` until obtained

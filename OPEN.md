@@ -13,6 +13,36 @@ exists in `src/` or `tests/` (verified at v0.6.0).
 
 ## Other open items
 
+### OI-6 · `nominal_bootstrap._validate` admits a quote set that skips a pillar, then crashes — OPEN (found at tranche 54, ruled 2026-11-18)
+
+**The defect.** `market/nominal_bootstrap.py`'s `_validate` checks that each par-swap quote's
+schedule *extends* the previous one (a prefix match on the payment dates). That admits a set which
+**skips** a pillar — a 3y schedule does extend a 1y one — and such a set leaves **two** unknown
+discount factors in a single par condition. The bootstrap then reaches for the pillar that was never
+solved and dies with a bare
+
+    KeyError: datetime.date(2028, 1, 1)
+
+**Severity: low, and the bound is the point.** It crashes on malformed input; it ships no wrong
+number. A quote set that skips a pillar is underdetermined, so there is no right answer being
+computed badly — the only defect is that a **precondition surfaces as a crash instead of a
+refusal**, which §3.4 is explicit about ("failure is a value — never raise-and-hope"). Every quote
+set in the tree's own tests and fixtures is pillar-by-pillar, so nothing in the library is affected.
+
+**How it surfaced, which is the familiar shape.** Tranche 54's projection bootstrap needed the same
+precondition and stated it directly — **one equation, one unknown**: a par quote determines exactly
+one new pillar, so a set must step one at a time — and refuses in domain vocabulary naming the
+unsolved pillars. Writing the new thing correctly is what exposed the old roughness, the same way
+tranche 49's adaptive-grid work surfaced OI-4. T54 did **not** reach into tranche 8's module: one
+unit per tranche, and this is tranche 8's.
+
+**The fix** is the one-line condition T54 already carries, plus its test: count the pillars a quote
+introduces and refuse unless it is exactly one. It belongs in `_validate` beside the prefix check,
+whose intent it completes.
+
+**Re-open trigger:** the next tranche that touches `market/nominal_bootstrap.py`, or re-audit #6 —
+whichever comes first.
+
 ### OI-5 · `tests/L4/test_oi4_adaptive_truncation.py` was `slow-test-exempt` — CLOSED (removed at v0.56.1, tranche 53)
 
 **The exemption.** The file declares `# slow-test-exempt:` with its reason in place. It establishes
