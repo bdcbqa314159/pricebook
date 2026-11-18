@@ -56,7 +56,7 @@ from dataclasses import dataclass
 
 from pricebook.foundation.schedule import CouponSchedule
 from pricebook.foundation.time_measure import TimeMeasure
-from pricebook.market.curve import DiscountCurve
+from pricebook.market.curve import CurveHandle, DiscountCurve
 
 
 @dataclass(frozen=True)
@@ -70,12 +70,20 @@ class ParSwapQuote:
     par_rate: float
 
 
-def swap_annuity(curve: DiscountCurve, schedule: CouponSchedule) -> float:
+def swap_annuity(curve: CurveHandle, schedule: CouponSchedule) -> float:
     """`Σ τ_j·P(0,T_j)` — the fixed leg's value per unit of rate.
 
     **Defined once so the bootstrap and any future swap pricer compose the same annuity** (§3d).
     `τ` comes from the schedule's own day count, never a hardcoded 1.0, so an annual-roll
-    assumption cannot slip in silently."""
+    assumption cannot slip in silently.
+
+    **Typed on the `CurveHandle` protocol, not on `DiscountCurve`** — widened at tranche 54, where
+    pyright refused the OIS curve a multi-curve bootstrap discounts on. The function reads nothing
+    but `df`, which is exactly what the protocol promises, so the concrete annotation was denying a
+    correct reuse rather than protecting anything. (The fourth time a concrete annotation has done
+    that here — T42's `risky_pv01`, T42's `BasketSurvival`, T44a's `TrancheSurvival`.) Annotation
+    only: no behaviour changes, and every existing caller passes a `DiscountCurve`, which satisfies
+    the protocol."""
     return sum(psi * curve.df(pay) for _, pay, psi in schedule.periods())
 
 

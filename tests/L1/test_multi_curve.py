@@ -251,3 +251,67 @@ class TestTheGuardsAreReachable:
         absurd = (ParSwapQuote(_schedule(1), -5.0),)
         with pytest.raises(ValueError):
             projection_curve_from_par_swaps(MEASURE, absurd, _ois())
+
+
+class TestSingleCurveRemainsAFirstClassMode:
+    """The arc's design invariant (`modern_discounting_arc.md`, ruled 2026-11-18), which is a
+    **different claim** from the reduction above and the arc owes both.
+
+    The reduction proves multi-curve *collapses to* single-curve at the boundary. This proves
+    single-curve is still *reachable and exercised* — because the way that path rots is the T33b
+    input-population degeneracy: if every new fixture is multi-curve, the single-curve path leaves
+    the test population and can break with the suite green. So the pre-crisis construction is
+    priced here in **genuine** single-curve mode — the existing `nominal_bootstrap` path, nothing
+    from this module involved — and the two modes are asserted to agree where they coincide and
+    differ where a real basis exists.
+    """
+
+    def test_the_PRE_CRISIS_path_still_prices_with_nothing_from_this_module(self) -> None:
+        """One curve per currency, projecting and discounting itself — and the telescoping identity
+        holds, which is what makes it the single-curve era rather than a coincidence."""
+        curve = nominal_curve_from_par_swaps(MEASURE, _quotes(OIS_RATES))
+        for years in YEARS:
+            schedule = _schedule(years)
+            floating = _floating_leg(curve, curve, schedule)
+            assert floating == pytest.approx(
+                OIS_RATES[years] * swap_annuity(curve, schedule), abs=1e-12
+            )
+            assert floating == pytest.approx(1.0 - curve.df(schedule.dates[-1]), abs=1e-12)
+
+    def test_the_two_MODES_agree_where_they_coincide(self) -> None:
+        """Bernardo's parallel-era guarantee, as a test: the same quotes priced the pre-crisis way
+        and the post-crisis way are the same number when there is no basis."""
+        single = nominal_curve_from_par_swaps(MEASURE, _quotes(OIS_RATES))
+        multi = projection_curve_from_par_swaps(MEASURE, _quotes(OIS_RATES), single)
+        for years in YEARS:
+            maturity = _schedule(years).dates[-1]
+            assert multi.df(maturity) == pytest.approx(single.df(maturity), rel=1e-12)
+
+    def test_and_DIFFER_where_a_real_basis_exists(self) -> None:
+        """The other half, so "they agree" is not a statement about an inert difference — and the
+        size is **measured**, because my first guess at it was wrong by an order of magnitude.
+
+        The same 6M quotes bootstrapped the pre-crisis way (projecting and discounting on one curve)
+        and the post-crisis way (projecting on the tenor curve, discounting at OIS) give *different*
+        curves: **0 at 1y, 5.5e-06 at 2y, rising to 7.8e-05 at 5y**. Small, and structural — the
+        two eras are different computations, not aliases.
+
+        The 1y pillar being **identical** is the detail that explains the shape: with a single
+        period the par condition is `S·δ·df = f·δ·df`, and the discount factor cancels whichever
+        curve carries it. The difference is therefore a multi-period effect and grows with maturity,
+        which is also why asserting it at the short end would have been vacuous.
+
+        (Not to be confused with the *basis* itself — OIS against the 6M projection curve is ~160bp,
+        two orders larger, and is asserted in `TestTheSingleCurveReduction`. This is the subtler
+        claim that the two bootstraps differ.)"""
+        single = nominal_curve_from_par_swaps(MEASURE, _quotes(SIX_MONTH))
+        multi = projection_curve_from_par_swaps(MEASURE, _quotes(SIX_MONTH), _ois())
+
+        near = _schedule(1).dates[-1]
+        assert multi.df(near) == pytest.approx(single.df(near), rel=1e-15), (
+            "the one-period pillar must coincide: the discount factor cancels there"
+        )
+        far = _schedule(5).dates[-1]
+        drift = abs(multi.df(far) / single.df(far) - 1.0)
+        assert drift > 1e-5, f"the two eras' bootstraps must differ at 5y, got {drift:.2e}"
+        assert drift < 1e-3, f"...and by a second-order amount, not a basis-sized one ({drift:.2e})"
