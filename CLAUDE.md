@@ -488,6 +488,14 @@ not an oracle. Ruled principles:
   assert **relative** accuracy against a reference that has it. *(T20a: a root-find on `norm_cdf` was the
   weaker side three times — disagreeing in the tail, failing to resolve a root at `p=1−1e-12`, missing at
   `p=0.999` where the code was bit-exact; primary cross-check moved to `scipy.special.ndtri`.)*
+  **The mirror, and it is the trap when you reach for the rule above: a RELATIVE tolerance is VACUOUS where
+  the true value is ZERO by construction** — a par reprice, a reduction-to-zero, any difference-of-equals
+  has nothing to be relative *to*, so a relative band fails on pure noise (a 2e-09 difference reads as
+  `rel = 1.25`). The near-zero clause says "assert relative near zero"; applied to an *exactly*-zero
+  oracle it is exactly backwards. Match the tolerance to where the value lives: a value that *is* zero gets
+  an **absolute** band against the natural scale (the notional), a small-but-nonzero value gets a relative
+  one. *(T55: the OIS=projection reduction's PV is zero at the par rate; `rel=1e-11` failed at `rel=1.25` on
+  2.1e-09, rebanded absolutely against notional at ~500× the measured noise.)*
   **And a reference's regime error can hide as a convergence *plateau* rather than a value mismatch —
   so the convergence RATE is the detector a flat band misses.** Give each home-grown reference an
   explicit **validity regime** and assert the references agree only where both hold. *(T25: an EPE
@@ -825,7 +833,14 @@ exist before handoff** — read-before-asserting (§5) applies to our own tree, 
 spec may name a prior tranche's capability as confidently as it names a number, and be as wrong.
 *(T22 named "Black's analytic Greeks (T9)" as its anchor; T9 built the vol surface, no Greeks existed
 — a one-line grep before the ruling would have caught it. The build-raises-it loop did catch it, so
-this is a cheap guard, not a new gate.)*
+this is a cheap guard, not a new gate.)* **It binds a spec's REUSE anchors, not only a named prior
+capability, and the grep is COWORK's at step 1 — the build-catch is the backstop, not the front line.**
+It bit **twice running** in the CSA arc, both caught at build because Cowork did not grep at spec-time:
+**T54** named `nominal_bootstrap.py` as a thing to *extend* when the OIS half *is* it verbatim (an anchor
+that exists and is **not what the spec assumes** — the subtler failure), and **T55** named "the existing
+swap pricer" when the tree has never had a vanilla IRS (an anchor that **does not exist** — the T22
+classic). Two consecutive specs asserting reuse Cowork had not verified: so Cowork greps every reuse anchor
+a spec names before handoff, which is where this clause already puts it.
 
 The prompt channel is `.cowork/thread.md` (append-only, one `Ask:` per entry, pointers not pastes);
 durable state goes to `docs/`, never only the thread.

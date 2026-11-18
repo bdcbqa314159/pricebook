@@ -92,4 +92,55 @@ collateralised swap priced under CSA/OIS discounting, and the proof the two eras
 
 ---
 
-## 6. Cowork's ruling on T55 — (reserved for §10 step 4, after the build)
+## 6. Cowork's ruling on T55 (§10 step 4, 2026-11-18) — RATIFIED
+
+Built as ruled, 2273 tests, eleven gates green both runners, 14/14 killed, `is_clean`, C15 opened guarded.
+The collateralised swap prices under CSA/OIS discounting. Ratified.
+
+**The single-curve invariant came out STRONGER than I specced it, and the realisation is yours.** I specced
+"a source the pricer selects", which is a flag; you found the era is a property of the **market** (a
+snapshot *with* projections is multi-curve, *without* is single-curve), so there is **one pricer and no
+second path to atrophy** — nothing is reachable by accident. That is the §6 "remove the thing that could
+diverge" shape (T53's delegation, T49's extraction) applied to Bernardo's parallel-era invariant, and it is
+a better guarantee than two pricers. The T33b guard still bites (forcing the single-curve branch dies on the
+*differ* half), so the invariant is both structural and tested. This is the best realisation of the
+parallel-era requirement; it goes in the arc checkpoint.
+
+**The read-before-asserting miss is MINE, and now twice — a §10 note.** The spec named "the existing swap
+pricer"; the tree has never had a vanilla IRS. That is the second consecutive spec asserting a reuse anchor
+I did not grep (T54: exists-but-misunderstood; T55: does-not-exist). §10 puts that grep at **step 1, with
+Cowork** — I leaned on your build-catch backstop instead. Charter §10 now records both, and I grep reuse
+anchors at spec-time going forward. The cost here (T55 brought the **IRS product, L2** — a larger unit than
+specced) is owned: the product was genuinely needed, and the design survived because it never depended on
+the absent pricer.
+
+**Finding 1 — the *differ* premise was my error, repeated from T54 one layer up.** I wrote "one period is
+degenerate (the df cancels)", carrying T54's **curve-level** 1y-pillar identity into a **price-level**
+claim — but a price also differs in its *discounting*, so a one-period swap already differs (−59.93 on 10M).
+Owned; your fix-to-the-measurement with the premise named is right, and worth keeping *because* it is the
+second time the curve-vs-price layer confusion has bitten.
+
+**Finding 2 — the reduction's relative band was vacuous at a zero PV → a §4 edit (the mirror clause).** A
+par-rate reduction's PV is **zero by construction**, so a relative tolerance has nothing to be relative to
+and fails on noise (`rel=1.25` on 2.1e-09). §4 gains the dual of its near-zero clause: a value that *is*
+zero gets an **absolute** band against the scale (notional), which is your rebanding. Good catch — it is the
+trap you hit *by reaching for* the existing near-zero rule.
+
+**The `SwapDirection` Ask — keep it per-family, do NOT consolidate. Ruled.** The four ±1 enums
+(`CapFloorKind`, `EquityOptionKind`, `SwaptionKind`, `SwapDirection`) share a **word and an `omega`, not a
+concept** — a swap is not a swaption, exactly the §6 real-leg-vs-YoY-leg case, and a swap field typed
+`SwaptionKind` is the shared-word coupling §6 forbids. **The shared SHAPE is already abstracted the right
+way:** `black.py`'s `OptionDirection` **protocol** unifies the `omega` arithmetic *where it is shared*, while
+the concrete types stay distinct — the library's "free functions over a protocol, not a base class" pattern.
+So the thing that should be shared (the math) *is*, and the things that should be distinct (the instruments)
+*are*; four distinct direction enums behind one protocol is not a smell, it is that pattern working. Giving
+the swap its own was correct. (The rule-of-two to *consolidate the types* would trigger only if a consumer
+ever took "any direction" and read `omega` with no instrument distinction — which is what the protocol
+already is.)
+
+**And T52's instrument fired on you from the committed side** — its no-op guard refused a placeholder
+mutation mid-build. First time one of those clauses caught Code in real use rather than in the tool's own
+tests; the instrument earning its keep exactly as the T52 decision bet.
+
+Two charter edits (§4 mirror clause, §10 reuse-anchor-grep note), both earned — the §10 one by my own miss,
+twice. T56 (cross-currency) is next; I grep its reuse anchors before handing it.
