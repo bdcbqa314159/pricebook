@@ -248,6 +248,18 @@ class TestTheSimulatedState:
         states = simulate_lgm_states(PARAMS, 0.0, MonteCarloConfig(paths=100, seed=1))
         assert all(z == 0.0 for z in states), "zeta(0) = 0, so z(0) = 0 exactly"
 
+    def test_a_bond_MATURING_BEFORE_it_is_observed_is_refused(self) -> None:
+        """Found by the sweep: the guard was written and nothing reached it. It is a real
+        precondition rather than dead code — `P(3, 1)` asks for a bond that matured two years
+        before the observation date, and eq (11.4) would happily return a number above 1 for it
+        (a plausible wrong number, §4's standing concern) instead of refusing."""
+        with pytest.raises(ValueError, match="before it is observed"):
+            lgm_zero_bond(PARAMS, 3.0, 1.0, 0.0, CURVE)
+
+    def test_THE_PREMISE_the_same_call_with_the_dates_ordered_is_fine(self) -> None:
+        """So the refusal is about the ordering and not about those arguments being unusable."""
+        assert lgm_zero_bond(PARAMS, 1.0, 3.0, 0.0, CURVE) > 0.0
+
     def test_a_negative_horizon_is_refused(self) -> None:
         with pytest.raises(ValueError, match="negative"):
             simulate_lgm_states(PARAMS, -1.0, MonteCarloConfig(paths=10, seed=1))
