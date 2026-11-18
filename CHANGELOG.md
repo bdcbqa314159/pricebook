@@ -6,6 +6,62 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.56.1] - 2026-11-18
+
+### Changed — tranche 53: `φ(u)` shared across a maturity's strikes (OI-5 retired)
+
+`φ(u)` does not depend on the strike — only the Gil-Pelaez phase `e^{−iuk}` does — yet the inversion
+re-evaluated it at every node for every strike, so a smile cost `N ×` the `φ` calls it needs. `φ` is
+the dear half of the integrand: a complex `sqrt`, `log` and two `exp` per node for Heston, strictly
+more for SVJ, against one `exp` for the phase.
+
+`InversionKernel` now holds `φ` at a grid's nodes and `probabilities_at` inverts it at any strike, so
+`heston_call_prices` / `bates_call_prices` price a whole ladder on one sweep. **Measured: a
+five-strike smile costs the same `φ` calls as a single strike, where pricing them separately costs
+5×** — asserted, not described, because T50's first threshold showed that *a rationale that is not a
+test erodes*.
+
+**The purity argument is structural rather than numerical.** `heston_call_price` delegates to
+`heston_call_prices` with one strike and returns its first element, so the two paths cannot drift:
+there is one implementation. On top of that, `probabilities_at` runs the same operations in the same
+order the per-strike version did — the same `φ` values, the same phase, the same sequential trapezoid
+— so a price is bit-identical in-process (§4's op-order condition holds for a loop hoist), while the
+committed regression is a **relative** tolerance. That split is the T49 lesson applied deliberately:
+bit-identity is a property of a measurement, not of a cross-platform test.
+
+Also asserted, because batching is exactly where a guard gets quietly bypassed: the batch path
+applies T50's **arithmetic floor** (a sub-floor price in a batch still returns exactly zero, a
+materially negative one is still refused) and selects **one** adaptive grid for the maturity — which
+is the same property that makes the kernel shareable at all.
+
+### Fixed — OI-5, the tree's only `slow-test-exempt`, is CLOSED
+
+The named removal trigger fired as intended. The marker was taken off **before** pushing, so the gate
+measured the file rather than skipping it, and both runners pass: **ubuntu 3m49s, windows 6m55s**,
+`slow` green. Locally the OI-4 oracle file went **2.8s → 2.13s** wall (test work 2.54s → 1.62s). The
+closure was explicitly conditional on the CI reading, per §9, and that is the reading.
+
+**An honest correction to OI-5's own ledger entry.** It predicted 4–10×; the file improved by ~25%.
+Its cost was never dominated by the region sweep alone — the high-precision reference grid (64,001
+nodes, 16× the committed one) is the dearest thing in it, with the SVJ sweep next — and batching all
+three is what cleared the ceiling. The 4–10× figure is the saving on **one maturity's `φ`
+evaluations**, which is what a smile-pricing caller sees; it was never the whole file's runtime, and
+the entry should have said so.
+
+**And what this does not claim.** No production *product* prices a smile today — `price(product,
+model)` prices one option per call — so the saving is realised by the four test files that fit or
+sweep a smile at one maturity, and prospectively by any smile consumer. The waste was in `src/` and
+the fix is in `src/`; claiming a realised production speedup would be the prospective claim §6
+refuses.
+
+### Verification
+
+25 new tests (2159 → **2184**). The performance property is an oracle in its own right — `φ` counted
+directly, with the premise asserted (`φ` really is evaluated per node) and the saving measured
+(separate pricing costs > 4.5× the shared path), so the win cannot silently erode at the next
+refactor. The SVJ path carries the same assertions, because T50's lesson one engine over is that a
+shared rule being correct is not evidence both callers route through it.
+
 ## [0.56.0] - 2026-11-17
 
 ### Added — tranche 52: the mutation sweep as a committed instrument
