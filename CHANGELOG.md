@@ -67,6 +67,21 @@ tolerance blind to relative error near zero; here a *relative* tolerance has not
 to). Measured, the difference is a flat 2.1e-09 at every fixed rate — the leg arithmetic's absolute
 scale, 2e-16 of notional — so the band is absolute against the notional, at ~500x the measurement.
 
+### Fixed — `test_bates_svj.py` was sitting on the `slow` ceiling
+
+Found by CI on a **docs-only** commit: 10.3s on Windows against the 10.0s ceiling, having passed the
+run before. A file whose verdict is decided by timing variance is worse than one that simply fails,
+so the cause was fixed rather than nudged — and the cause is **tranche 53's insight one layer over**.
+
+Three tests called the MC helper with the same `(expiry, seed)` and different strikes, and **the
+simulation does not depend on the strike** — only the payoff does. So a 60,000-path, 400-step
+simulation ran three times for one set of paths. Caching it is lossless, exactly as sharing `φ(u)`
+across a maturity's strikes was. The grid-width test also priced three strikes against a
+24,001-node reference one call at a time, where `bates_call_prices` gives it one `φ` sweep per grid —
+T53's entry point used in the case that motivated it.
+
+**2.9s → 1.75s local**, no exemption, no oracle trimmed.
+
 ### Verification
 
 61 new tests (2212 → **2273**). Mutation: **applied 14/14, killed 14, survived 0** via T52's
