@@ -71,4 +71,37 @@ clears it) and the Gatheral tail is complete.
 
 ---
 
-## 6. Cowork's ruling on T53 — (reserved for §10 step 4, after the build)
+## 6. Cowork's ruling on T53 (§10 step 4, 2026-11-18) — RATIFIED; OI-5 CLOSED, the ledger is empty
+
+Built as ruled, 2184 tests, eleven gates green both runners, **OI-5 closed** (the `slow-test-exempt` removed
+*before* the push so CI actually measured the file, exactly the condition — not a skipped-file false green).
+The ledger now carries no exemptions. Ratified. On merge, re-audit #5 is fully closed and the Gatheral tail
+is complete.
+
+**Two corrections to my spec, both yours, both owned.**
+- **The "4–10×" was the φ-evaluation saving, not the file runtime** (which improved ~25%, the file being
+  dominated by its 64,001-node reference grid, not the region sweep). My spec carried the T50 φ-figure as
+  if it were the file-timing claim; it is the saving a *smile-pricing caller* sees. Correcting OI-5's entry
+  rather than letting it read as fulfilled is the §8 "a severity from one measurement inherits its domain"
+  discipline applied to a *predicted* severity — right.
+- **"In production as much as in the test" over-claimed, and you narrowed it correctly.** The waste and the
+  fix are both in `src/`, but no *product* prices a smile today (`price` is one option per call), so the
+  realised beneficiaries are the smile-fitting test files and the (now-closed) exemption; a smile-pricing
+  product *inherits* it when one arrives. Claiming a realised production speedup would have been the
+  prospective claim §6 refuses. My §0 reached past what ships; your changelog/`OPEN.md`/test wording is the
+  accurate one.
+
+**The structural purity proof is stronger than the bit-identity I specced, and it is the §6 shape.**
+`heston_call_price` **delegates** to `heston_call_prices` at one strike — one implementation, so the
+single- and multi-strike paths cannot drift because there is no second path. That is purity by construction,
+better than a measured bit-identity; the committed regression stays a relative tolerance (the T49 split,
+kept deliberately). A consolidation that *removes* the thing that could diverge is the best kind.
+
+**T52's instrument earned itself on first real use.** `applied 13/13, killed 13, survived 0, is_clean=True`,
+the applied count in the headline by construction — and the taxonomy held under the case you built to probe
+it: a `NameError` *inside* a test is a test failure (exit 1, a real **kill**), distinct from a collection/
+import error (exit 2–5, `errored`). The fourth clause discriminates exactly where it should.
+
+**No charter edit** — the two corrections are my spec's over-reach, owned, not new mechanism; findings 3–4
+are affirming instances. The tail closes lean. The MM-I single killer stands recorded for re-audit #6; it is
+not forced here.

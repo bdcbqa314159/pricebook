@@ -15,7 +15,7 @@ This file is the **counter**, so the trigger is mechanical, not remembered.
 | #2 (**complete**) | v0.35.0 | T29 | **CLEAN — 0 holes + 1 LOW (fixed)** | **XVA arc close** (arc-boundary trigger, not the cadence counter — eight tranches since #1). Whole tree **T1–T29**, independent. No oracle holes, no silent weakening from the XVA refactors, charter clean; one LOW (stale conventions-register summary) fixed in place. Findings + rulings → `docs/audit/reaudit_02_findings.md`. |
 | #3 (**complete**) | v0.44.1 | T37 | **CLEAN src — 0 holes; 2 blind oracles (fixed T37)** | **equity & hybrids arc close.** Whole tree T1–T36b; oldest-first. No `src/` defect; the τ=1 degeneracy bit a second and third instrument (F-3.1 bootstrap, F-3.2 vol surface — blind oracles, test-only fix at T37). Mechanical τ=1 guard assessed and declined (dynamic, 7-of-14). One charter edit (§9 gateability boundary). `docs/audit/reaudit_03_findings.md`. |
 | #4 (**complete**) | v0.52.0 | T44b | **5 blind oracles (fixed T45); 0 src defects** | **credit-derivatives arc close.** Register + charter passes clean (OKANE + CREPEY stale headers fixed; CREPEY stale since #2, missed twice). The proactive invariant-6 sweep's **first run found 5 holes** (F-4.1…F-4.5 — expired-option bypasses + YoY comprehensions), all blind oracles, remediated test-only at **T45** (v0.52.1). `docs/audit/reaudit_04_findings.md`. |
-| #5 (**open**) | v0.55.0 | T49 | **(3)+(4) DONE: 1 stale header fixed; (1)+(2) PENDING Code** | **volatility-surface arc close.** Cowork register + charter passes done (GATHERAL header fixed; OI-4 ledgered and correct). Sweep scope set oldest-first, proactive invariant-6 first, **OI-4 named for domain-characterisation + a separate remediation tranche**, two method-watch items (glyph sub-kinds, first-shape-twice) logged. `docs/audit/reaudit_05_findings.md`. |
+| #5 (**complete**) | v0.55.0 | T49 | **3 blind oracles + 1 shipped defect (OI-4); all remediated T50–T53** | **volatility-surface arc close.** Sweep 71/68/3: the proactive invariant-6 run clean (23/23), three blind oracles F-5.1/5.2/5.3 (put arms + a Dupire-band discounting hole), and **OI-4** — a negative Heston/SVJ price on `main` since T33, mapped to a quoted strike. Remediated: **T50** (OI-4 adaptive truncation, closed), **T51** (the three hardenings, test-only), **T52** (the mutation sweep committed as an instrument, which found a 4th instrument clause on its first run), **T53** (φ-across-strikes, closing OI-5). `OPEN.md` empty on T53 merge. MM-I single killer → re-audit #6. `docs/audit/reaudit_05_findings.md`. |
 
 ## Re-audit #2 — result (2026-11-10, v0.35.0, T1–T29)
 
@@ -122,7 +122,7 @@ were blind oracles), no new debt, one charter edit (the §9 gateability boundary
 
 ---
 
-## Re-audit #4 — the credit-derivatives arc close (v0.52.0, T44b, 2026-11-16) — OPEN
+## Re-audit #4 — the credit-derivatives arc close (v0.52.0, T44b, 2026-11-16) — COMPLETE (remediated T45: 5 blind oracles)
 
 Fired by the **arc-close trigger** (the cadence counter sits at ten since re-audit #3 at T37; arc-close
 fires first, as every time). Full scope and the two completed Cowork passes:
