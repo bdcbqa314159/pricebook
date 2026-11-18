@@ -55,6 +55,15 @@ that the option is cheap. The third branch is what keeps the second honest: a ba
 turned OI-4's -2.5e-04 into a clean-looking `0.0` and hidden it, and seven orders separate that defect
 from the floor.
 
+**`phi(u)` is evaluated once per maturity, not once per strike (tranche 53).** The integrand is
+`phi` times the Gil-Pelaez phase `exp(-iuk)`, and only the phase depends on the strike - so an
+inversion that rebuilt `phi` for every strike was paying `N` times for one quantity, and `phi` is the
+dear half (a complex `sqrt`, `log` and two `exp` per node for Heston, strictly more for SVJ, against
+one `exp` for the phase). `InversionKernel` holds `phi` at the grid's nodes and `probabilities_at`
+inverts it at any strike, so a smile costs one `phi` sweep. The win is asserted rather than described
+(`tests/L4/test_phi_across_strikes.py` counts the calls): a rationale that is not a test erodes, as
+tranche 50's first threshold demonstrated.
+
 **The characteristic function arrives already bound to its maturity and carry**, as `phi(u)` alone.
 The inversion has no business knowing what parameters a model carries, and a signature taking
 `(params, u, years, carry)` would need widening every time a model's bundle differed. Binding
@@ -211,6 +220,54 @@ def checked_call_price(raw: float, forward: float) -> float:
     return raw if raw > floor else 0.0
 
 
+@dataclass(frozen=True)
+class InversionKernel:
+    """`phi` evaluated at a grid's nodes - everything in the Gil-Pelaez integrand that does not
+    depend on the strike.
+
+    `tilted` carries `phi(u - i)/phi(-i)` rather than `phi(u - i)`, because the share-measure
+    normalisation is strike-independent too and dividing once per node beats dividing once per node
+    per strike. Frozen and holding only numbers, so one kernel is safely reused across a maturity's
+    whole smile.
+    """
+
+    nodes: tuple[float, ...]
+    plain: tuple[complex, ...]
+    tilted: tuple[complex, ...]
+
+
+def inversion_kernel(
+    characteristic: CharacteristicFunction, grid: FourierGrid
+) -> InversionKernel:
+    """Evaluate `phi` across the grid once, ready to be inverted at any strike."""
+    nodes = grid.nodes()
+    shift = characteristic(-1j)
+    return InversionKernel(
+        nodes=nodes,
+        plain=tuple(characteristic(complex(u)) for u in nodes),
+        tilted=tuple(characteristic(complex(u) - 1j) / shift for u in nodes),
+    )
+
+
+def probabilities_at(kernel: InversionKernel, log_strike: float) -> tuple[float, float]:
+    """`(P1, P2)` for one strike, from a kernel that may serve many.
+
+    The operations run in the order the per-strike version used - the same `phi` values, the same
+    phase, the same sequential trapezoid - so a price computed here is bit-identical in-process to
+    one computed before the hoist. (§4: bit-identity is claimable exactly when a refactor preserves
+    the order of the floating-point operations, and hoisting a loop-invariant out of a loop does.)
+    """
+    first_values: list[float] = []
+    second_values: list[float] = []
+    for u, plain, tilted in zip(kernel.nodes, kernel.plain, kernel.tilted, strict=True):
+        phase = cmath.exp(-1j * u * log_strike)
+        first_values.append((tilted * phase / (1j * u)).real)
+        second_values.append((plain * phase / (1j * u)).real)
+    first = _trapezoid(first_values, kernel.nodes)
+    second = _trapezoid(second_values, kernel.nodes)
+    return 0.5 + first / math.pi, 0.5 + second / math.pi
+
+
 def gil_pelaez_probabilities(
     characteristic: CharacteristicFunction, log_strike: float, grid: FourierGrid
 ) -> tuple[float, float]:
@@ -224,16 +281,4 @@ def gil_pelaez_probabilities(
     `E[exp(iu log(S_T/S_0))]` - the carry already lives inside it. Forming it against the forward
     would double-count the drift.
     """
-    shift = characteristic(-1j)
-
-    def integrands(u: float) -> tuple[float, float]:
-        phase = cmath.exp(-1j * u * log_strike)
-        plain = characteristic(complex(u))
-        tilted = characteristic(complex(u) - 1j) / shift
-        return (tilted * phase / (1j * u)).real, (plain * phase / (1j * u)).real
-
-    nodes = grid.nodes()
-    values = [integrands(u) for u in nodes]
-    first = _trapezoid([v[0] for v in values], nodes)
-    second = _trapezoid([v[1] for v in values], nodes)
-    return 0.5 + first / math.pi, 0.5 + second / math.pi
+    return probabilities_at(inversion_kernel(characteristic, grid), log_strike)
