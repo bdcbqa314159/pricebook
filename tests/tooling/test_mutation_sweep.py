@@ -35,7 +35,7 @@ from pathlib import Path
 
 import pytest
 
-from mutation_sweep import Mutation, sweep
+from mutation_sweep import Mutation, _apply, sweep
 
 TOOLING = Path(__file__).resolve().parent
 FIXTURES = TOOLING / "fixtures"
@@ -146,25 +146,50 @@ class TestTheToolScoresAgainstAKnownAnswer:
 
 
 class TestIdenticalLinesAreTWOSites:
-    """The re-audit #5 defect, bitten twice, now impossible."""
+    """The re-audit #5 defect, bitten twice, now impossible.
 
-    def test_two_textually_identical_lines_are_both_applied_and_both_scored(self) -> None:
-        """`twin_a` and `twin_b` share the line `scaled = x * 1.5`. A string-replacement sweep sees
-        two occurrences and refuses both as non-unique; this tool addresses them by position, so each
-        is a real, counted site."""
+    **Tested at the apply step rather than through a whole sweep, and that is the better-sized
+    test.** Positional addressing is a property of `_apply`: given a line, does it mutate *that*
+    line and only that line. Inferring it from a sweep's applied count routes two subprocess
+    `pytest` runs through the verdict machinery to observe something that happens *before* any test
+    runs — and on the Windows runner a spawn costs ~1s, which is how this file came to sit on the
+    `slow` ceiling and then fail on variance (10.2s against 10.0s, having passed the run before).
+    The end-to-end counts are already proved by the mixed sweep above; this proves the addressing.
+    """
+
+    def _twin_lines(self) -> list[int]:
         lines = SUBJECT.read_text(encoding="utf-8").splitlines()
         twins = [i for i, text in enumerate(lines, 1) if text.strip() == "scaled = x * 1.5"]
         assert len(twins) == 2, "the premise: the fixture must actually contain identical lines"
-        result = sweep(
-            [
-                _mutation(twins[0], "1.5", "1.6", "twin_a's scale"),
-                _mutation(twins[1], "1.5", "1.6", "twin_b's scale"),
-            ],
-            tests=CHECK,
-            root=TOOLING,
-        )
-        assert result.applied == 2, "both identical lines must apply as separate sites"
-        assert result.killed == 2
+        return twins
+
+    def test_mutating_one_twin_leaves_the_OTHER_untouched(self) -> None:
+        """`twin_a` and `twin_b` share the line `scaled = x * 1.5`. A string replacement sees two
+        occurrences and either refuses them as non-unique or hits the first whichever is named;
+        positional addressing makes each a real, separate site."""
+        for line in self._twin_lines():
+            original = _apply(_mutation(line, "1.5", "1.6", f"twin at {line}"))
+            try:
+                assert original is not None, f"the mutation at line {line} did not apply"
+                mutated = SUBJECT.read_text(encoding="utf-8").splitlines()
+                changed = [i for i, text in enumerate(mutated, 1) if "1.6" in text]
+                assert changed == [line], (
+                    f"naming line {line} changed lines {changed} — a string replacement would have "
+                    "hit the first occurrence whichever line was named"
+                )
+            finally:
+                assert original is not None
+                SUBJECT.write_text(original, encoding="utf-8")
+
+    def test_both_twins_are_ADDRESSABLE_as_distinct_sites(self) -> None:
+        """The counting half, without a verdict: two mutations carrying the *same* fragment and
+        different lines are two sites, which is exactly what a replace-based sweep cannot express."""
+        first_line, second_line = self._twin_lines()
+        first = _mutation(first_line, "1.5", "1.6", "twin one")
+        second = _mutation(second_line, "1.5", "1.6", "twin two")
+        assert first.old == second.old, "the premise: the same fragment, which is what defeats replace"
+        assert first.line != second.line
+        assert len({(m.path, m.line) for m in (first, second)}) == 2
 
 
 class TestTheAppliedCountIsLoadBearing:

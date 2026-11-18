@@ -54,9 +54,21 @@ sweep a smile at one maturity, and prospectively by any smile consumer. The wast
 the fix is in `src/`; claiming a realised production speedup would be the prospective claim §6
 refuses.
 
+### Fixed — the sweep tool's own test was sitting on the `slow` ceiling
+
+Unrelated to the hoist, and found by CI on a **docs-only** commit: `test_mutation_sweep.py` read
+**10.2s on Windows against the 10.0s ceiling**, having passed the run before. A file whose verdict is
+decided by timing variance is worse than one that simply fails, so it was fixed rather than nudged.
+
+Its cost is subprocess `pytest` spawns — ~1s each on the Windows runner — and two of them were being
+spent on the identical-lines regression, which **tests the wrong layer**: positional addressing is a
+property of the *apply* step (given a line, mutate that line and no other), and it happens entirely
+before any test runs. Asserting it at `_apply` is both free and better targeted; the end-to-end
+counts were already proved by the mixed sweep. Local 2.9s → **2.1s**, with the two spawns gone.
+
 ### Verification
 
-25 new tests (2159 → **2184**). The performance property is an oracle in its own right — `φ` counted
+26 new tests (2159 → **2185**). The performance property is an oracle in its own right — `φ` counted
 directly, with the premise asserted (`φ` really is evaluated per node) and the saving measured
 (separate pricing costs > 4.5× the shared path), so the win cannot silently erode at the next
 refactor. The SVJ path carries the same assertions, because T50's lesson one engine over is that a
