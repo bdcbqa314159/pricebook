@@ -6,6 +6,64 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.59.0] - 2026-11-18
+
+### Added — tranche 57, the Linear Gauss-Markov (LGM) short-rate model
+
+`models/lgm.py` (L3). LGM is Hull-White in the parameterisation whose Monte-Carlo is **exact**: the
+state `z(t)` is driftless with deterministic variance `ζ(t)`, so a simulation reaches any horizon in
+**one draw** — no SDE to discretise, no stepping error to band against — and reads bond prices off it
+through a deterministic `H(t)`. That is the clean rate engine T58's collateralised exposure needs,
+which is the pull.
+
+Built **from** a `HullWhiteParams` pair (`H(t) = hw_beta(κ,0,t)`,
+`ζ(t) = σ²(e^{2κt}−1)/(2κ)`), so "LGM is Hull-White" holds by construction: the state's bond variance
+reproduces Hull-White's own `bond_option_variance` to **machine precision**. No new parameter type —
+the numbers *are* Hull-White's two, and what differs is the parameterisation, which is functions of
+them rather than data. (The tranche's flagged §6 question, answered by what the type would hold.)
+
+### The spec mis-transcribed eq (11.4), and it is wrong only where it cannot be seen
+
+The spec wrote the bond's convexity term as `½(H_T − H_t)²ζ_t`. The source has
+**`½(H_T² − H_t²)ζ_t`** — confirmed in `-raw` and `-layout`, which agree. The two coincide exactly
+when `H_t = 0`, i.e. at **`t = 0`** — the one date at which nothing has been simulated, and
+therefore the one date an LGM is never used at. Measured on this tranche's parameters: identical at
+`t = 0`, **2.27× apart at `t = 3`**.
+
+**Both oracles the spec itself named catch it**, which is the part worth keeping:
+
+| oracle | source (11.4) | the spec's version |
+|---|---|---|
+| numéraire martingale `E[P(t,T)/N(t)] = P(0,T)` | 0.1 SE | **7.5 SE** |
+| MC zero-bond option vs analytic Hull-White | 0.10 SE | **20.8 SE** |
+
+A requirement oracle (a tradeable over the numéraire is a martingale **by construction**, no model
+result involved) and a simulation that the closed-form reduction is blind to — each independently
+sufficient. This is the §4 pointwise-transcription rule earning its place: the reduction to
+Hull-White would **not** have caught it, because the analytic reduction never evaluates the bond at
+`t > 0`.
+
+### Verification
+
+27 new tests (2273 → **2300**). Mutation: **applied 15/15, killed 15, survived 0** via T52's
+instrument — the spec's convexity variant, the convexity dropped and sign-flipped, the state sign,
+the `P(0,t)` denominator, three ways of breaking `ζ`, `H(t) = t` (the κ→0 degenerate form), and the
+state scaled by the variance rather than its root.
+
+One survivor on the first run: a **maturity-order guard** I had written and never reached. It is a
+real precondition rather than dead code — `P(3,1)` asks for a bond that matured two years before it
+is observed, and eq (11.4) would return a number above 1 rather than refuse — so it got a test
+rather than deletion.
+
+The MC companion is **mandatory, not decorative** (§4, T39): the analytic reduction is exact
+*because* LGM ≡ Hull-White in closed form, so it cannot see the simulation, which is the entire point
+of the model. `κ ≠ 0` needs no assertion — `HullWhiteParams` already refuses a non-positive mean
+reversion, so the premise is structural.
+
+The arc's era invariant holds: the curve is passed in, so the model evolves rates off whatever the
+snapshot carries — a single discount curve or a `CurveSet`'s OIS curve. Nothing here makes a
+`CurveSet` mandatory, which T58 must preserve.
+
 ## [0.58.0] - 2026-11-18
 
 ### Added — tranche 55, CSA discounting (the collateralised swap)
