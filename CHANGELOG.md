@@ -6,6 +6,87 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.57.0] - 2026-11-18
+
+### Added — tranche 54, the OIS / multi-curve bootstrap (project seven opens)
+
+`market/multi_curve.py` (L1): the forward-projection curve bootstrapped **against** a known discount
+curve. The tree discounts every trade on one curve per currency — the pre-crisis world; a
+collateralised trade discounts at the **collateral (OIS) rate** while each floating leg projects off
+a **tenor-specific** curve. First build of the collateralised-discounting arc;
+`LICHTERS-2015` → `worked-from`.
+
+**Half of this tranche turned out to need no new code, and establishing that was the first result.**
+An OIS par swap discounts its own cashflows, so its floating leg telescopes and the bootstrap
+equation is BERHAN 5.1.2 — which is `nominal_curve_from_par_swaps` (T8). The OIS curve is therefore
+that function applied to OIS quotes, **reused verbatim**. The genuinely new content is the
+projection bootstrap, where the discounting curve is a *different, already-known* curve and nothing
+telescopes:
+
+    c · A^ON = Σ f^δ(t_{i−1}, t_i) · δ_i · df^ON_i      (LICHTERS §3.5)
+    df^δ_{s+δ} = df^δ_s / (1 + δ f^δ(s, s+δ))
+
+Closed form per pillar, no root-find — T8's reason exactly: given the earlier pillars this is an
+exact rearrangement, and solving it numerically would be solving a closed form.
+
+### The telescoping identity separates the two eras, which is what makes the reduction non-vacuous
+
+Eq (1.2) — `f(t,t+δ)·df_{t+δ}·δ = df_t − df_{t+δ}` — means a floating leg sums to `1 − df_n`
+**only when one curve both projects and discounts**. Measured: single-curve agrees exactly (0.0),
+multi-curve differs by **1.2e-03**. A structural signature rather than a tolerance, and the
+companion the exact reduction requires (T39), since a projection bootstrap that ignored the discount
+curve and discounted on itself would pass the reduction and be wrong everywhere else.
+
+**On the reduction's precision, measured rather than claimed.** The spec asked for the single-curve
+case to reproduce T8 *"to the ULP"*. It does — worst **1 ULP** — and that is the honest claim rather
+than bit-identity: the two routes are the same quantity in ℝ computed in a **different operation
+order**, so §4's op-order condition fails. The committed assertion is a *relative* tolerance with
+the ULP distance recorded beside it (the T49 lesson).
+
+### Single-curve stays a first-class mode, not a limit
+
+The arc's design invariant: multi-curve is a sibling, not a replacement. The reduction proves the
+eras *coincide* at the boundary; a separate oracle proves single-curve is *reachable and exercised*
+in genuine pre-crisis mode, with nothing from this module involved — because the way that path rots
+is the T33b input-population degeneracy, where every new fixture is multi-curve and the old path
+leaves the test population.
+
+The two modes are asserted to agree where they coincide and **differ where a basis exists** — and
+the size of that difference was measured after my first guess at it was an order of magnitude wrong:
+**0 at 1y, rising to 7.8e-05 at 5y.** The 1y pillar being *identical* explains the shape: with a
+single period the discount factor cancels whichever curve carries it, so the effect is
+multi-period and grows with maturity. (Not to be confused with the basis itself — OIS against the 6M
+projection curve is ~160bp, two orders larger.)
+
+### Changed
+
+`swap_annuity` is typed on the **`CurveHandle` protocol** rather than concrete `DiscountCurve`.
+pyright refused the OIS curve a multi-curve bootstrap discounts on; the function reads nothing but
+`df`, which is exactly what the protocol promises, so the concrete annotation was denying a correct
+reuse rather than protecting anything. **The fourth time a concrete annotation has done that here**
+(T42 twice, T44a). Annotation only — no behaviour change.
+
+### Verification
+
+27 new tests (2185 → **2212**). Mutation: **applied 14/14, killed 14, survived 0** — run with T52's
+committed instrument. After two survivors, each a different lesson:
+
+- **an unreachable guard.** A contiguity check (each period starting where the last paid) can never
+  fire: `CouponSchedule.periods()` is built from `zip(dates, dates[1:])`, so periods are contiguous
+  **by construction**, and the first period's start is covered by the anchor check. §4's third
+  survivor kind, where the remedy is to delete the branch rather than keep a check no test can
+  reach.
+- **a guard test a crash satisfied.** `pytest.raises(ValueError)` passed with the
+  non-positive-discount-factor guard removed, because the negative factor then reached
+  `math.log(negative)` and raised `ValueError("math domain error")`. Matching the refusal's own
+  domain vocabulary is what makes the assertion about *that* guard.
+
+**A finding raised rather than patched:** T8's `_validate` admits a quote set that skips a pillar —
+its prefix check passes, since a 3y schedule does extend a 1y one — and then fails with a `KeyError`
+on the pillar that was never solved. A precondition surfacing as a crash instead of a refusal. This
+module states the real condition (**one equation, one unknown**: a par quote determines exactly one
+new pillar) and refuses in domain vocabulary; T8's own roughness is reported, not reached into.
+
 ## [0.56.1] - 2026-11-18
 
 ### Changed — tranche 53: `φ(u)` shared across a maturity's strikes (OI-5 retired)
