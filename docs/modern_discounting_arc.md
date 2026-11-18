@@ -62,11 +62,16 @@ we already built) alongside the post-Libor multi-curve world Lichters describes.
   the **pre-crisis reduction** (OIS=Libor ⇒ the old single-curve value); a collateralised swap reprices at
   OIS to par; the self-consistency guard (telescoping) kept secondary to the reduction. Reuses T54's OIS
   curve + the existing linear products.
-- **T56 — global / cross-currency collateralisation (ch 4). Provisional — folds or defers at its spec.**
-  Collateral posted in a foreign currency; the **cross-currency basis**. **Oracle:** **covered interest
-  parity** (the FX-forward identity) and the collateral-choice option ≥ 0 (cheapest-to-deliver is an
-  option). If it pulls a materially new object (a cross-currency curve set) it is built; if it reduces to
-  T55 + the FX forward with nothing new, the §1 pull gate folds it to `to_go_deeper`. Ruled at its spec.
+- **~~T56 — global / cross-currency collateralisation (ch 4)~~ — DEFERRED by the §1 pull gate (ruled
+  2026-11-18, the step-1 reuse grep).** A Cowork grep before writing the spec (§10, the front-line check
+  the CSA arc earned) found the tree has **no FX layer at all** — `Currency` is a tag on `Money`, and there
+  is no FX spot/forward, no cross-currency basis swap, no multi-currency curve interaction. Foreign-collateral
+  discounting is inherently multi-currency (collateral in currency B discounts a currency-A trade via the
+  FX), so it cannot be one tranche: it needs an FX layer built first, which is "huge" and is **not pulled**
+  by the single-currency CSA spine (T55 is complete single-currency; T57/T58 need no FX). So it is
+  **`to_go_deeper`** — oracle-able (covered interest parity, the cross-currency basis) but needing the FX
+  prerequisite — exactly the T47 pull-gate outcome the "provisional" flag anticipated. The grep caught it at
+  step 1, not mid-build.
 
 ### Phase 2 — collateralised exposure (reusing the XVA arc)
 - **T57 — the Linear Gauss-Markov (LGM) short-rate model (ch 11).** The LGM model for risk-factor
@@ -98,9 +103,10 @@ under §4 as it stands.
 ## Decision — the reuse-heavy full spine is committed (Bernardo, 2026-11-18)
 Bernardo chose the **biggest spine affordable given the reuse** — the collateralised-discounting layer and
 its exposure extension, with CVA/DVA, Hull-White and JY reused rather than rebuilt, and the RFE zoo /
-backtesting balanced into `to_go_deeper` / `out_of_method`. **The queue:** T54 (OIS/multi-curve bootstrap) →
-T55 (CSA discounting) → T56 (cross-currency, provisional) → T57 (LGM short rate) → T58 (collateralised
-exposure/CVA) → `CP_collateralised_discounting.md` (closes the arc, fires re-audit #6). Cowork writes each
-per-tranche spec before its build (§10); this is the queue, not the specs. **T54 is specced**
-(`docs/tranches/54_ois_multicurve_bootstrap.md`); the rest follow in turn. `LICHTERS-2015` is registered
-`in-hand` (flips to `worked-from` at T54).
+backtesting balanced into `to_go_deeper` / `out_of_method`. **The queue:** T54 (OIS/multi-curve bootstrap,
+**merged v0.57.0**) → T55 (CSA discounting, **merged v0.58.0**) → ~~T56~~ (cross-currency — **deferred to
+`to_go_deeper`** by the step-1 grep: no FX layer exists) → T57 (LGM short rate) → T58 (collateralised
+exposure/CVA) → `CP_collateralised_discounting.md` (closes the arc, fires re-audit #6). The arc is
+**single-currency throughout** (the cross-currency piece was the only multi-currency unit; it defers). Cowork
+writes each per-tranche spec before its build (§10); this is the queue, not the specs. **T57 is specced**
+(`docs/tranches/57_lgm_short_rate.md`). `LICHTERS-2015` is `worked-from` since T54.

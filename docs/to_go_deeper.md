@@ -299,3 +299,24 @@ Opened at T46 (SVI), closed at T49 (SVJ); the completion ratio is in `CP_gathera
    today, and the §1 pull gate says a capability arrives with the product that needs it. Pulled if a
    product ever prices in that regime — a far-wing tail hedge, or a replication whose weights blow up
    out there.
+
+## `LICHTERS-2015` — *Modern Derivatives Pricing and Credit Exposure Analysis* (the collateralised-discounting arc: T54–, in progress)
+
+Routes recorded as the arc runs; the full deferred set is the completion ratio in
+`docs/modern_discounting_arc.md`. The recorded routes:
+
+1. **Cross-currency / foreign-collateral collateralisation (ch 4) — DEFERRED, needs an FX layer first
+   (ruled 2026-11-18, the T56 step-1 grep).** A trade collateralised in a *foreign* currency discounts via
+   the FX (collateral in currency B discounts a currency-A trade), so it is inherently multi-currency. The
+   tree has **no FX machinery at all** — `Currency` is a tag on `Money`, there is no FX spot/forward, no
+   cross-currency basis swap, no multi-currency curve interaction. So this is not a tranche: it needs an FX
+   layer (spot, forward, the cross-currency basis bootstrap) built first, which the single-currency CSA
+   spine does not pull (§1). **Oracle-able** with our discipline — **covered interest parity** (the FX-forward
+   identity) and the cross-currency basis — so a genuine come-back-same-method route, not out of method.
+   **Pulled when** an FX layer exists (its own arc or prerequisite), or interest wants cross-currency pricing;
+   then built *where consumed*, on top of FX. The `CurveSet` keying already anticipates it (`CurveKey` carries
+   a currency), so the collateral-currency-dependent discount curve slots in when FX arrives.
+2. **Collateral-choice option / cheapest-to-deliver, thresholds / asymmetric CSA, negative-rate floors,
+   initial margin / MVA (ch 5.2–5.6).** The CSA optionality and margin detail beyond the perfect-cash-CSA
+   discounting of T55. Oracle-able (the collateral-choice option ≥ 0; the threshold reduction to T55 at
+   threshold → ∞); unpulled — T55 is the perfect-CSA spine, these are its refinements.
