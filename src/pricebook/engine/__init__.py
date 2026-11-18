@@ -19,6 +19,9 @@ from pricebook.engine.heston_mc import (
 )
 from pricebook.engine.nominal_cap import price_nominal_cap
 from pricebook.engine.inflation import price_inflation_linked_bond, price_zc_inflation_swap
+from pricebook.engine import interest_rate_swap as _interest_rate_swap
+
+assert _interest_rate_swap is not None
 from pricebook.engine.registry import dispatch as price
 from pricebook.engine.yoy import price_yoy_inflation_swap
 from pricebook.engine.mc_path_engine import PathGrid, mc_caplet_price, simulate_terminal_forwards

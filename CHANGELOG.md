@@ -6,6 +6,96 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.58.0] - 2026-11-18
+
+### Added — tranche 55, CSA discounting (the collateralised swap)
+
+The first pricer that reads **both** of T54's curves: a swap whose floating coupons project off their
+**tenor** curve and whose every cashflow discounts at **OIS**, because a cash-CSA trade earns the
+collateral rate on posted collateral (`LICHTERS-2015` ch 5).
+
+Four pieces: **`Tenor`** (L0 — a whole number of months, finance-free, the dimension a projection
+curve is keyed by), the **`projections` store** on `CurveSet` keyed by `(currency, Tenor)` with a
+typed accessor (L1 — its own store rather than a widened `CurveKey`, which would hang a `None` tenor
+on every `DISCOUNT`/`REAL` key; the `survivals` precedent), the **`InterestRateSwap`** product (L2),
+and the pricer (L4). Convention row **C15**, opened **guarded**.
+
+### The scope finding: the spec's primary reuse anchor did not exist
+
+The spec named "an existing swap/leg product and the single-curve swap pricer" as reuse anchors.
+**Neither existed.** The tree priced inflation swaps, caps, swaptions, equity options and credit, and
+had never carried a vanilla fixed-vs-float IRS — the swap *pieces* were there (`swap_annuity`,
+`ParSwapQuote`) but a quote is market data, not a trade. So three sentences of the spec described
+something absent, and the product had to come with the tranche.
+
+**The spec's design survived intact, which is why this proceeded rather than stalling.** Its §1
+already described *one* pricer discounting off "a source that is either a single discount curve or
+the `CurveSet`'s OIS curve, chosen by what the snapshot holds" — which needs no second pricer.
+Genuine single-curve mode is a snapshot with **no projections**, where the pricer projects off the
+discount curve itself. Second read-before-asserting finding in two tranches, and the second time the
+anchor *existed differently* rather than being missing (T54: the OIS bootstrap already existed; here:
+the swap pricer never did).
+
+### The arc invariant has its first real guard, and it is a pair
+
+Both eras price the same swap, and the oracle asserts **both** halves: they **agree** where the eras
+coincide (OIS = projection) and **differ** where a real basis exists. The second half is the
+load-bearing one — a pricer that quietly fell back to one curve satisfies *agree* and fails *differ*
+— and the mutation sweep confirms it: forcing the engine to always take the single-curve branch
+**dies**. That is the T33b input-population degeneracy applied to a **mode** rather than a value.
+
+Because the mode is a property of the market rather than a flag, there is **no second code path to
+atrophy**, which is a stronger form of the invariant than two pricers would have been.
+
+### Fixed — my own premise, and it was the same error as T54's, one layer up
+
+The *differ* oracle first asserted the inter-era gap **vanishes at one period**, carrying over T54's
+measurement that the two bootstraps agree on the 1y pillar. That is a statement about the **curves**;
+prices also differ in their **discounting**, so a one-period swap already differs — measured
+**−59.93** on a 10M notional. A curve-level identity carried into a price-level claim, which is
+exactly T54's finding-2 slip repeated one level up, and it is named in the test rather than quietly
+corrected.
+
+What is true, measured: the gap is **non-zero at every maturity and grows** — 6.0e-06 of notional at
+1y, 5.3e-06 at 2y, 1.3e-05 at 3y, 5.2e-05 at 4y, 1.2e-04 at 5y, changing sign as the swap crosses
+par. The oracle asserts the non-vanishing and the growth, which is what a basis does.
+
+**And the reduction's band was the wrong instrument.** It asserted `rel=1e-11` against a PV that is
+**zero by construction** at the par fixed rate, and failed with `rel=1.25` on a difference of
+2.1e-09 — §4's near-zero trap wearing its other face (the charter states it for an *absolute*
+tolerance blind to relative error near zero; here a *relative* tolerance has nothing to be relative
+to). Measured, the difference is a flat 2.1e-09 at every fixed rate — the leg arithmetic's absolute
+scale, 2e-16 of notional — so the band is absolute against the notional, at ~500x the measurement.
+
+### Fixed — `test_bates_svj.py` was sitting on the `slow` ceiling
+
+Found by CI on a **docs-only** commit: 10.3s on Windows against the 10.0s ceiling, having passed the
+run before. A file whose verdict is decided by timing variance is worse than one that simply fails,
+so the cause was fixed rather than nudged — and the cause is **tranche 53's insight one layer over**.
+
+Three tests called the MC helper with the same `(expiry, seed)` and different strikes, and **the
+simulation does not depend on the strike** — only the payoff does. So a 60,000-path, 400-step
+simulation ran three times for one set of paths. Caching it is lossless, exactly as sharing `φ(u)`
+across a maturity's strikes was. The grid-width test also priced three strikes against a
+24,001-node reference one call at a time, where `bates_call_prices` gives it one `φ` sweep per grid —
+T53's entry point used in the case that motivated it.
+
+**2.9s → 1.75s local**, no exemption, no oracle trimmed.
+
+### Verification
+
+61 new tests (2212 → **2273**). Mutation: **applied 14/14, killed 14, survived 0** via T52's
+instrument — including the silent single-curve fallback, the roles swapped (discount at the tenor
+curve, project at OIS), projecting off OIS, discounting the float leg at the projection curve, the
+invariant-6 filter dropped, and the payer/receiver `omega` reversed.
+
+The tool's own **no-op refusal** fired during the build, on a placeholder mutation of mine that
+changed nothing — T52's guard working in real use rather than only in its own tests.
+
+The invariant-6 fixture **straddles** the valuation date (the tenth-shape premise in its sharpened
+form), so the filter has something to filter and a dropped filter would discount a settled coupon at
+negative `t`.
+
 ## [0.57.0] - 2026-11-18
 
 ### Added — tranche 54, the OIS / multi-curve bootstrap (project seven opens)

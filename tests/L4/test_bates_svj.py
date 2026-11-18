@@ -40,12 +40,13 @@ the jump-skew effect is a short-`T` statement and a single long maturity would n
 import cmath
 import math
 from datetime import date, timedelta
+from functools import lru_cache
 
 import numpy as np
 import pytest
 
 from pricebook.engine import price
-from pricebook.engine.bates_fourier import bates_call_price
+from pricebook.engine.bates_fourier import bates_call_price, bates_call_prices
 from pricebook.engine.fourier_inversion import FourierGrid
 from pricebook.engine.heston_fourier import heston_call_price
 from pricebook.foundation import Currency, Money, PricingFailure, PricingResult
@@ -306,23 +307,39 @@ class TestAgainstMonteCarlo:
     STEPS = 400
 
     def _mc(self, expiry: date, strike: float, seed: int) -> tuple[float, float]:
+        """`(mean, standard error)` of the discounted payoff at `strike`.
+
+        **The simulation is cached across strikes, because it does not depend on the strike** — the
+        same insight tranche 53 applied to `φ(u)`, one layer over: the paths are the dear part and
+        only the payoff varies. Three tests here call this with the same `(expiry, seed)` and
+        different strikes, so without the cache the 60,000-path, 400-step simulation ran three
+        times. That cost put the file at **10.3s on the Windows runner against a 10.0s ceiling** —
+        passing one run and failing the next on variance, which is worse than either outcome."""
+        spots = self._terminal_spots(expiry, seed)
+        payoff = np.maximum(spots - strike, 0.0) * CURVE.df(expiry)
+        return float(payoff.mean()), float(payoff.std(ddof=1) / math.sqrt(self.PATHS))
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def _terminal_spots(expiry: date, seed: int):
         years = _years(expiry)
         generator = np.random.default_rng(seed)
-        dt = years / self.STEPS
+        dt = years / TestAgainstMonteCarlo.STEPS
         root_dt = math.sqrt(dt)
         orthogonal = math.sqrt(1.0 - HESTON.rho**2)
         compensator = math.exp(JUMPS.mean + 0.5 * JUMPS.volatility**2) - 1.0
-        log_spot = np.full(self.PATHS, math.log(UNDERLYING.spot))
-        variance = np.full(self.PATHS, HESTON.v0)
+        paths = TestAgainstMonteCarlo.PATHS
+        log_spot = np.full(paths, math.log(UNDERLYING.spot))
+        variance = np.full(paths, HESTON.v0)
         carry = _carry(expiry)
-        for _ in range(self.STEPS):
+        for _ in range(TestAgainstMonteCarlo.STEPS):
             used = np.maximum(variance, 0.0)
-            first = generator.standard_normal(self.PATHS)
-            second = generator.standard_normal(self.PATHS)
+            first = generator.standard_normal(paths)
+            second = generator.standard_normal(paths)
             correlated = HESTON.rho * first + orthogonal * second
-            counts = generator.poisson(JUMPS.intensity * dt, self.PATHS)
+            counts = generator.poisson(JUMPS.intensity * dt, paths)
             jump = JUMPS.mean * counts + JUMPS.volatility * np.sqrt(counts) * (
-                generator.standard_normal(self.PATHS)
+                generator.standard_normal(paths)
             )
             log_spot = (
                 log_spot
@@ -335,8 +352,7 @@ class TestAgainstMonteCarlo:
                 + HESTON.kappa * (HESTON.theta - used) * dt
                 + HESTON.sigma_v * np.sqrt(used) * root_dt * correlated
             )
-        payoff = np.maximum(np.exp(log_spot) - strike, 0.0) * CURVE.df(expiry)
-        return float(payoff.mean()), float(payoff.std(ddof=1) / math.sqrt(self.PATHS))
+        return np.exp(log_spot)
 
     @pytest.mark.parametrize("strike", [90.0, 110.0])
     def test_the_fourier_price_agrees_with_an_independent_simulation(self, strike: float) -> None:
@@ -383,22 +399,19 @@ class TestTheInversionIsConverged:
         Heston-shaped default prices long-dated options perfectly and short-dated ones wrongly.
         This is what makes the constant's *value* oracled rather than chosen."""
         narrow = FourierGrid(200.0, 2001)
-        short_error = max(
-            abs(
-                bates_call_price(PARAMS, UNDERLYING, k, SHORT_EXPIRY, (CURVE, narrow))
-                / bates_call_price(PARAMS, UNDERLYING, k, SHORT_EXPIRY, (CURVE, self.REFERENCE))
-                - 1.0
-            )
-            for k in (80.0, 100.0, 130.0)
-        )
-        long_error = max(
-            abs(
-                bates_call_price(PARAMS, UNDERLYING, k, LONG_EXPIRY, (CURVE, narrow))
-                / bates_call_price(PARAMS, UNDERLYING, k, LONG_EXPIRY, (CURVE, self.REFERENCE))
-                - 1.0
-            )
-            for k in (80.0, 100.0, 130.0)
-        )
+        strikes = (80.0, 100.0, 130.0)
+
+        def worst(expiry: date) -> float:
+            """Priced as a **batch**, so the three strikes share one `φ` sweep per grid (tranche
+            53). Six separate calls here meant six sweeps of a 24,001-node reference grid for an
+            answer that needs two — and this file's runtime is not free: it read 10.3s on the
+            Windows runner against a 10.0s ceiling, passing one run and failing the next."""
+            coarse = bates_call_prices(PARAMS, UNDERLYING, strikes, expiry, (CURVE, narrow))
+            fine = bates_call_prices(PARAMS, UNDERLYING, strikes, expiry, (CURVE, self.REFERENCE))
+            return max(abs(c / f - 1.0) for c, f in zip(coarse, fine, strict=True))
+
+        short_error = worst(SHORT_EXPIRY)
+        long_error = worst(LONG_EXPIRY)
         assert short_error > 1e-6, f"the premise: the narrow grid must actually fail short ({short_error:.2e})"
         assert long_error < 1e-10, f"...and pass long ({long_error:.2e}), which is how it hides"
         assert short_error > 1_000 * long_error
