@@ -108,13 +108,12 @@ def projection_curve_from_par_swaps(
         target = quote.par_rate * swap_annuity(discount, quote.schedule)
         accumulated = 0.0
         previous = measure.anchor
+        # No contiguity check: `CouponSchedule.periods()` is built from `zip(dates, dates[1:])`, so
+        # each period starts where the previous one paid **by construction**, and the first period's
+        # start is the anchor check above. A guard here was written and the mutation sweep found it
+        # unreachable - §4's third survivor kind, where the remedy is to delete the branch rather
+        # than keep a check no test can exercise.
         for start, pay, accrual in quote.schedule.periods():
-            if start != previous:
-                raise ValueError(
-                    f"the quote maturing {quote.schedule.dates[-1]} has a period starting {start} "
-                    f"that does not continue from {previous}; the quote set is not nested, so its "
-                    "earlier forwards are not known"
-                )
             if pay in factors:
                 # An already-solved pillar: its forward is known, so it only contributes.
                 forward = (factors[previous] / factors[pay] - 1.0) / accrual

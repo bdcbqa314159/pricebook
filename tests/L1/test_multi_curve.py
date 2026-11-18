@@ -236,20 +236,36 @@ class TestTheSequentialDependencyIsLoadBEARING:
 
 
 class TestTheGuardsAreReachable:
-    def test_a_quote_set_that_is_not_nested_is_refused(self) -> None:
-        """The projection bootstrap inherits T8's precondition: each quote's earlier payments must
-        be solved pillars, or a difference subtracts two swaps that do not share their history."""
+    def test_a_quote_SKIPPING_a_pillar_is_refused(self) -> None:
+        """One equation, one unknown. A quote that jumps from 1y to 3y leaves **two** unknown
+        pillars in a single par condition, and solving them in sequence would invent a value rather
+        than strip one.
+
+        Worth noting where this guard had to live: tranche 8's own `_validate` admits such a set —
+        its prefix check passes, since the 3y schedule does extend the 1y one — and fails later with
+        a `KeyError` on the pillar that was never solved. A precondition surfacing as a crash rather
+        than a refusal; raised as a finding rather than patched from here."""
         gappy = (ParSwapQuote(_schedule(1), 0.02), ParSwapQuote(_schedule(3), 0.025))
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="unknown pillars"):
             projection_curve_from_par_swaps(MEASURE, gappy, _ois())
 
     def test_an_empty_quote_set_is_refused(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="at least one par swap quote"):
             projection_curve_from_par_swaps(MEASURE, (), _ois())
 
+    def test_a_schedule_not_starting_at_the_anchor_is_refused(self) -> None:
+        late = CouponSchedule((date(VAL.year + 1, 1, 1), date(VAL.year + 2, 1, 1)), DC)
+        with pytest.raises(ValueError, match="start at the curve anchor"):
+            projection_curve_from_par_swaps(MEASURE, (ParSwapQuote(late, 0.02),), _ois())
+
     def test_a_quote_implying_a_non_positive_discount_factor_is_refused(self) -> None:
+        """**Matched on the message, and that is the point.** A bare `pytest.raises(ValueError)`
+        passed even with the guard removed, because the negative factor then reached
+        `math.log(negative)` and raised `ValueError("math domain error")` — a crash satisfying a
+        test written for a refusal. The mutation sweep found it; matching the domain vocabulary is
+        what makes the assertion about *this* guard."""
         absurd = (ParSwapQuote(_schedule(1), -5.0),)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="non-positive projection discount factor"):
             projection_curve_from_par_swaps(MEASURE, absurd, _ois())
 
 
