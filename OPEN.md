@@ -13,7 +13,7 @@ exists in `src/` or `tests/` (verified at v0.6.0).
 
 ## Other open items
 
-### OI-5 · `tests/L4/test_oi4_adaptive_truncation.py` is `slow-test-exempt` — OPEN (taken at tranche 50)
+### OI-5 · `tests/L4/test_oi4_adaptive_truncation.py` was `slow-test-exempt` — CLOSED (removed at v0.56.1, tranche 53)
 
 **The exemption.** The file declares `# slow-test-exempt:` with its reason in place. It establishes
 the **no-arbitrage requirement over OI-4's mapped region** — twelve `(σ_v, T)` cells, four strikes
@@ -40,9 +40,27 @@ smile pricing several times faster. It was **out of tranche 50's scope by ruling
 the inversion where it was already correct" — the waste is not incorrect, just wasteful), so it is
 raised rather than folded in.
 
-**Re-open trigger:** the first tranche that vectorises the inversion over strikes — at which point
-this exemption is removed and the gate protects the file again. Until then the exemption is the
-honest record that the file is heavy, not that the gate is wrong.
+**Resolution (tranche 53, `v0.56.1`).** The named trigger fired as intended: `φ(u)` is now evaluated
+**once per `(model, maturity)`** rather than once per strike, so the region sweep's cells price their
+whole strike ladder on one `φ` sweep. **The exemption marker is removed and the gate protects the
+file again.**
+
+**The measurement, since the closure was explicitly conditional on it (§9 — CI is the reading, not a
+local stopwatch).** The marker was taken off *before* pushing, so the gate actually measured the file
+rather than skipping it, and both runners pass: **ubuntu 3m49s, windows 6m55s**, with `slow` green.
+Locally the file went **2.8s → 2.13s** wall (its test work 2.54s → 1.62s).
+
+**And the honest note on the size of the win here.** OI-5's entry predicted 4–10×; the file improved
+by ~25%, because its cost was never dominated by the region sweep alone — the high-precision
+reference grid (64,001 nodes, 16× the committed one) is the dearest thing in it, and the SVJ sweep
+next. Batching all three is what cleared the ceiling. The 4–10× figure is the saving on **one
+maturity's `φ` evaluations**, which is what a smile-pricing caller sees; it was never the whole
+file's runtime, and the ledger entry should have said so.
+
+**What the fix is not.** No production *product* prices a smile today — `price(product, model)`
+prices one option per call — so the saving is realised by the four test files that sweep or fit a
+smile at one maturity, and prospectively by any smile consumer. The waste was in `src/` and the fix
+is in `src/`; claiming a realised production speedup would be the prospective claim §6 refuses.
 
 ### OI-4 · The Heston/SVJ Fourier grid returned a NEGATIVE call price in the far short-dated wing — CLOSED (fixed at v0.55.1, tranche 50)
 

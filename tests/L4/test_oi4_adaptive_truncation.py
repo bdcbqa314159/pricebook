@@ -41,31 +41,19 @@ zero to double precision:
    separate that defect from the floor, so the two cannot be confused.
 """
 
-# slow-test-exempt: this file establishes a no-arbitrage REQUIREMENT over a measured
-# two-dimensional region (twelve `(σ_v, T)` cells of OI-4's mapped boundary, four strikes each), and
-# every one of those prices is a Fourier inversion at an extended grid — up to 32,001 nodes, two
-# characteristic-function evaluations per node. The cost is the oracle's domain: §4 says an oracle
-# must contain the failure, and the region IS what caught a defect that had shipped for sixteen
-# tranches, so trimming it to fit a stopwatch would trade the thing that works for the thing that
-# measures it. Ledgered in `OPEN.md` as OI-5, with the re-open trigger named there: the inversion
-# re-evaluates `φ(u)` **per strike** although `φ` does not depend on the strike, so a smile costs
-# 4-10x what it needs to. Fixing that (out of tranche 50's scope by ruling — "no reshaping of the
-# inversion where it was already correct") would bring this file back under the budget on its own.
-# Measured: 2.8s locally, ~11s on the Windows CI runner against a 10.0s ceiling.
-
 import math
 from datetime import date, timedelta
 from functools import lru_cache
 
 import pytest
 
-from pricebook.engine.bates_fourier import bates_call_price
+from pricebook.engine.bates_fourier import bates_call_price, bates_call_prices
 from pricebook.engine.fourier_inversion import (
     FourierGrid,
     adaptive_grid,
     gil_pelaez_probabilities,
 )
-from pricebook.engine.heston_fourier import heston_call_price
+from pricebook.engine.heston_fourier import heston_call_price, heston_call_prices
 from pricebook.foundation.day_count import DayCountConvention
 from pricebook.market import DiscountCurve
 from pricebook.market.equity import DividendSchedule, EquityUnderlying, dividend_forward
@@ -110,34 +98,72 @@ def _characteristic(params: HestonParams, expiry: date):
     return bound
 
 
-@lru_cache(maxsize=None)
-def _adaptive_price(vol_of_vol: float, days: int, moneyness: float) -> float:
-    """The fix's price, memoised on its inputs.
+#: The strike ladder every region cell is priced on, as one batch.
+_LADDER = (1.0, 1.15, 1.3, 1.6)
 
-    Several oracles reach for the same `(σ_v, T, K/F)` point — the non-negativity sweep's strikes are
-    a subset of the monotonicity sweep's — and each Heston price at an extended grid costs tens of
-    thousands of characteristic-function evaluations. Memoising is lossless (the pricer is pure, §3.1)
-    and is the difference between this file fitting the `slow` budget and not."""
+
+@lru_cache(maxsize=None)
+def _adaptive_cell(vol_of_vol: float, days: int) -> tuple[float, ...]:
+    """A whole `(σ_v, T)` cell's strike ladder, priced in **one** call (tranche 53).
+
+    `φ(u)` does not depend on the strike, so a cell's four prices need one `φ` sweep rather than
+    four — which is exactly the waste OI-5's exemption was taken against, and `heston_call_prices`
+    is the production entry point for it, so this is still the shipped code path.
+
+    Memoised as well, because several oracles reach for the same cell and the pricer is pure (§3.1).
+    """
     expiry = VAL + timedelta(days=days)
     forward = dividend_forward(UNDERLYING, expiry, CURVE)
-    return heston_call_price(_params(vol_of_vol), UNDERLYING, moneyness * forward, expiry, CURVE)
+    return heston_call_prices(
+        _params(vol_of_vol), UNDERLYING, tuple(m * forward for m in _LADDER), expiry, CURVE
+    )
+
+
+def _adaptive_price(vol_of_vol: float, days: int, moneyness: float) -> float:
+    """One price out of its cell's batch."""
+    return _adaptive_cell(vol_of_vol, days)[_LADDER.index(moneyness)]
+
+
+#: The SVJ ladder, priced as one batch per cell — SVJ's `φ` is dearer than Heston's (the Heston
+#: factor times a jump factor), so it is the case sharing helps most.
+_SVJ_LADDER = (1.0, 1.15, 1.3)
 
 
 @lru_cache(maxsize=None)
-def _svj_price(vol_of_vol: float, days: int, moneyness: float) -> float:
-    """The SVJ price, memoised for the same reason as `_adaptive_price`."""
+def _svj_cell(vol_of_vol: float, days: int) -> tuple[float, ...]:
+    """A whole SVJ cell in one `φ` sweep (tranche 53)."""
     expiry = VAL + timedelta(days=days)
     forward = dividend_forward(UNDERLYING, expiry, CURVE)
     params = BatesParams(heston=_params(vol_of_vol), jumps=JumpParams(0.5, -0.2, 0.15))
-    return bates_call_price(params, UNDERLYING, moneyness * forward, expiry, CURVE)
+    return bates_call_prices(
+        params, UNDERLYING, tuple(m * forward for m in _SVJ_LADDER), expiry, CURVE
+    )
+
+
+#: The strikes the convergence oracles check, so one reference sweep serves a whole cell.
+_CORNER_LADDER = (1.15, 1.3)
 
 
 @lru_cache(maxsize=None)
-def _reference_price_at(vol_of_vol: float, days: int, moneyness: float) -> float:
-    """The high-precision reference, memoised for the same reason."""
+def _reference_cell(vol_of_vol: float, days: int) -> tuple[float, ...]:
+    """The high-precision reference across a cell's corner strikes, in one `φ` sweep.
+
+    The reference grid is 64,001 nodes — 16x the committed one — so it is the dearest thing in this
+    file, and sharing `φ` across the cell's strikes is where tranche 53 pays here."""
     expiry = VAL + timedelta(days=days)
     forward = dividend_forward(UNDERLYING, expiry, CURVE)
-    return _reference_price(_params(vol_of_vol), expiry, moneyness * forward)
+    return heston_call_prices(
+        _params(vol_of_vol),
+        UNDERLYING,
+        tuple(m * forward for m in _CORNER_LADDER),
+        expiry,
+        (CURVE, REFERENCE),
+    )
+
+
+def _reference_price_at(vol_of_vol: float, days: int, moneyness: float) -> float:
+    """One reference price out of its cell's batch."""
+    return _reference_cell(vol_of_vol, days)[_CORNER_LADDER.index(moneyness)]
 
 
 def _reference_price(params: HestonParams, expiry: date, strike: float) -> float:
@@ -212,7 +238,7 @@ class TestTheNoArbitrageRequirementOverTheMappedRegion:
         # `(σ_v, T)` cells of the mapped boundary are swept), and within a cell four strikes
         # already exercise ordering and the sign. The at-the-money anchor, the quoted 1.15, the
         # 1.3 where several mapped points failed, and the far wing.
-        prices = [_adaptive_price(vol_of_vol, days, m) for m in (1.0, 1.15, 1.3, 1.6)]
+        prices = list(_adaptive_cell(vol_of_vol, days))
         for lower, higher in zip(prices, prices[1:]):
             assert higher <= lower + 1e-15, f"a vertical spread is negative: {prices}"
         assert prices[-1] >= 0.0, f"negative at the highest strike: {prices}"
@@ -238,7 +264,9 @@ class TestConvergenceInTheBadCornerSpecifically:
         strike = moneyness * forward
         reference = _reference_price_at(vol_of_vol, days, moneyness)
         assert reference > forward * 1e-9, "the premise: above the floor, so relative error means something"
-        assert _adaptive_price(vol_of_vol, days, moneyness) == pytest.approx(reference, rel=1e-6)
+        assert heston_call_prices(
+            _params(vol_of_vol), UNDERLYING, (strike,), expiry, CURVE
+        )[0] == pytest.approx(reference, rel=1e-6)
 
     def test_THE_RESOLUTION_the_committed_grid_FAILS_that_same_check(self) -> None:
         """What the green above rules out, stated by measurement: the old grid misses the reference
@@ -359,7 +387,7 @@ class TestTheSVJInversionGetsTheSameFix:
     def test_svj_prices_are_non_negative_and_fall_with_the_strike(
         self, vol_of_vol: float, days: int
     ) -> None:
-        prices = [_svj_price(vol_of_vol, days, m) for m in (1.0, 1.15, 1.3)]
+        prices = list(_svj_cell(vol_of_vol, days))
         assert all(p >= 0.0 for p in prices), f"negative SVJ price: {prices}"
         for lower, higher in zip(prices, prices[1:]):
             assert higher <= lower + 1e-15, f"SVJ vertical spread negative: {prices}"

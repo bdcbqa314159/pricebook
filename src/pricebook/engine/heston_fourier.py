@@ -43,13 +43,15 @@ Provenance:
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from datetime import date
 
 from pricebook.engine.fourier_inversion import (
     FourierGrid,
     adaptive_grid,
     checked_call_price,
-    gil_pelaez_probabilities,
+    inversion_kernel,
+    probabilities_at,
 )
 from pricebook.engine.registry import register
 from pricebook.foundation.money import Money
@@ -88,7 +90,7 @@ def heston_probabilities(
     # and that is how this tranche's oracles show the defect. Otherwise it is chosen by measuring
     # the decay of this very characteristic function (tranche 50, OI-4).
     grid = requested if requested is not None else adaptive_grid(characteristic)
-    return gil_pelaez_probabilities(characteristic, log_strike, grid)
+    return probabilities_at(inversion_kernel(characteristic, grid), log_strike)
 
 
 def heston_call_price(
@@ -99,11 +101,47 @@ def heston_call_price(
     quadrature: CurveHandle | tuple[CurveHandle, FourierGrid],
 ) -> float:
     """`df(T) * (F*P1 - K*P2)` - the European call under Heston."""
-    discount = quadrature[0] if isinstance(quadrature, tuple) else quadrature
-    first, second = heston_probabilities(params, underlying, strike, expiry, quadrature)
+    return heston_call_prices(params, underlying, (strike,), expiry, quadrature)[0]
+
+
+def heston_call_prices(
+    params: HestonParams,
+    underlying: EquityUnderlying,
+    strikes: Sequence[float],
+    expiry: date,
+    quadrature: CurveHandle | tuple[CurveHandle, FourierGrid],
+) -> tuple[float, ...]:
+    """`df(T) * (F*P1 - K*P2)` for every strike, sharing ONE `phi` sweep (tranche 53).
+
+    `phi(u)` does not depend on the strike, so a smile needs one evaluation across the grid rather
+    than one per strike - and `phi` is the dear half of the integrand. The grid is chosen once too:
+    the adaptive truncation is a property of `(model, maturity)`, which is the same reason the
+    kernel is shareable at all.
+
+    `heston_call_price` delegates here with a single strike, so the two paths cannot drift: there is one
+    implementation, and the single-strike answer is this function's first element.
+    """
+    if not strikes:
+        raise ValueError("pricing needs at least one strike")
+    discount, requested = quadrature if isinstance(quadrature, tuple) else (quadrature, None)
+    years = discount.time_measure.year_fraction(expiry)
+    if years <= 0.0:
+        raise ValueError(f"the inversion needs a positive horizon, got {years}")
+
     forward = dividend_forward(underlying, expiry, discount)
-    raw = discount.df(expiry) * (forward * first - strike * second)
-    return checked_call_price(raw, forward)
+    carry = math.log(forward / underlying.spot) / years
+
+    def characteristic(u: complex) -> complex:
+        return heston_characteristic_function(params, u, years, carry)
+
+    grid = requested if requested is not None else adaptive_grid(characteristic)
+    kernel = inversion_kernel(characteristic, grid)
+    factor = discount.df(expiry)
+    prices = []
+    for strike in strikes:
+        first, second = probabilities_at(kernel, math.log(strike / underlying.spot))
+        prices.append(checked_call_price(factor * (forward * first - strike * second), forward))
+    return tuple(prices)
 
 
 #: The inversion grid the registered pricer uses. Numerical config with a *default* here rather than
