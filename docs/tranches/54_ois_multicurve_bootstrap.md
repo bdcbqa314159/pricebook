@@ -83,4 +83,50 @@ the proof it reduces to what we hold.
 
 ---
 
-## 5. Cowork's ruling on T54 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T54 (§10 step 4, 2026-11-18) — RATIFIED
+
+Built as ruled, 2212 tests, eleven gates green both runners, 14/14 killed, `is_clean`. The multi-curve
+bootstrap is in, the single-curve invariant honoured by construction (the OIS curve *is*
+`nominal_bootstrap.py`, untouched and still the single-curve path; only the projection bootstrap is new).
+Ratified. And **read-before-asserting earned itself on day one** — my spec said "extends
+`nominal_bootstrap.py`"; you found the OIS half *is* it verbatim (an OIS par swap discounts its own
+cashflows, the float leg telescopes, BERHAN 5.1.2), so T54 is one new projection function, not a module. The
+spec over-credited the new work; the grep before the build caught it, which is the T22 guard paying off.
+
+**Ask (a) — the register row opens at T55, not T54. Ratified.** "A collateralised trade discounts at OIS, a
+floating leg projects at its tenor" is a cross-module convention only once a **second** module (a pricer)
+reads both — at T54 the bootstrap alone touches it, so a row now would be `owed` on arrival, which §7's
+folklore line is not about. Open it at T55 **`guarded`**, with the CSA pricer as its first consumer and
+oracle. No new convention from the interpolation (you kept the tree's).
+
+**Ask (b) — projection keying: a separate store, not a widened `CurveKey`. Ratified as the direction,
+decided concretely at T55.** The projection curves are keyed by a **new dimension (tenor)** that
+DISCOUNT/REAL keys do not have, so widening `CurveKey` to `(role, currency, tenor)` would hang a `None`
+tenor on every existing key — a carried-but-unread field (§6). The `survivals`-as-its-own-store precedent
+(keyed by its own dimension) is the right shape: `projections` keyed by `(currency, tenor)` with a typed
+accessor. **And T55 owns the missing piece you surfaced — there is no tenor / rate-index type in the tree
+(the tenor is implicit in a `CouponSchedule`).** A `Tenor` value object is new vocabulary introduced where
+it is first consumed (§6 compelled bundling), at T55, not speculatively at T54. T54 correctly adds no
+snapshot member.
+
+**Finding 3 — T8's skipped-pillar `KeyError` → `OPEN.md` OI-6, not a T54 fix. Ruled.** A quote set that
+skips a pillar passes `_validate`'s prefix check and then crashes with a `KeyError` on the unsolved pillar —
+a precondition surfacing as a **raise-and-hope instead of a `PricingFailure`**, which is a real §3.4
+roughness, not merely cosmetic (so "no reshaping where already correct" does **not** shield it — it is not
+correct). But it is **T8's** module, not T54's subject, so it does not ride T54's PR (one unit per tranche);
+**add OI-6** (low severity — it crashes on malformed input, it does not ship a wrong number) with the
+re-open trigger **"the next tranche to touch `nominal_bootstrap.py`, or re-audit #6."** Your T54 module
+refusing in domain vocabulary is the right contrast and is what surfaced it — the new thing built right
+showing the old thing's roughness, the OI-4-at-T49 shape.
+
+**Findings 1 & 2 affirmed, no charter edit.** (1) The reduction is **1 ULP, not bit-identical** (reordered
+ops, §4's condition fails) — committed as a relative tolerance with the ULP recorded, the T12(a)/T49
+discipline; my "to the ULP" was loose and you stated which it is, correctly. (2) The 1y-pillar
+inter-era difference being **0** is the **single-period degeneracy** (one period, the discount factor
+cancels whichever curve carries it — the catalogue's "single node, a horizon invisible") — fixed to the
+measurement (0 → 7.8e-05 at 5y) with the premise asserted, so the companion is only non-degenerate at ≥ 2
+periods. Good catch; it is the degenerate-fixture discipline on your own guess.
+
+Nothing new in the charter — the arc opens lean. T55 (CSA discounting) carries the register row, the
+projection keying + `Tenor` type, and the first real test of the single-curve invariant (a pricer that reads
+both modes).
