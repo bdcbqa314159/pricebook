@@ -6,6 +6,66 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.60.0] - 2026-11-18
+
+### Added — tranche 58, the collateralised-discounting arc's capstone
+
+`risk/collateralised_capstone.py` (L5) wires the whole arc: the **LGM (T57)** simulates rate paths →
+the **collateralised IRS (T55)** marks `V(t)` on each → **`collateral.py` (T29)** takes the
+margin-period gap → **`mc_exposure_cva` (T26)** prices the CVA — in **both discounting eras**.
+Plus the one CSA mechanic T29 deferred that most changes the economics: a **threshold**.
+
+**The step-1 grep reshaped the tranche before it was written.** The spec Cowork almost wrote —
+"build collateralised exposure under a CSA" — already existed as T29. So T58 is the *integration*
+plus the threshold, not a rebuild. Fourth time the grep has changed a scope this arc.
+
+### Two findings from the spec, both changing what was built
+
+**1. The threshold formula was one-way and could not satisfy the spec's own reduction.** The spec
+gave posted collateral as `max(V(t−δ) − H, 0)` and asked that `H = 0` reproduce T29's gap. It
+cannot: T29 posts `V(t−δ)` **unfloored**, so the one-way form differs on every path whose previous
+mark is negative — about half of them for a swap. The form that reduces is the **two-way** CSA
+threshold, `max(V − H, 0) − max(−V − H, 0)`, which is `V⁺ − V⁻ = V` exactly at `H = 0` and `0` as
+`H → ∞`. Both named reductions hold for the two-way form; only one holds for the one-way. The same
+shape as T57's eq (11.4): correct in one degenerate corner, caught by the spec's own reduction.
+
+**2. The LGM→IRS wiring needed a surface none of the four modules exposed.**
+`swap_values_on_paths` (T26) is LMM-specific — forward-curve paths, an `LmmTenor`, a `SwapSpan` — so
+it cannot value a T55 swap on LGM states.
+
+**And that surface needs a modelling assumption, stated rather than buried: the tenor basis is
+frozen** at today's forward basis, so a projection bond on a path is the LGM-evolved discount bond
+times today's deterministic basis factor. A *choice*, not a transcription. It has the property worth
+having: in single-curve mode the factor is identically `1`, so **one code path serves both eras** and
+the arc invariant holds by construction rather than by branch — as in T55's pricer.
+
+### Fixed — a real bug, caught by a requirement oracle that is not actually a law
+
+The basis factor was built **reciprocal**, which under-stated the floating leg and flipped the
+simulated mark from **+122,861 to −204,826**. What caught it was T29's *collateral never increases
+the adjustment* oracle, reading **982.63 against an uncollateralised 650.41**.
+
+Worth recording *why* it could: pathwise the property is **not** forced — with `V(t−δ) = −100` and
+`V(t) = +10` the gap is `110` against an uncollateralised `10`. What makes the aggregate hold is a
+*well-behaved* mark moving little over one margin period. So a violation does not mean the collateral
+logic is wrong; it means the **mark** is. The oracle has real detection power precisely because it is
+a property of plausible paths rather than a theorem — and whether T29's universal phrasing should be
+narrowed is raised, not restated.
+
+### Verification
+
+49 new tests (2300 → **2322**, net of the capstone's own). Mutation: **applied 14/14, killed 14,
+survived 0** via T52's instrument — after three survivors, each a known shape:
+
+- **the `H = 0` shortcut hid the two-way form.** Both reductions the spec named (`H = 0` and
+  `H → ∞`) are blind to it, because `H = 0` returns the mark directly. Only a **negative mark below
+  `−H`** discriminates — where we must *post*, so the balance is negative and the one-way form floors
+  it at zero. A set of oracles complete about the limits and silent about the middle.
+- **the mark band was too loose.** A 25% band let a mutation that stopped discounting the floating
+  leg survive; the measured drift is 2.2%, so the band is 10% — four times tighter than the defect.
+- **every fixture was a PAYER**, so `omega = +1` throughout and dropping the direction changed
+  nothing. T33b's input-population degeneracy; a receiver fixture now pins it.
+
 ## [0.59.0] - 2026-11-18
 
 ### Added — tranche 57, the Linear Gauss-Markov (LGM) short-rate model
