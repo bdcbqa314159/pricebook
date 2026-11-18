@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from pricebook.foundation.money import Currency
+from pricebook.foundation.tenor import Tenor
 from pricebook.market.curve import CurveHandle
 from pricebook.market.survival_curve import ReferenceEntity, SurvivalCurve
 
@@ -45,6 +46,22 @@ class CurveKey:
 
 
 @dataclass(frozen=True)
+class ProjectionKey:
+    """Identifies a forward-projection curve: its currency and its **tenor**.
+
+    Its own key rather than a widened `CurveKey`, and its own store on `CurveSet`, because a
+    projection curve is keyed by a dimension `DISCOUNT`/`REAL` do not have. Adding `tenor` to
+    `CurveKey` would hang a `None` on every existing key — a carried-but-unread field (§6) on the
+    one value object every pricer in the tree already constructs. The precedent is `survivals`,
+    which got its own store for exactly this reason: a different keying dimension, not another
+    role. *(Ruled at tranche 54's handoff, built at tranche 55 where the first pricer reads it.)*
+    """
+
+    currency: Currency
+    tenor: Tenor
+
+
+@dataclass(frozen=True)
 class CurveSet:
     """Curves, reached through accessors that state the narrowing once.
 
@@ -58,6 +75,7 @@ class CurveSet:
 
     curves: Mapping[CurveKey, CurveHandle]
     survivals: Mapping[ReferenceEntity, SurvivalCurve] = field(default_factory=dict)
+    projections: Mapping[ProjectionKey, CurveHandle] = field(default_factory=dict)
 
     def real(self, currency: Currency) -> CurveHandle:
         """The real (inflation-linked) discount curve `Pr` for `currency`.
@@ -82,6 +100,24 @@ class CurveSet:
             return self.curves[key]
         except KeyError:
             raise KeyError(f"no discount curve for {currency} in the curve set") from None
+
+    def projection(self, currency: Currency, tenor: Tenor) -> CurveHandle:
+        """The forward-projection curve for `(currency, tenor)`.
+
+        Raises on a missing curve rather than falling back to the discount curve: that fallback is
+        precisely the pre-crisis pricing error, and it would price every collateralised trade as if
+        there were no tenor basis — a wrong number wearing the right shape.
+
+        **Its absence is how the era is chosen, and that is the caller's business, not this
+        accessor's.** A snapshot with no projections is the single-curve era; a pricer asks
+        `projections` whether it holds one before reaching for it, so this method never has to
+        guess which world it is in."""
+        try:
+            return self.projections[ProjectionKey(currency, tenor)]
+        except KeyError:
+            raise KeyError(
+                f"no projection curve for {currency} {tenor.label} in the curve set"
+            ) from None
 
     def survival(self, entity: ReferenceEntity) -> SurvivalCurve:
         """The survival curve for `entity`. Raises on an unknown key rather than defaulting to a

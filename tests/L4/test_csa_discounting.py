@@ -27,6 +27,12 @@ the `projections` store (L1) as ruled at T54.
 swap; they **agree** where the eras coincide (OIS = projection) and **differ by the basis** where a
 real basis exists. A pricer that quietly fell back to one curve passes "agree" and fails "differ" —
 which is the T33b guard, since the way a mode rots is by leaving the test population.
+
+**One correction I made to my own premise, because I made the same mistake at tranche 54.** I first
+asserted the inter-era gap *vanishes* at one period, carrying over T54's measurement that the two
+bootstraps agree on the 1y pillar. That is about the **curves**; prices also differ in their
+**discounting**, so a one-period swap already differs (measured -59.93 on a 10M notional). A
+curve-level identity carried into a price-level claim — the same slip one layer up.
 """
 
 import math
@@ -225,13 +231,26 @@ class TestThePreCrisisReduction:
     def test_ois_equal_projection_reproduces_the_single_curve_price(
         self, years: int, fixed: float
     ) -> None:
-        """Asserted as a **relative tolerance**: the two routes are one quantity in ℝ reached by
-        different operation orders (the projection recursion against a single curve's own forwards),
-        so §4's op-order condition fails and bit-identity is unavailable — the T54/T49 discipline."""
+        """Banded **absolutely against the notional**, not relatively against the PV — and the
+        reason is the charter's own near-zero trap wearing its other face.
+
+        A relative tolerance is meaningless where the value is ~0 by construction, and `0.0245`
+        *is* the 5y OIS par rate, so that swap's PV is zero to eleven digits: the first version of
+        this test asserted `rel=1e-11` and failed with `rel=1.25` on a difference of 2.1e-09. (§4
+        states the mirror — an *absolute* tolerance is blind to relative error near zero; here a
+        *relative* one is blind to nothing because there is nothing to be relative to.)
+
+        Measured: the difference is a flat **2.1e-09** at every fixed rate, which is the leg
+        arithmetic's absolute scale, not a rate-dependent error — 2e-16 of the notional. The band is
+        `1e-6` of a currency unit on a 10M trade, some 500x the measurement.
+
+        The two routes are one quantity in ℝ reached in different operation orders (the projection
+        recursion against a single curve's own forwards), so bit-identity is unavailable (§4) and a
+        tolerance is the honest form — the T54/T49 discipline."""
         collapsed = _multi_curve_market(OIS_RATES)
         single = _single_curve_market(OIS_RATES)
         assert _pv(_swap(years, fixed), collapsed) == pytest.approx(
-            _pv(_swap(years, fixed), single), rel=1e-11
+            _pv(_swap(years, fixed), single), abs=1e-6
         )
 
 
@@ -258,18 +277,34 @@ class TestTheSingleCurveInvariant:
         )
 
     def test_DIFFER_by_the_basis_where_a_real_basis_exists(self) -> None:
-        """The load-bearing half. Measured at T54: the inter-era gap is **0 at one period** (the df
-        cancels) and grows with maturity, so this asserts the shape rather than a single number —
-        and asserting it at the short end would have been vacuous."""
-        near = abs(
-            _pv(_swap(1, 0.025), _multi_curve_market()) - _pv(_swap(1, 0.025), _single_curve_market())
+        """The load-bearing half — and **I had its shape wrong, in the same way twice.**
+
+        My first version asserted the gap *vanishes* at one period, carrying over tranche 54's
+        measurement that the two bootstraps agree on the 1y pillar. That is a statement about the
+        **curves**, and this is a statement about **prices**: even where the projection curves
+        coincide, the two eras *discount* on different curves (OIS against the tenor curve), so a
+        one-period swap already differs — measured **-59.93** on a 10M notional, 6e-06 of it.
+        Exactly the T54 finding-2 error repeated one layer up: a curve-level identity carried into
+        a price-level claim. Named here because making it twice is the useful part.
+
+        What is actually true, measured: the gap is **non-zero at every maturity and grows** —
+        6.0e-06 of notional at 1y, 5.3e-06 at 2y, 1.3e-05 at 3y, 5.2e-05 at 4y, 1.2e-04 at 5y (and
+        it changes sign, since the swap crosses par). So the assertion is the growth and the
+        non-vanishing, which is what a basis does, rather than a coincidence at the short end."""
+
+        def era_gap(years: int) -> float:
+            swap = _swap(years, 0.025)
+            return abs(_pv(swap, _multi_curve_market()) - _pv(swap, _single_curve_market()))
+
+        gaps = {n: era_gap(n) for n in YEARS}
+        for years, gap in gaps.items():
+            assert gap > 1.0, (
+                f"the {years}y swap prices identically across the eras (gap {gap:.2e} on a 10M "
+                "notional) — the pricer has fallen back to one curve"
+            )
+        assert gaps[5] > 10.0 * gaps[1], (
+            f"the gap must GROW with maturity, which is what a basis does: {gaps}"
         )
-        far = abs(
-            _pv(_swap(5, 0.025), _multi_curve_market()) - _pv(_swap(5, 0.025), _single_curve_market())
-        )
-        assert near < 1.0, f"the one-period swap must coincide across eras, differs by {near}"
-        assert far > 100.0, f"the 5y swap must differ across eras, differs by only {far}"
-        assert far > 100.0 * max(near, 1e-9)
 
 
 class TestTheRegisteredPricer:
