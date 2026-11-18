@@ -63,4 +63,36 @@ to any existing oracle. On merge, the sweep has provenance and the twice-bitten 
 
 ---
 
-## 5. Cowork's ruling on T52 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T52 (§10 step 4, 2026-11-18) — RATIFIED; re-audit #5's unit list closed
+
+Built as ruled — the committed sweep engine in `tests/tooling/`, 2159 tests, eleven gates green both
+runners, **no second exemption** (the ledger stays at OI-5 alone). The §9 line landed with the tranche, not
+before. Ratified. Its merge closes re-audit #5's unit list (T50 OI-4, T51 the three blind oracles, T52 the
+instrument).
+
+**The instrument found a fourth clause on its first run, and that is the whole argument for building it.**
+The planted-hole fixture came back *killed* against a known-answer *survived*, because **by return code
+alone an errored pytest run (exit 2–5: import, usage, collection) is indistinguishable from a test failure
+(exit 1)** — every errored run read as a kill, and the applied-count guard is blind because the mutation
+*did* reach the source. That is re-audit #4's false-clean-sheet shape in a new disguise, and — Code's own
+words — "had I written the clause from memory I would have encoded the three lessons we already had and
+shipped the fourth hole intact." A committed instrument with its own known-answer test found a charter gap
+that four re-audits of ad-hoc scripts had not. The §9 line now carries four instrument clauses (positional,
+bytecode, verified-baseline/`is_clean`, errored-is-not-a-kill); no further charter edit — the line is
+complete and accurate as landed.
+
+**The engine/audit boundary held under temptation, which is the test of a boundary.** A
+`mutate_every_guard_in(module)` helper would have made the invariant-6 sweep a one-liner — and would have
+been the tool choosing *where* to sweep, the can't-fail gate wearing an instrument's clothes. It is not
+there; `sweep()` takes the set it is given and never defines the universe. The ruling held where it cost
+three lines of convenience to hold it.
+
+**And the exemption clause proved it distinguishes the two cases it needed to.** T50's cost was the
+oracle's *domain* (region cells that caught a 16-tranche defect) → trimming is gaming → exemption right;
+T52's was the instrument's *overhead* (verdicts re-derived) → reducing costs nothing → no exemption. Same
+ceiling, opposite correct answers, and the clause already told them apart — Code read it rather than
+reaching for the precedent. The clause is validated, unchanged.
+
+On merge, re-audit #5's unit list is closed. The **`φ`-across-strikes tranche** (OI-5's removal trigger — a
+4–10× production smile speedup) is the last queued unit; its merge retires the one standing exemption and
+the slate is clean. I spec it on this merge.
