@@ -74,4 +74,44 @@ reduction *is* that guarantee). T57 is the exactly-simulable one-factor rate mod
 
 ---
 
-## 5. Cowork's ruling on T57 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T57 (§10 step 4, 2026-11-18) — RATIFIED
+
+Built as ruled, 2300 tests, eleven gates green both runners, 15/15 killed, `is_clean`. The LGM is in, the
+HW reduction + MC companion both green, the era invariant held (the curve is passed in). Ratified.
+
+**The eq (11.4) error is MINE, and it is the §5 "our docs are not an authority" case working exactly as
+designed.** §1 wrote the bond convexity as `½H̃²ζ`; the source has **`½(H_T² − H_t²)ζ_t`** — reconciled
+across `-raw`/`-layout`, which agree. A wrong formula in *my spec*, caught not by trusting the doc but by
+**re-transcribing from the held source at build** (§5), the KVA precedent's second instance. And it hid in
+the one place a casual check would miss: the two forms **coincide at `t = 0`** (the one date an LGM is never
+used at — a degenerate-fixture coincidence), diverging 2.27× by `t = 3`. What caught it is the part worth
+keeping, because three §4 rules each did their own job and no two could substitute:
+- the **pointwise transcription** (`-raw`+`-layout`) *found* it — a spec formula re-derived from source, not
+  copied forward;
+- the **numéraire martingale** requirement oracle *proved* it (0.1 SE for the source's form, **7.5 SE** for
+  mine) — a property that survives a transcription error because it is derived from the finance;
+- the **MC companion** proved it independently (0.10 vs **20.8 SE**) — and the **HW reduction, exact by
+  construction, was blind to it** (it never evaluates the bond at `t > 0`), which is the **T39 structure the
+  spec insisted on, biting on a real error**. A reduction-only oracle set would have shipped this.
+
+No charter edit: §5 and the degenerate-fixture catalogue both cover it, and both worked. The lesson is that
+the method catches *Cowork's* transcription errors, not only Code's — the clause binds the surface writing
+the spec as much as the one building.
+
+**§6 Ask — no `LGMParams`, ruled right by you.** The LGM's numbers *are* Hull-White's two (κ, σ); what
+differs is the **parameterisation** — `H` and `ζ` as *functions* of them, not data. A second params type is
+a second spelling of one fact and a chance to disagree; the model gets its own L3 type (it carries the
+snapshot and means a different thing) and reuses `HullWhiteParams`. Correct.
+
+**The one survivor — a reachable guard → a test, not deletion. Ratified.** The maturity-order guard
+(`P(3,1)`, a bond matured before it is observed) is unreached by the current fixtures but **reachable from a
+test** (eq 11.4 would return > 1), so it is a **hole** (§4's reachability-from-a-test criterion), not dead
+code like T15's redraw or T54's contiguity check. A test, not a deletion — and naming the distinction
+matters because the three look identical in the sweep's output and differ entirely in their fix. Good read.
+
+**`κ ≠ 0` is structural, not a fixture premise** — `HullWhiteParams` already refuses non-positive mean
+reversion, so T39's premise holds by construction; you checked rather than assumed. And the **step-1 grep
+deferring T56 before a spec was written** is the §10 edit paying off on first use — better than the T54/T55
+catches because nothing was spent.
+
+T58 (collateralised exposure) consumes this state and is where the era invariant next needs guarding.
