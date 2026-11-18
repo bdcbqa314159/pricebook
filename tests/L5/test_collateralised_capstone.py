@@ -66,9 +66,13 @@ SIX_MONTH = Tenor(months=6)
 PARAMS = HullWhiteParams(kappa=0.08, sigma=0.012)
 PATHS = MonteCarloConfig(paths=4_000, seed=5_801)
 
-#: Semi-annual, so the schedule's own dates ARE the margin-call grid — no period straddles an
-#: exposure date, which `collateralized_exposure` already demands of the grid.
-MARGIN_PERIOD = 0.5
+#: **182-day periods, not calendar semi-annual** — so the year fractions are *exactly* uniform.
+#: Calendar half-years give 0.49863 and 0.50137 alternately on ACT/365F, and
+#: `collateralized_exposure` refuses a non-uniform margin-call grid (rightly: `V(t−δ)` has to be a
+#: point the simulation visited). The schedule's own dates are therefore the margin-call grid, and
+#: no period straddles an exposure date.
+_PERIOD_DAYS = 182
+MARGIN_PERIOD = _PERIOD_DAYS / 365.0
 HORIZON = 3
 OIS_RATES = {1: 0.0200, 2: 0.0215, 3: 0.0228}
 TENOR_RATES = {1: 0.0260, 2: 0.0278, 3: 0.0295}
@@ -79,10 +83,7 @@ LGD = 0.6
 def _schedule(years: int = HORIZON) -> CouponSchedule:
     """Semi-annual dates, which is also the exposure grid."""
     return CouponSchedule(
-        tuple(
-            VAL + timedelta(days=round(365 * i * MARGIN_PERIOD)) for i in range(years * 2 + 1)
-        ),
-        DC,
+        tuple(VAL + timedelta(days=_PERIOD_DAYS * i) for i in range(years * 2 + 1)), DC
     )
 
 
@@ -278,8 +279,20 @@ class TestTheEraInvariant:
 
 
 class TestCollateralNeverIncreasesTheCharge:
-    """A requirement oracle reused from T29, for all parameters: collateral can only reduce what is
-    at risk."""
+    """A requirement oracle reused from T29 — and **it is what caught this tranche's one real bug**,
+    which is worth recording because of *why* it could.
+
+    T29 files this under "the requirement oracles the finance forces". Pathwise it is not forced:
+    with `V(t−δ) = −100` and `V(t) = +10` the margin-period gap is `110`, well above the
+    uncollateralised `10` — we posted 100 and may not get it back. What makes the aggregate hold is
+    that a *well-behaved* mark moves little over one margin period, so the gap stays small.
+
+    Which is exactly why a violation is diagnostic. Before the basis factor was fixed, this read
+    **982.63 against an uncollateralised 650.41** — collateral apparently increasing the charge by
+    half — because the reciprocal basis made the simulated marks swing wildly between dates. The
+    oracle was not detecting a collateral error; it was detecting that the *mark* was wrong, and it
+    did so because it is a property of plausible paths rather than a law. Whether T29's universal
+    phrasing should be narrowed is Cowork's call; it is raised rather than restated here."""
 
     @pytest.mark.parametrize("threshold", [0.0, 50_000.0, 250_000.0])
     def test_the_collateralised_cva_is_at_most_the_uncollateralised_one(

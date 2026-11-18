@@ -67,8 +67,24 @@ class CollateralAgreement:
 
     margin_period: float
     initial_mark: float
+    threshold: float = 0.0
+    """The two-way CSA threshold `H`: collateral changes hands only once the mark leaves the band
+    `[-H, +H]`, so posted collateral is `max(V - H, 0) - max(-V - H, 0)`.
+
+    **Two-way, and the reduction is why.** Tranche 58's spec wrote the one-way `max(V - H, 0)`,
+    which cannot reproduce this module's own gap at `H = 0`: tranche 29 posts `V(t-delta)`
+    **unfloored**, so a one-way form differs on every path whose previous mark is negative - about
+    half of them for a swap, and measured on T58's fixture it differs on real paths. The two-way
+    form is `V+ - V- = V` at `H = 0` **exactly**, so the built behaviour falls out of the general
+    one rather than being approximated by it, and it is also what a two-way CSA actually is.
+
+    Defaulted to `0.0`, so every tranche-29 construction keeps its meaning untouched."""
 
     def __post_init__(self) -> None:
+        if not math.isfinite(self.threshold):
+            raise ValueError(f"the CSA threshold must be finite, got {self.threshold}")
+        if self.threshold < 0.0:
+            raise ValueError(f"the CSA threshold may not be negative, got {self.threshold}")
         if not math.isfinite(self.margin_period) or not math.isfinite(self.initial_mark):
             raise ValueError(
                 f"the margin period and initial mark must be finite, got "
@@ -76,6 +92,17 @@ class CollateralAgreement:
             )
         if self.margin_period < 0.0:
             raise ValueError(f"the margin period of risk may not be negative, got {self.margin_period}")
+
+
+def _posted(mark: float, threshold: float) -> float:
+    """The two-way collateral balance against `mark`: `max(V - H, 0) - max(-V - H, 0)`.
+
+    At `H = 0` this is `V+ - V- = V` exactly, which is why the thresholded exposure *is* the
+    zero-threshold gap rather than merely agreeing with it to a tolerance.
+    """
+    if threshold == 0.0:
+        return mark
+    return max(mark - threshold, 0.0) - max(-mark - threshold, 0.0)
 
 
 def collateralized_exposure(
@@ -117,9 +144,10 @@ def collateralized_exposure(
             f"margin period {agreement.margin_period}"
         )
 
+    threshold = agreement.threshold
     gaps = tuple(
         tuple(
-            max(value - previous, 0.0)
+            max(value - _posted(previous, threshold), 0.0)
             for value, previous in zip(row, (agreement.initial_mark,) + row[:-1])
         )
         for row in exposure.values
