@@ -206,6 +206,42 @@ class TestTheThresholdReducesBOTHWays:
             "the one-way form must differ from T29 somewhere, or this finding is not real"
         )
 
+    def test_the_posted_collateral_is_TWO_WAY_at_a_live_threshold(self) -> None:
+        """**Found by mutation: the `H = 0` reduction cannot see the two-way form at all**, because
+        `H = 0` takes a shortcut that returns the mark directly. So the one-way variant survived the
+        reduction *and* the uncollateralised limit — both of which the spec named — and only a
+        **negative mark below `−H`** discriminates: there we must *post*, so the balance is
+        negative, where the one-way form floors it at zero.
+
+        That is the §4 shape where a set of oracles is complete about the limits and silent about
+        the middle; the discriminating fixture is the one neither reduction reaches."""
+        from pricebook.risk.collateral import _posted
+
+        threshold = 50_000.0
+        assert _posted(-500_000.0, threshold) == pytest.approx(-450_000.0), (
+            "a mark below -H must POST collateral, so the balance is negative"
+        )
+        assert _posted(500_000.0, threshold) == pytest.approx(450_000.0)
+        assert _posted(10_000.0, threshold) == 0.0, "inside the band, nothing changes hands"
+        # the one-way form would floor the first case at zero
+        assert max(-500_000.0 - threshold, 0.0) == 0.0
+
+    def test_the_two_way_balance_moves_the_EXPOSURE_not_just_the_helper(self) -> None:
+        """The same discrimination end to end, so the helper's correctness is not the only guard:
+        on paths whose previous mark is below `−H`, the one-way form would understate the gap."""
+        exposure = _exposure(_multi_curve())
+        threshold = 50_000.0
+        gaps = collateralized_exposure(exposure, self._agreement(threshold)).values
+        differing = 0
+        for row, gap_row in zip(exposure.values, gaps):
+            for value, previous, gap in zip(row, (0.0,) + row[:-1], gap_row):
+                one_way = max(value - max(previous - threshold, 0.0), 0.0)
+                if abs(one_way - gap) > 1e-9:
+                    differing += 1
+        assert differing > 0, (
+            "no path has a previous mark below -H, so this fixture cannot discriminate the forms"
+        )
+
     def test_an_ENORMOUS_threshold_reproduces_the_uncollateralised_exposure(self) -> None:
         exposure = _exposure(_multi_curve())
         huge = collateralized_exposure(exposure, self._agreement(1e12))
@@ -325,10 +361,35 @@ class TestTheSimulatedMarkIsTheSwapsOwnValue:
         exposure = _exposure(market, swap)
         first = [row[0] for row in exposure.values]
         mean = sum(first) / len(first)
-        # half a year of drift on a 3y swap: the mean mark must be in the same region as today's
-        assert abs(mean - today) < 0.25 * abs(today) + 1_000.0, (
-            f"the simulated mark at {exposure.times[0]}y is {mean}, today's price is {today}"
+        # **Banded from the measurement, not from comfort.** Half a year of drift moves the mean
+        # mark from 122,861 to 120,188 — 2.2%. A 25% band was the first attempt and it let a
+        # mutation that stopped discounting the floating leg survive, so the band is 10% here:
+        # wide enough for the drift, four times tighter than the defect it must catch.
+        assert abs(mean - today) < 0.10 * abs(today), (
+            f"the simulated mark at {exposure.times[0]}y is {mean:,.0f}, today's price is "
+            f"{today:,.0f} — a {abs(mean - today) / abs(today):.1%} gap"
         )
+
+    def test_a_RECEIVER_is_the_exact_negative_of_a_PAYER(self) -> None:
+        """**Found by mutation: every fixture here was a PAYER**, so `omega = +1` throughout and
+        dropping the direction entirely changed nothing — T33b's input-population degeneracy, where
+        a branch is correct but never in the test population."""
+        market = _multi_curve()
+        payer = _exposure(market, _swap())
+        receiver = _exposure(
+            market,
+            InterestRateSwap(
+                schedule=_schedule(),
+                fixed_rate=0.025,
+                notional=Money(10_000_000.0, EUR),
+                tenor=SIX_MONTH,
+                direction=SwapDirection.RECEIVER,
+            ),
+        )
+        for payer_row, receiver_row in zip(payer.values, receiver.values):
+            for a, b in zip(payer_row, receiver_row):
+                assert a == pytest.approx(-b, rel=1e-12)
+        assert abs(payer.values[0][0]) > 1.0, "the premise: a mark away from zero"
 
     def test_the_mark_falls_as_the_fixed_rate_rises(self) -> None:
         """Direction pinned by the finance: a payer paying more fixed is worth less."""
