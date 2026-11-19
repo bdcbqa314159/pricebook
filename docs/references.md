@@ -118,7 +118,7 @@ pieces that were missing, and more:
 | § | eq | what |
 |---|---|---|
 | 2.7 | — | the caplet payoff as `1 + τᵢK` puts on a zero-coupon bond, strike `(1+τᵢK)⁻¹` |
-| 2.9 | 2.24 | Black's caplet formula and the implied Black (spot) volatility |
+| 2.9 | **spread options** — Margrabe (exact), Kirk (approx) | **built T63** — both 1-D on a combined vol, `black_price` reused, no bivariate normal. One function serves both (Kirk's weight is 1 at `K=0`) |
 | 3.5 | 3.16/3.17 | zero-coupon bond call `BC` and put `BP` under a deterministic log-volatility |
 | 3.5 | 3.18 | `d±`, with `d₋ = d₊ − √ν(0,S)` |
 | 3.5 | 3.19 | `ν(0,S) = D(S,T)²∫₀ˢ σ(u)²e^{−2α(S−u)}du` — the variance of `ln B(S,T)` |
@@ -427,6 +427,14 @@ why a convenience yield moves the forward and not the discounting) and §2.2.6 (
 cost-of-carry forward, transcribed in both renderings). The same page prints the **pre-substitution
 expectation** `F = S₀·E[exp(σW_T + (r−δ−½σ²)T)]`, an earlier derivation step used as an independent
 check on the final form (§4) — evaluated by Gauss-Hermite quadrature rather than transcribed twice.
+
+**Worked from at T61–T63 (ch 2.7, 2.9).** §2.7.3 the Kemna–Vorst geometric average — whose variance the
+source prints **three** ways (the `min(tᵢ,tⱼ)` double sum, its sorted single-sum evaluation, and a closed
+form in `n` alone), all three required to agree; §2.7.4 Turnbull–Wakeman, whose `M₂` is printed **two** ways
+and whose measured error curve is that tranche's deliverable; §2.9.1/2.9.2 Margrabe and Kirk, both collapsing
+to 1-D Black-76 on a combined volatility. The recurring value of this source is that it **derives** rather
+than quotes, so each result arrives with earlier steps that serve as independent checks — §4's
+derivation-step rule, available three tranches running.
 
 ---
 
