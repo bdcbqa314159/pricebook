@@ -172,8 +172,20 @@ class TestTheClosedFormAnchorOnAGaussianMark:
         assert fine < coarse / 2.0, f"expected ~4x, got {coarse} -> {fine}"
 
 
-class TestTheRequirementOraclesTheFinanceForces:
-    def test_collateral_can_never_INCREASE_the_adjustment(self) -> None:
+class TestThePlausibilityChecks:
+    """**Narrowed at re-audit #6 (F-6.5).** These are not theorems the finance forces; they are
+    aggregate plausibility checks on a well-behaved mark, and a gross breach signals implausible
+    inputs rather than a proved contradiction. T58's reciprocal basis factor is exactly what they
+    are good for — it was caught here, by implausibility, not by a bound being violated.
+
+    The T58 ruling narrowed the module's `oracle:` provenance line to say so; it did not touch this
+    class name or the test name below, both of which went on asserting the retracted theorem. The
+    checks are right and stay — only their description was overclaiming."""
+
+    def test_collateral_does_not_increase_the_adjustment_for_a_WELL_BEHAVED_mark(self) -> None:
+        """A plausibility check, not a theorem: for the marks a CSA is written against, posting
+        collateral leaves less exposed, so a *rise* here means the inputs or the wiring are wrong.
+        Stated as implausibility because a pathological mark can breach it legitimately."""
         for delta in (0.125, 0.5, 1.0, 2.0):
             raw = _simulated(delta, 8_000)
             assert _cva(collateralized_exposure(raw, _agreement(delta))) <= _cva(raw) + 1e-12
