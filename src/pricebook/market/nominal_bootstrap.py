@@ -114,6 +114,22 @@ def _validate(quotes: Sequence[ParSwapQuote], measure: TimeMeasure) -> None:
                 f"each par swap schedule must extend the previous one; the quote maturing "
                 f"{maturity} does not share the earlier payment dates"
             )
+        # **One equation, one unknown** — the condition the prefix check above leaves incomplete,
+        # and the whole of OI-6. A set can EXTEND the previous one and still *skip* a pillar (a 3y
+        # schedule extends a 1y one), which leaves two unsolved discount factors in a single par
+        # condition; the bootstrap then reached for a pillar it never solved and died with a bare
+        # `KeyError`. A precondition must surface as a refusal, never a crash (§3.4). Tranche 54's
+        # projection bootstrap states the identical rule and names this module as its home.
+        # The pillars are the PAYMENT dates (`dates[1:]`); the anchor is `1.0` by construction and
+        # never an unknown. `previous` is the prior quote's full date tuple, so the already-solved
+        # payments are `previous[1:]` and the new ones start at `max(1, len(previous))`.
+        unknown = list(dates[max(1, len(previous)) :])
+        if len(unknown) != 1:
+            raise ValueError(
+                f"the quote maturing {maturity} introduces {len(unknown)} unknown pillars "
+                f"({', '.join(str(d) for d in unknown) or 'none'}); a par quote determines "
+                "exactly one, so the quote set must step one pillar at a time"
+            )
         previous = dates
         last_maturity = maturity
 
