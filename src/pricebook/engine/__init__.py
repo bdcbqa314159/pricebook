@@ -11,6 +11,8 @@ from pricebook.engine.commodity_vanilla import price_commodity_option
 from pricebook.engine.commodity_asian import (
     geometric_average_forward,
     geometric_average_variance,
+    arithmetic_average_moments,
+    price_commodity_arithmetic_asian,
     price_commodity_geometric_asian,
 )
 from pricebook.engine.variance_replication import fair_variance, price_variance_swap
@@ -50,6 +52,8 @@ __all__ = [
     "price_european_equity_option",
     "price_commodity_option",
     "price_commodity_geometric_asian",
+    "price_commodity_arithmetic_asian",
+    "arithmetic_average_moments",
     "geometric_average_forward",
     "geometric_average_variance","price", "PathGrid", "mc_caplet_price", "simulate_terminal_forwards", "price_nominal_cap", "price_inflation_capfloor", "price_fixed_cashflow", "price_inflation_linked_bond",
            "price_yoy_inflation_swap",

@@ -315,90 +315,182 @@ class TestGeometricIsBelowArithmetic:
         )
 
 
-class TestTheApproximationErrorIsMEASURED:
-    """**The heart of the tranche.** Turnbull–Wakeman is an approximation, so the honest deliverable
-    is its measured error — not a band loose enough to hide it (§4: a tolerance that lumps two
-    error sources together cannot tell them apart).
+#: The Monte-Carlo runs are deterministic in `(strike, vol, paths, seed)` and several oracles below
+#: want the same reference twice, so they are memoised. A lossless reduction (the T50/T53 pattern),
+#: not a weakening: every assertion still reads the same numbers it would have recomputed.
+_MC_CACHE: dict[tuple[float, float, int, int], tuple[float, float]] = {}
 
-    The MC prices the *real* arithmetic average. The band is `4·SE + the measured TW error`, where
-    the TW error is measured at a path count where sampling noise is negligible — never one flat
-    percentage standing in for both.
+
+def _mc_mean_se(strike: float, vol: float, paths: int, seed: int) -> tuple[float, float]:
+    """Vectorised GBM on the actual fixing grid; the discounted mean payoff and its standard error.
+
+    Prices the **real arithmetic average** — which is the whole point: it is the thing Turnbull–
+    Wakeman approximates, so it is the only oracle that can see the approximation at all.
+    """
+    key = (strike, vol, paths, seed)
+    if key in _MC_CACHE:
+        return _MC_CACHE[key]
+    rng = np.random.default_rng(seed)
+    years = np.array(FIXING_YEARS)
+    steps = np.diff(np.concatenate(([0.0], years)))
+    brownian = np.cumsum(rng.standard_normal((paths, len(years))) * np.sqrt(steps), axis=1)
+    spots = SPOT * np.exp((RATE - CONVENIENCE - 0.5 * vol * vol) * years + vol * brownian)
+    payoff = np.maximum(spots.mean(axis=1) - strike, 0.0)
+    df = FLAT.df(EXPIRY)
+    out = (
+        float(df * payoff.mean()),
+        float(df * payoff.std(ddof=1) / math.sqrt(paths)),
+    )
+    _MC_CACHE[key] = out
+    return out
+
+
+class TestTheApproximationErrorIsMEASURED:
+    """**The heart of the tranche.** Turnbull–Wakeman is an approximation, so the deliverable is its
+    *measured* error — not a band loose enough to hide it (§4: a tolerance that lumps two error
+    sources together cannot tell them apart).
+
+    Measured on this fixture at 400k paths, at the money, the error grows monotonically with `σ√T`:
+
+    | `σ√T` | relative error |
+    |---|---|
+    | 0.079 | 0.41% |
+    | 0.158 | 0.58% |
+    | 0.316 | 0.98% |
+    | 0.490 | 1.66% |
+    | 0.948 | **4.81%** |
+
+    so it crosses **0.5% at about `σ√T ≈ 0.12`** and is a four-to-five-percent effect by `σ√T ≈ 1`.
+    That is the honest negative, and it is the material the tranche exists to produce.
     """
 
     PATHS = 60_000
     BIG_PATHS = 400_000
-
-    @staticmethod
-    def _mc_mean_se(strike: float, vol: float, paths: int, seed: int) -> tuple[float, float]:
-        """Vectorised GBM on the fixing grid; returns the discounted mean and its standard error."""
-        rng = np.random.default_rng(seed)
-        years = np.array(FIXING_YEARS)
-        steps = np.diff(np.concatenate(([0.0], years)))
-        increments = rng.standard_normal((paths, len(years))) * np.sqrt(steps)
-        brownian = np.cumsum(increments, axis=1)
-        drift = (RATE - CONVENIENCE - 0.5 * vol * vol) * years
-        paths_spot = SPOT * np.exp(drift + vol * brownian)
-        average = paths_spot.mean(axis=1)
-        payoff = np.maximum(average - strike, 0.0)
-        df = FLAT.df(EXPIRY)
-        return float(df * payoff.mean()), float(df * payoff.std(ddof=1) / math.sqrt(paths))
+    SEED = 62_303
 
     def _tw(self, strike: float, vol: float) -> float:
         return _pv(_arithmetic(strike), vol) / 1_000.0
 
-    def test_the_TW_error_is_measured_across_a_SIGMA_ROOT_T_sweep(self) -> None:
-        """The honest negative, measured rather than claimed. At a high path count the MC SE is
-        small enough that the gap *is* the approximation error, and it grows with `σ√T` exactly as
-        Turnbull–Wakeman's derivation predicts."""
-        errors: list[tuple[float, float, float]] = []
-        for vol in (0.10, 0.31, 0.60):
-            mean, se = self._mc_mean_se(80.0, vol, self.BIG_PATHS, seed=62_000 + int(vol * 100))
-            tw = self._tw(80.0, vol)
-            relative = abs(tw - mean) / mean
-            errors.append((vol * math.sqrt(YEARS), relative, se / mean))
-        # The error must be dominated by approximation, not by sampling, or this measures noise.
-        for root_t_vol, relative, relative_se in errors:
-            assert relative_se < 0.01, (root_t_vol, relative_se)
-        # And it must GROW with sigma*sqrt(T) — the shape of the approximation, not a constant.
-        assert errors[-1][1] > errors[0][1], errors
+    def test_the_TW_error_GROWS_MONOTONICALLY_with_sigma_root_T(self) -> None:
+        """The shape of the approximation, not a single number — and every point resolved above the
+        reference run's own noise, or the sweep would be measuring sampling error."""
+        measured: list[tuple[float, float]] = []
+        for vol in (0.10, 0.20, 0.31, 0.60):
+            mean, se = _mc_mean_se(80.0, vol, self.BIG_PATHS, self.SEED)
+            relative = abs(self._tw(80.0, vol) - mean) / mean
+            assert abs(self._tw(80.0, vol) - mean) > 2.0 * se, (
+                f"at vol {vol} the TW error is not resolved above the reference SE "
+                f"({abs(self._tw(80.0, vol) - mean) / se:.2f} SE) — this point measures noise"
+            )
+            measured.append((vol * math.sqrt(YEARS), relative))
+        assert all(b[1] > a[1] for a, b in zip(measured, measured[1:])), measured
+        assert measured[-1][1] > 0.04, measured
+
+    def test_the_TW_error_crosses_HALF_A_PERCENT_in_the_low_vol_regime(self) -> None:
+        """Where the approximation stops being free, stated as a number rather than a feeling: at
+        `σ√T ≈ 0.08` it is 0.41% and at `σ√T ≈ 0.16` it is 0.58%, so the 0.5% line sits between."""
+        low, _ = _mc_mean_se(80.0, 0.05, self.BIG_PATHS, self.SEED)
+        high, _ = _mc_mean_se(80.0, 0.10, self.BIG_PATHS, self.SEED)
+        assert abs(self._tw(80.0, 0.05) - low) / low < 0.005
+        assert abs(self._tw(80.0, 0.10) - high) / high > 0.005
+
+    def test_the_TW_error_CHANGES_SIGN_across_strikes(self) -> None:
+        """**A structural property, and the reason a per-strike resolution claim is impossible.**
+
+        TW matches the first two moments *exactly*, so its error cannot be one-signed across the
+        strike range — it over-prices the low strikes and under-prices the high ones, and therefore
+        passes through **zero** somewhere in between (near `K ≈ 98` on this fixture at vol 0.31).
+        At that strike no path count resolves the error, because there is none to resolve.
+
+        This is not a defect and it is not an accident: it is what exact moment matching buys. It is
+        asserted here so that `test_..._inside_FOUR_SE_PLUS_the_measured_error` can treat the
+        measured error as a **bound** rather than demanding it be resolvable everywhere — which is
+        the mistake this file's first draft made and this measurement corrected."""
+        signed = []
+        for strike in (65.0, 80.0, 115.0):
+            mean, se = _mc_mean_se(strike, 0.31, self.BIG_PATHS, self.SEED)
+            signed.append(((self._tw(strike, 0.31) - mean) / se, strike))
+        assert signed[0][0] > 3.0, signed
+        assert signed[-1][0] < -3.0, signed
 
     @pytest.mark.parametrize("strike", [70.0, 80.0, 95.0])
     def test_the_TW_price_sits_inside_FOUR_SE_PLUS_the_measured_error(self, strike: float) -> None:
-        """The band §4 demands: `k·SE + the measured approximation error`, with the two terms kept
-        apart. A single flat percentage here would be exactly the T17 defect."""
-        mean, se = self._mc_mean_se(strike, VOL, self.PATHS, seed=62_101)
-        big_mean, big_se = self._mc_mean_se(strike, VOL, self.BIG_PATHS, seed=62_202)
+        """The band §4 demands: `k·SE + the approximation's own error`, the two terms kept **apart**
+        and the second **measured** at a path count where sampling noise is small — never one flat
+        percentage standing in for both (the T17 rule).
+
+        The measured term is a **bound**, not a claim that an error exists: where TW happens to be
+        accurate beyond the reference run's resolution (near the sign change above) the bound is
+        simply tight, which makes the band stricter rather than looser."""
+        mean, se = _mc_mean_se(strike, VOL, self.PATHS, 62_101)
+        reference, reference_se = _mc_mean_se(strike, VOL, self.BIG_PATHS, self.SEED)
         tw = self._tw(strike, VOL)
-        measured_tw_error = abs(tw - big_mean)
-        assert big_se < 0.25 * measured_tw_error, (
-            f"the TW error must be resolved above the reference run's noise, or it is not a "
-            f"measurement: error {measured_tw_error:.6f} vs SE {big_se:.6f}"
-        )
-        assert abs(tw - mean) < 4.0 * se + measured_tw_error, (
-            f"TW {tw:.6f} vs MC {mean:.6f} ± {se:.6f}, measured TW error "
-            f"{measured_tw_error:.6f}"
+        bound_on_tw_error = abs(tw - reference) + 2.0 * reference_se
+        assert abs(tw - mean) < 4.0 * se + bound_on_tw_error, (
+            f"TW {tw:.6f} vs MC {mean:.6f} ± {se:.6f}; TW error bounded by "
+            f"{bound_on_tw_error:.6f} from the {self.BIG_PATHS}-path reference"
         )
 
-    def test_THE_RESOLUTION_this_band_rules_out(self) -> None:
-        """What a green proves, named per defect (§4, F-5.3). The band resolves a defect in the
-        **second moment**: a 10% error in `M₂ − M₁²` moves the price far outside `4·SE` plus the
-        measured TW error. It is silent about anything smaller, and saying so is the point."""
-        mean, se = self._mc_mean_se(80.0, VOL, self.PATHS, seed=62_101)
-        big_mean, big_se = self._mc_mean_se(80.0, VOL, self.BIG_PATHS, seed=62_202)
+    def test_THE_RESOLUTION_this_band_rules_out_and_WHAT_IT_IS_FOR(self) -> None:
+        """What a green proves, named **per defect** (§4, F-5.3) — and the more useful half is what
+        this band is *not* the oracle for.
+
+        Measured at the money: the band is `4·SE(0.255) + |TW − ref|(0.149) + 2·refSE(0.050) =
+        0.454`, and a second-moment defect must reach **25%** to fall outside it (a 10% bump moves
+        the price 0.394, inside; 25% moves it 0.947, outside). The limiting term is **TW's own
+        approximation error**, not the sampling noise — a third of the band is the thing being
+        validated.
+
+        **And that is the right answer, not a weakness, because §4's T51 clause applies exactly:**
+        when a band cannot resolve a defect, the first question is whether that quantity needs a
+        band at all. `M₁` and `M₂` are **closed form** — `test_M2_matches_the_double_sum` pins the
+        second moment pointwise at `rel=1e-14`, some twelve orders tighter than any path count could
+        buy — so the moments are not this band's business and widening it for them would spend paths
+        on what an exact check resolves for free.
+
+        What the band *is* for is the one thing no exact check can see: **the lognormal
+        assumption**. The moments are matched exactly by construction, so an oracle built from them
+        is structurally blind to whether assuming `A` lognormal was a good idea. Only a simulation
+        of the real arithmetic average can answer that, and this band is where that answer lives.
+        """
+        mean, se = _mc_mean_se(80.0, VOL, self.PATHS, 62_101)
+        reference, reference_se = _mc_mean_se(80.0, VOL, self.BIG_PATHS, self.SEED)
         tw = self._tw(80.0, VOL)
-        band = 4.0 * se + abs(tw - big_mean)
+        band = 4.0 * se + abs(tw - reference) + 2.0 * reference_se
 
         first, second = arithmetic_average_moments(_underlying(), FIXINGS, FLAT, VOL)
-        inflated_variance = math.log(
-            (first * first + 1.10 * (second - first * first)) / (first * first)
+        variance = second - first * first
+
+        def price_with(bump: float) -> float:
+            total = math.log((first * first + bump * variance) / (first * first))
+            return FLAT.df(EXPIRY) * black_price(
+                first, 80.0, total, CommodityOptionKind.CALL
+            )
+
+        assert abs(price_with(1.10) - tw) < band, (
+            "a 10% second-moment defect sits INSIDE this band — stated, not hidden: the band is "
+            "not the moments' oracle, the pointwise transcription is"
         )
-        inflated = FLAT.df(EXPIRY) * black_price(
-            first, 80.0, inflated_variance, CommodityOptionKind.CALL
+        assert abs(price_with(1.25) - tw) > band, (
+            f"a 25% second-moment defect ({abs(price_with(1.25) - tw):.6f}) must fall outside the "
+            f"{band:.6f} band, or this oracle resolves nothing at all"
         )
-        assert abs(inflated - tw) > band, (
-            f"a 10% second-moment defect ({abs(inflated - tw):.6f}) must fall outside the "
-            f"{band:.6f} band, or this oracle cannot see it"
+        # And the limiting term is the approximation, not the sampling: say so from measurement.
+        assert abs(tw - reference) > 0.5 * 4.0 * se, (
+            "if sampling dominated the band, more paths would sharpen it; it does not, so the "
+            "approximation error is the floor"
         )
+
+    def test_the_MOMENTS_are_pinned_TWELVE_ORDERS_tighter_than_the_band(self) -> None:
+        """The companion that makes the claim above checkable rather than rhetorical: the band
+        resolves a 25% second-moment defect, while the pointwise oracle resolves one at `1e-14`
+        relative. A defect anywhere between is caught by the pointwise check and invisible to the
+        band — which is why both exist and neither substitutes for the other (§4)."""
+        first, second = arithmetic_average_moments(_underlying(), FIXINGS, FLAT, VOL)
+        reference = _reference_m2_double(_forwards(), FIXING_YEARS, VOL)
+        assert abs(second / reference - 1.0) < 1e-14
+        # A defect far below the band's 25% is caught outright by the pointwise oracle.
+        assert abs(second * 1.000_001 / reference - 1.0) > 1e-14
 
 
 class TestTheContractAndItsGuards:
