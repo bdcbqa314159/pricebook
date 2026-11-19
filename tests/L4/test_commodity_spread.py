@@ -255,14 +255,15 @@ class TestMargrabeIsExactAndKirkReducesToIt:
     def test_the_COMPANION_is_non_degenerate_in_what_the_reduction_KILLS(self) -> None:
         """**T39.** The `K = 0` anchor is exact *because* the weight is 1 — which is precisely the
         quantity Kirk introduces, so the anchor is structurally blind to it. The finite-strike
-        companion exercises a weight measurably below 1, and this states by how much."""
+        companion exercises a weight measurably below 1, and this states by how much: at `K = 40`
+        the weight is 0.664 and the combined variance is 10.7% below the Margrabe value."""
         _, forward_short = _forwards()
-        assert kirk_weight(forward_short, 20.0) < 0.8
+        assert kirk_weight(forward_short, 40.0) < 0.7
         zero = spread_total_variance(VOL_LONG, VOL_SHORT, RHO, 1.0, YEARS)
         finite = spread_total_variance(
-            VOL_LONG, VOL_SHORT, RHO, kirk_weight(forward_short, 20.0), YEARS
+            VOL_LONG, VOL_SHORT, RHO, kirk_weight(forward_short, 40.0), YEARS
         )
-        assert abs(finite / zero - 1.0) > 0.1, (zero, finite)
+        assert abs(finite / zero - 1.0) > 0.10, (zero, finite)
 
     def test_a_ZERO_SHORT_VOL_reduces_to_the_T60_VANILLA(self) -> None:
         """A spread against a deterministic leg is an ordinary option on the first leg, struck at
@@ -420,19 +421,84 @@ class TestKirksApproximationErrorIsMEASURED:
             f"({abs(closed - mean) / se:.2f} SE) — this one has no approximation term"
         )
 
-    def test_the_KIRK_error_GROWS_with_the_strike_away_from_zero(self) -> None:
-        """Kirk's assumption is `K ≪ S⁽²⁾`, so the error must grow as the strike leaves zero —
-        measured, with every point resolved above the reference run's own noise."""
-        measured: list[tuple[float, float]] = []
-        for strike in (4.0, 15.0, 40.0):
-            mean, se = _mc_spread(strike, RHO, self.BIG_PATHS, self.SEED)
-            kirk = _pv(_spread(strike)) / 1_000.0
-            assert abs(kirk - mean) > 2.0 * se, (
-                f"at K={strike} the Kirk error is not resolved above the reference SE "
-                f"({abs(kirk - mean) / se:.2f} SE) — that point measures noise"
-            )
-            measured.append((strike, abs(kirk - mean) / mean))
-        assert all(b[1] > a[1] for a, b in zip(measured, measured[1:])), measured
+    def _differenced_error(self, strike: float, rho: float) -> tuple[float, float]:
+        """Kirk's error with the common path noise **differenced out** (the T16 instrument).
+
+        The raw `Kirk − MC` gap on this fixture is about `−0.047` at *every* strike — a shared
+        Monte-Carlo offset, not Kirk. Because `K = 0` is **Margrabe and therefore exact**, the gap
+        measured there is pure sampling, so subtracting it from the gap at a finite strike cancels
+        everything the two runs have in common and leaves Kirk's own strike-dependent error. Both
+        runs use the **same seed**, which is what makes the cancellation work — the charter's
+        one-seed differencing clause, here with an exact closed form supplying the baseline.
+
+        Returns `(the differenced absolute error, the MC price it should be read against)`.
+        """
+        reference, _ = _mc_spread(strike, rho, self.BIG_PATHS, self.SEED)
+        baseline_mc, _ = _mc_spread(0.0, rho, self.BIG_PATHS, self.SEED)
+        model = _model(rho=rho)
+        kirk = _pv(_spread(strike), model) / 1_000.0
+        margrabe = _pv(_spread(0.0), model) / 1_000.0
+        return (kirk - reference) - (margrabe - baseline_mc), reference
+
+    def test_the_DIFFERENCING_instrument_is_NECESSARY_not_decorative(self) -> None:
+        """The premise that justifies the instrument above, measured rather than asserted. The raw
+        gap is dominated by a strike-independent offset — about `−0.047` at `K = 4` and at `K = 15`
+        alike — which is some twenty times the differenced error at `K = 4`. Without differencing a
+        sub-0.2% effect is simply invisible beneath it, and "Kirk agrees with MC" would be a
+        statement about the noise."""
+        raw = []
+        for strike in (4.0, 15.0):
+            reference, _ = _mc_spread(strike, RHO, self.BIG_PATHS, self.SEED)
+            raw.append(_pv(_spread(strike)) / 1_000.0 - reference)
+        assert abs(raw[0] - raw[1]) < 0.25 * abs(raw[0]), (
+            f"the raw gaps must be nearly strike-independent for differencing to be the right "
+            f"instrument: {raw}"
+        )
+        differenced, _ = self._differenced_error(4.0, RHO)
+        assert abs(differenced) < 0.1 * abs(raw[0]), (differenced, raw[0])
+
+    def test_the_KIRK_error_is_dominated_by_the_CORRELATION_not_the_strike(self) -> None:
+        """**The finding the measurement forced, and it is not what the spec expected.** Kirk's
+        stated assumption is `K ≪ S⁽²⁾`, so the strike looks like the axis to sweep — and on this
+        fixture it is the *weaker* one by an order of magnitude.
+
+        Measured at `K = 40`, differenced:
+
+        | `ρ` | error |
+        |---|---|
+        | −0.9 | +2.32% |
+        | −0.45 | +1.50% |
+        | 0.0 | +0.58% |
+        | +0.45 | −0.19% |
+        | +0.9 | **+8.37%** |
+
+        The mechanism is visible in the combined vol: as `ρ → 1` it tends to `|σ₁ − wσ₂|`, which is
+        small, so the spread approaches deterministic and a modest *absolute* vol error becomes a
+        large *relative* price error. So `|ρ| → 1` — not the strike — is where Kirk should be
+        distrusted, which is worth knowing precisely because a crack spread is a highly correlated
+        pair."""
+        extreme, reference = self._differenced_error(40.0, 0.9)
+        middling, middling_reference = self._differenced_error(40.0, 0.0)
+        assert abs(extreme) / reference > 0.05, (extreme, reference)
+        assert abs(middling) / middling_reference < 0.01, (middling, middling_reference)
+        assert abs(extreme) / reference > 5.0 * abs(middling) / middling_reference
+
+    def test_the_KIRK_error_in_the_STRIKE_is_small_and_NOT_MONOTONE(self) -> None:
+        """Stated because the spec asked for monotone growth in the strike and the fixture does not
+        show it — asserting monotonicity here would be asserting something false.
+
+        Differenced, at `ρ = 0.45`: −0.004% at `K = 4`, −0.020% at `K = 15`, −0.185% at `K = 40`,
+        −0.056% at `K = 60`, **+0.955%** at `K = 90`. The magnitude grows overall but **changes
+        sign** between `K = 60` and `K = 90` — the same shape T62 found along its own axis, for the
+        same underlying reason: an approximation pinned by matching something exactly cannot have a
+        one-signed error everywhere.
+
+        So what is asserted is what holds: the error stays **under 1%** across the whole range, and
+        it is larger at the far end than the near one."""
+        errors = [self._differenced_error(k, RHO) for k in (4.0, 40.0, 90.0)]
+        relative = [abs(e) / reference for e, reference in errors]
+        assert all(r < 0.01 for r in relative), relative
+        assert relative[-1] > relative[0], relative
 
     @pytest.mark.parametrize("strike", [4.0, 15.0])
     def test_the_KIRK_price_sits_inside_FOUR_SE_PLUS_the_measured_error(

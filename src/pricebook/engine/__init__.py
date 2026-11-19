@@ -8,6 +8,11 @@ from pricebook.engine.capfloor import price_inflation_capfloor
 from pricebook.engine.cash import price_fixed_cashflow
 from pricebook.engine.equity_vanilla import price_european_equity_option
 from pricebook.engine.commodity_vanilla import price_commodity_option
+from pricebook.engine.commodity_spread import (
+    kirk_weight,
+    price_commodity_spread_option,
+    spread_total_variance,
+)
 from pricebook.engine.commodity_asian import (
     geometric_average_forward,
     geometric_average_variance,
@@ -53,6 +58,9 @@ __all__ = [
     "price_commodity_option",
     "price_commodity_geometric_asian",
     "price_commodity_arithmetic_asian",
+    "price_commodity_spread_option",
+    "kirk_weight",
+    "spread_total_variance",
     "arithmetic_average_moments",
     "geometric_average_forward",
     "geometric_average_variance","price", "PathGrid", "mc_caplet_price", "simulate_terminal_forwards", "price_nominal_cap", "price_inflation_capfloor", "price_fixed_cashflow", "price_inflation_linked_bond",
