@@ -390,7 +390,7 @@ Candidate map (ruled per-tranche at build; the arc plan is `docs/modern_discount
 
 ---
 
-### `CLARK-2014` — `in-hand`
+### `CLARK-2014` — `worked-from`
 
 Clark, I. J., *Commodity Option Pricing: A Practitioner's Guide*, Wiley Finance, 2014. 343 pp.
 ISBN 978-1-119-94451-5. Held at `_stock/NewDocuments/Commodity Option Pricing A Practitioners Guide.pdf`
@@ -419,7 +419,14 @@ Candidate map (ruled per-tranche at build; the arc plan is `docs/commodity_arc.m
 | 2.10.2–2.10.3 | multi-factor, stochastic convenience-yield models | `to_go_deeper` |
 | 3–9 | market-specific: vol surfaces, seasonality, electricity spikes, weather/freight | `to_go_deeper` / **`out_of_method`** (quotes-and-plots, structural/statistical, no closed-form oracle) |
 
-**Status `in-hand`** (held, full TOC read, 2026-11-19); flips to `worked-from` at the first build (T60).
+**Status `worked-from`** (held, full TOC read 2026-11-19; **built and oracled against at T60**).
+
+**Worked from at T60:** §2.1.2 (forwards; contango and backwardation), §2.2.3 (the convenience-yield
+Black–Scholes PDE 2.19, where `r^f` enters the convection term and not the forcing term — which is
+why a convenience yield moves the forward and not the discounting) and §2.2.6 (eqs 2.55/2.56, the
+cost-of-carry forward, transcribed in both renderings). The same page prints the **pre-substitution
+expectation** `F = S₀·E[exp(σW_T + (r−δ−½σ²)T)]`, an earlier derivation step used as an independent
+check on the final form (§4) — evaluated by Gauss-Hermite quadrature rather than transcribed twice.
 
 ---
 
