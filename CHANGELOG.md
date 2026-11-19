@@ -6,6 +6,64 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.63.0] - 2026-11-19
+
+### Added — tranche 61, geometric Asian options (exact closed form)
+
+The commodity arc's first exotic: a European-style option on the **geometric average** over a fixing
+schedule. `products/commodity_asian.py` (L2) and `engine/commodity_asian.py` (L4).
+
+**Exact, not approximate, and that is the whole reason it is a closed form.** The geometric average
+of lognormals is itself lognormal, so the option is Black-76 on an **adjusted forward** and an
+**adjusted variance**. The only new code is those two adjustments; `black_price` is reused whole and
+T60's `commodity_forward` supplies each fixing's forward, so the carry stays defined in one place.
+
+### The source prints the load-bearing quantity three ways
+
+`CLARK-2014` p.64 gives `Var[ln A_G]` as the `min(tᵢ,tⱼ)` **double sum**, as its sorted single-sum
+evaluation `Σ tᵢ[2(n−i)+1]`, and — for a uniform grid — as the closed form
+`σ²T[1 − (1/6)(4n+1)(n−1)/n²]` (2.114b), whose `n → ∞` limit is `σ²T/3` (2.115b). **Three different
+computation paths for one number**, which is far stronger than two renderings of one line: a
+misprint would have to corrupt all three identically. They agree to 1e-13 across `n = 1…60`, and the
+same treatment pins the drift (2.111 general against 2.114a).
+
+The implementation is built on the **general** forms — real schedules are not equally spaced, and
+Clark says the uniform grid is "purely to simplify the algebra" — which is what makes the
+specialisations independent checks rather than restatements of the code.
+
+### Oracles
+
+- **`F_G` and `σ²_G` transcribed pointwise**, both as *named surface* rather than locals inside the
+  pricer — the F-6.1 lesson, that a formula living only inside a composite is never actually pinned.
+- **The `n = 1` reduction to T60's European**, with the exact/bit-identity distinction stated
+  honestly (§4, T12a): the `±½σ²t₁` pair cancels **exactly in ℝ**, but the composition evaluates
+  `exp(log F − a + a)` where T60 evaluates `F` directly, so a `log`/`exp` round trip leaves **1 ULP,
+  2.22e-16 relative**. Claiming bit-identity would be false — the ops are legitimately reordered.
+  **The gap's invariance in vol is what proves the cancellation is algebraic**: a defect in either
+  half would scale with `σ²`, and the oracle asserts the invariance (identical at every vol from 0
+  to 1.2), not merely the smallness.
+- **The companion the reduction requires** (T39): `n = 1` collapses the averaging and is blind to
+  the entire double sum, so a six-fixing non-uniform schedule is checked pointwise — measured at 46%
+  of the single-fixing variance over a 2.2-year span.
+- **An MC companion on the real geometric average**, banded at `4·SE` with **no approximation term**
+  because the closed form is exact — and the resolution measured rather than asserted.
+- **Averaging reduces variance**, with equality *iff* the fixings coincide — the boundary an
+  implementation that merely scaled the variance down would fail — plus monotonicity in `n`.
+- **Put–call parity** on the adjusted forward, swept off the money.
+
+Premises asserted: the fixings are distinct and **non-uniformly** spaced (a uniform grid is where a
+mis-indexed `min(tᵢ,tⱼ)` hides — the T17 lesson), `T ≈ 2.5` not 1, and the averaging moves the price
+>20% off the European. **Fifteen mutations applied, fifteen killed**, including `min → max`, the
+cross terms dropped, `1/n² → 1/n`, both halves of the convexity, and the invariant-6 bypass.
+
+### Scope, and the source scopes it the same way
+
+A **partly fixed** schedule is refused in domain vocabulary: its price depends on realised prints the
+snapshot does not carry for a commodity, and pricing it as unfixed would be a plausible wrong
+number. Clark draws the same line — he prices "the case where no historical fixings have taken place
+yet". A **fully** settled schedule is invariant 6's business and is PV 0, with the in-the-money
+fixture F-4.1's sub-shape requires.
+
 ## [0.62.0] - 2026-11-19
 
 ### Added — tranche 60, the commodity arc opens (project eight, `CLARK-2014`)
