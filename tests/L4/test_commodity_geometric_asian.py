@@ -267,15 +267,47 @@ class TestAveragingReducesVariance:
 class TestTheSingleFixingReduction:
     """The anchor, and the companion §4 and T39 require beside it."""
 
-    def test_ONE_fixing_is_EXACTLY_the_T60_european(self) -> None:
-        """`F_G = F(t₁)` and `σ²_G = σ²t₁`, so the price is T60's — exact by construction, not a
-        numerical limit. The strongest form of a reduction anchor."""
+    def test_ONE_fixing_REDUCES_to_the_T60_european(self) -> None:
+        """`F_G = F(t₁)` and `σ²_G = σ²t₁`, so the price is T60's.
+
+        **Exact in ℝ, one ULP in floating point, and the distinction is the honest one (§4, T12a).**
+        The identity is exact: at `n = 1` the adjustment contributes `−½σ²t₁` to the log-mean and
+        `+½σ²t₁` back as the lognormal convexity, and they cancel. But the composed path evaluates
+        `exp(log F − a + a)` where T60 evaluates `F` directly, so a `log`/`exp` round trip stands
+        between them — the ops are *reordered*, which is exactly the case the charter says must not
+        be asserted as bit-identity. Measured: **1 ULP, 2.22e-16 relative.**
+
+        `test_the_reduction_gap_is_INVARIANT_IN_VOL` is what proves the cancellation is algebraic
+        rather than numerically lucky — a residual that did not depend on `σ` is a round-trip
+        artefact, while a real defect in the `±½σ²t₁` pair would scale with `σ²`."""
         single = _asian(fixings=(EXPIRY,))
         european = CommodityOption(
             asset=WTI, strike=80.0, expiry=EXPIRY, notional=Money(1_000.0, USD),
             kind=CommodityOptionKind.CALL,
         )
-        assert _pv(single) == _pv(european)
+        assert _pv(single) == pytest.approx(_pv(european), rel=1e-14)
+
+    def test_the_reduction_gap_is_INVARIANT_IN_VOL(self) -> None:
+        """The proof the `n = 1` cancellation is exact algebra and not a near-miss.
+
+        If the `−½σ²t₁` and `+½σ²t₁` terms did not cancel exactly, the residual would carry a
+        `σ²` factor and grow by four orders across the vol range swept here. It does not move at
+        all: the gap is 2.22e-16 at every vol from 0 to 1.2, which is the signature of a pure
+        `log`/`exp` round trip. A mutation to either half of the pair breaks this at once."""
+        european_forward = commodity_forward(_underlying(), EXPIRY, FLAT)
+        gaps = [
+            abs(
+                geometric_average_forward(_underlying(), (EXPIRY,), FLAT, vol)
+                / european_forward
+                - 1.0
+            )
+            for vol in (0.0, 0.12, 0.31, 0.65, 1.2)
+        ]
+        assert max(gaps) < 1e-15, gaps
+        assert max(gaps) == pytest.approx(min(gaps), abs=1e-18), (
+            f"the residual must NOT depend on the volatility, or the cancellation is not "
+            f"algebraic: {gaps}"
+        )
 
     def test_the_COMPANION_is_non_degenerate_in_what_the_reduction_KILLS(self) -> None:
         """**T39, stated as the charter demands.** The `n = 1` anchor is exact *because* it
