@@ -8,9 +8,16 @@ Provenance:
   stock:  _stock/src/pricebook/market/curve_set.py (purified: the DISCOUNT role only; projection
           and survival roles arrive with the products that need them)
   source: CLAUDE.md-era doc 19 §3 (closed shapes × open keys)
-  oracle: a missing curve raises a KeyError the engine turns into a PricingFailure
+  oracle: a missing curve raises a KeyError the engine turns into a PricingFailure;
+          tests/L1/test_curves_for_era.py -- both eras of `curves_for_era` asserted (the
+          pre-crisis branch returns the SAME OBJECT twice, which is what makes the capstone's
+          `projection is discount` shortcut structural), keyed on currency AND tenor, with the
+          two eras measured to differ so neither branch is vacuous, and both consumers asserted
+          to share this one lookup (re-audit #6, F-6.6)
   crosscheck: none — a keyed container of curves, no numerics
-  slice:  tranche 1 — minimal spine
+  slice:  tranche 1 — minimal spine; `curves_for_era` added at tranche 59 (re-audit #6, F-6.6 —
+          §6's rule-of-two fired at its second consumer; the single-curve design invariant is
+          realised through this lookup, so it gets one structural home)
 """
 
 from __future__ import annotations

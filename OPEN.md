@@ -13,7 +13,7 @@ exists in `src/` or `tests/` (verified at v0.6.0).
 
 ## Other open items
 
-### OI-6 · `nominal_bootstrap._validate` admits a quote set that skips a pillar, then crashes — OPEN (found at tranche 54, ruled 2026-11-18)
+### OI-6 · `nominal_bootstrap._validate` admits a quote set that skips a pillar, then crashes — CLOSED (fixed at v0.61.0, tranche 59)
 
 **The defect.** `market/nominal_bootstrap.py`'s `_validate` checks that each par-swap quote's
 schedule *extends* the previous one (a prefix match on the payment dates). That admits a set which
@@ -42,6 +42,23 @@ whose intent it completes.
 
 **Re-open trigger:** the next tranche that touches `market/nominal_bootstrap.py`, or re-audit #6 —
 whichever comes first.
+
+**Closed at tranche 59**, by the re-audit #6 remediation, on the second of those triggers. The fix is
+the one this entry prescribed: `_validate` counts the pillars a quote introduces — the payment dates
+not already solved — and refuses unless it is exactly one, in domain vocabulary naming the unsolved
+dates. A `ValueError` beside the prefix check, matching every other guard in `_validate` and T54's
+identical refusal; **not** a `PricingFailure`, which is §3's *engine* return and would change an L1
+curve constructor's type for every caller. *(The T59 spec's one-line shorthand said `PricingFailure`;
+Code built to this entry's own prescription and raised the discrepancy rather than settling it — §10.)*
+
+Two killers, not one: dropping the guard still **raises** (the original `KeyError`), so only a test
+asserting the message is *ours* and names the unsolved dates discriminates — the T44b reachability
+shape. A third test asserts a pillar-by-pillar set still bootstraps, so the guard is not vacuous.
+
+One pre-existing fixture moved: `test_quotes_out_of_MATURITY_ORDER_are_refused` used `[3y, 1y, 2y]`,
+whose **first** quote introduces three unknown pillars at once — legitimately caught by the new guard,
+but for the wrong reason. It now walks `1y → 2y → 1y`, which isolates the ascending-maturity rule with
+every quote legal under the pillar guard.
 
 ### OI-5 · `tests/L4/test_oi4_adaptive_truncation.py` was `slow-test-exempt` — CLOSED (removed at v0.56.1, tranche 53)
 

@@ -160,8 +160,9 @@ than rediscovering them:
 
 | from | mutant killed by exactly one test | note |
 |---|---|---|
-| re-audit #3 | MM-I's `τ/(1+τ)` denominator | load-bearing; second killer still owed |
-| re-audit #3 | the YoY leg's first `ψ` | already-shipped hole (F-1.2); given a second killer at T37 |
+| re-audit #3 | MM-I's `τ/(1+τ)` denominators (`:154` real, `:155` nominal) | load-bearing; **second killer added at T59** (re-audit #6) — a per-leg *saturation requirement*, since the existing companion dropped **both** denominators and a one-leg drop landed on a third value. Each now dies to 2 |
+| re-audit #3 | **T3's LINKER** first `ψ` | already-shipped hole (F-1.2); given a second killer at T37 — **re-measured at 2 at re-audit #6, T37 holds**. *(This row read "the YoY leg's" until re-audit #6: two different products' `ψ` were conflated, and the hardening credited here belongs to the linker. The YoY module's own sites are the row below.)* |
+| re-audit #6 | **T4's YoY `ψ` — three sites, the fixed leg's at ZERO killers** | F-6.2, and not a single-killer note but a **surviving mutant**: `yoy_fixed_leg_value`'s `ψ` died to nothing in 2322 tests (+100.5% semi-annual, +301% quarterly, +1117% monthly), while both `yoy_inflation_leg_value` sites died only to T13's cross-product oracle **in another product's file**. One `τ=1` fixture (`VAL + 365·k` on ACT/365F) caused all three. Closed at T59 by one non-unit-`ψ` schedule: 0→2, 1→3, 1→3 |
 | re-audit #3 | tranche 26's Leg B numéraire divisor | single **by design** — one leg, one identity |
 | T38 | `CreditModel`'s recovery-range refusal | a guard with one behaviour; single killer is inherent |
 | T38 | `CreditModel`'s shared-clock refusal | same shape |
@@ -172,6 +173,15 @@ than rediscovering them:
 | T43 | the LHP's recovery-range refusal, the tranche bounds' unit-interval refusal, the invariant-6 filter, the notional scaling, and the pool-entity mismatch | guards and scalings, one condition each. The three survivors shared a cause — **every oracle was relative**, so the tranche's *level* was unpinned while its shape was over-determined; closed with absolute-level oracles in-tranche |
 | T44a | the pool-size minimum | one guard, one condition. Both survivors were about where an oracle **lives**: the width division was already fixed at T43 but only against the LHP model, and the step count survived because its own test **telescopes** (it reads the model's committed count). The tranche composition being duplicated across the two models is the reason the first was reachable — flagged for re-audit #4 |
 | T44b | the empty-quote-set, positive-spread and unquoted-strike refusals | guards, one condition each — inherent. **No survivors.** The reachability refusal (the tranche's non-vacuous arbitrage oracle) was hardened 1→2: dropping it still *raises*, so only a test asserting the message is ours and names the reachable range discriminates |
+
+| T45–T49 | the Gatheral arc's refusals — SVI's five parameter guards and the `b ≥ 0`/`σ > 0` bounds, the volatility swap's non-negative-variance and positive-maturity refusals, Bates' jump-intensity and grid guards | guards, one condition each — inherent. No load-bearing single killer survived re-audit #5's sweep |
+| T50–T53 | the adaptive grid's decay threshold and `checked_call_price`'s three branches; the sweep instrument's own guards | the truncation branches are one condition each; `checked_call_price`'s **raise** arm was hardened 1→2 in-tranche (dropping it still raises, so the message discriminates) |
+| T54–T55 | the bootstrap's one-equation-one-unknown refusal, the anchor and non-positive-factor guards; the swap's `annuity == 0` refusal | guards, one condition each — inherent. Re-audit #6 swept the load-bearing closed forms (20 mutations) with one survivor, F-6.1, which is not a single-killer but a **zero**-killer |
+| T57–T58 | the LGM's non-negative-horizon and maturity-order refusals; the CSA threshold's finite/non-negative guards; the capstone's straddling-date and too-short refusals | guards, one condition each — inherent. **F-6.1** (eq 11.1's `½`) had **no** killer at all until T59's pointwise transcription took it to 21 |
+| T59 | `curves_for_era`'s two branches | 42 killers — the era lookup is read by every swap and capstone oracle, so single-sourcing it (F-6.6) made it the most heavily covered line in the arc |
+
+*(The five rows above were owed since re-audit #4: the table was headed "Accumulating for re-audit #4"
+and stopped at T44b while #5's record went to its own findings doc — F-6.4, added at T59.)*
 
 T38's two load-bearing single killers were **hardened in-tranche** rather than recorded: the
 protection-leg quadrature rule (1 → 3 killers, via a closed-form anchor) and the direction factor

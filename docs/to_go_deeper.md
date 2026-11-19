@@ -320,3 +320,21 @@ Routes recorded as the arc runs; the full deferred set is the completion ratio i
    initial margin / MVA (ch 5.2–5.6).** The CSA optionality and margin detail beyond the perfect-cash-CSA
    discounting of T55. Oracle-able (the collateral-choice option ≥ 0; the threshold reduction to T55 at
    threshold → ∞); unpulled — T55 is the perfect-CSA spine, these are its refinements.
+
+## Tooling — gate `F401` once the registry modules carry `__all__`
+
+Re-audit #6 (F-6.3) found Pyflakes had never been selected: `ruff.toml` carried only `PLR0913` and
+`SLF001`. Running it surfaced two dead locals — one of which made tranche 58's capstone **simulate a
+whole LGM path set per call and discard it** — and ten genuinely unused imports. All twelve were
+removed at tranche 59 and **`F841` was gated**, because an unused local is statically decidable and has
+no legitimate exception, which is exactly §9's test for what may become a gate.
+
+**`F401` was deliberately not gated, and the reason is the prerequisite.** The engine registry's
+`@register` imports are unused *by design* — importing them for the side effect is the whole point — so
+a wholesale `F401` select needs `per-file-ignores`, which is the exemption-list shape §9 declines ("a
+gate needing a 7-of-14 exemption list cannot fail"). Ten such imports exist today.
+
+**Pulled when** those modules carry explicit `__all__` entries naming what they re-export, at which
+point Pyflakes is satisfied without an ignore and the gate is honest rather than exempted. Until then
+an unused import can accumulate unseen — the cost is small and visible (`ruff check --select F401` on
+demand), which is why this is a route and not a tranche.

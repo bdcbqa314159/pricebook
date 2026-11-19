@@ -42,7 +42,11 @@ Provenance:
   oracle: tests/L1/test_nominal_bootstrap.py — a known SLOPED curve round-trips through its own
           par rates pointwise to 1e-12 (non-telescoping: the test owns the forward map); both
           misprints are asserted to be wrong; later quotes must move later pillars and not earlier
-          ones; negative par rates give df > 1; par-reprice kept only as a consistency guard
+          ones; negative par rates give df > 1; par-reprice kept only as a consistency guard;
+          a quote set that SKIPS a pillar is refused in domain vocabulary naming the unsolved
+          dates, with a companion asserting the message is ours (dropping the guard still raises,
+          so only the message discriminates) and a non-vacuity test that a pillar-by-pillar set
+          still bootstraps -- OI-6, closed at tranche 59
   crosscheck: quantlib PiecewiseYieldCurve / par-swap bootstrap — deferred to the optional QuantLib
           tier
   slice:  tranche 8 — the nominal curve bootstrap
