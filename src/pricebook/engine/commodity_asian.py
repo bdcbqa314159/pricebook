@@ -61,7 +61,8 @@ Provenance:
           equality iff the fixings coincide; put-call parity swept off the money
   crosscheck: quantlib AnalyticDiscreteGeometricAveragePriceAsianEngine - deferred to the optional
           QuantLib tier
-  slice:  tranche 61 - geometric Asian options, exact closed form
+  slice:  tranche 61 - the geometric engine, exact; tranche 62 - the arithmetic engine,
+          Turnbull-Wakeman's moment match, whose approximation error is MEASURED
 """
 
 from __future__ import annotations
@@ -78,7 +79,10 @@ from pricebook.market.commodity import CommodityUnderlying, commodity_forward
 from pricebook.market.curve import CurveHandle
 from pricebook.models.black import black_price
 from pricebook.models.commodity_black import CommodityBlackModel
-from pricebook.products.commodity_asian import CommodityGeometricAsian
+from pricebook.products.commodity_asian import (
+    CommodityArithmeticAsian,
+    CommodityGeometricAsian,
+)
 
 
 def geometric_average_variance(fixing_years: Sequence[float], volatility: float) -> float:
@@ -179,6 +183,110 @@ def price_commodity_geometric_asian(
     forward = geometric_average_forward(underlying, product.fixings, discount, model.volatility)
     variance = geometric_average_variance(years, model.volatility)
     undiscounted = black_price(forward, product.strike, variance, product.kind)
+    return PricingResult(
+        pv=Money(discount.df(settlement) * product.notional.amount * undiscounted, currency)
+    )
+
+
+def arithmetic_average_moments(
+    underlying: CommodityUnderlying,
+    fixings: Sequence[date],
+    discount: CurveHandle,
+    volatility: float,
+) -> tuple[float, float]:
+    """The arithmetic average's **exact** first two moments - CLARK-2014 eqs (2.118) and (2.120).
+
+        M_1 = E[A]  = (1/n) sum_i f(0,t_i)                                        (2.118)
+        M_2 = E[A^2] = (1/n^2) sum_{i,j} f(0,t_i) f(0,t_j) exp(sigma^2 min(t_i,t_j))
+
+    **These are exact, and saying so is load-bearing.** Turnbull-Wakeman's approximation is the
+    *lognormal assumption applied afterwards*, not the moments - so they are oracled pointwise and
+    tightly, never banded, and the lognormal match is deliberately not folded into them. Returned as
+    a pair because they come from one walk of the schedule and a caller needs both; splitting them
+    would make the second recompute the forwards the first already built.
+
+    `M_1` carries no volatility at all - it is the average of today's forwards, a martingale
+    statement - which is itself an oracle: a mutation leaking `sigma` into the first moment is
+    exactly the kind a price-level check absorbs.
+
+    The second moment is written as the **symmetric double sum** with the `min(t_i,t_j)` kernel,
+    which is (2.120)'s general statement; eq (2.122)'s diagonal-plus-twice-upper-triangle is its
+    evaluation for an ascending schedule and is used as the independent check rather than as the
+    implementation. (The kernel follows from (2.121)'s `exp(sigma_i^2 t_i)` for `i < j` at flat
+    vol - the earlier time, which an ascending schedule makes `min`.)
+
+    Named surface, not locals inside the pricer: the F-6.1 rule, that a formula appearing only
+    inside a composite is never actually pinned.
+    """
+    n = len(fixings)
+    if n == 0:
+        raise ValueError("the arithmetic average needs at least one fixing date")
+    years = [discount.time_measure.year_fraction(f) for f in fixings]
+    forwards = [commodity_forward(underlying, f, discount) for f in fixings]
+    first = math.fsum(forwards) / n
+    variance_kernel = volatility * volatility
+    second = (
+        math.fsum(
+            forwards[i] * forwards[j] * math.exp(variance_kernel * min(years[i], years[j]))
+            for i in range(n)
+            for j in range(n)
+        )
+        / (n * n)
+    )
+    return first, second
+
+
+@register(CommodityArithmeticAsian, CommodityBlackModel)
+def price_commodity_arithmetic_asian(
+    product: CommodityArithmeticAsian, model: CommodityBlackModel
+) -> PricingResult | PricingFailure:
+    """`df(t_n) * N * Black(M_1, K, ln(M_2/M_1^2), omega)` - Turnbull-Wakeman, CLARK-2014 (2.125).
+
+    **An approximation, and the only one in the commodity arc so far.** A sum of lognormals is not
+    lognormal, so there is no exact closed form; TW assumes the arithmetic average *is* lognormal
+    and pins that lognormal by matching the two exact moments. Clark states the result as Black-76
+    "on a synthetic asset with a volatility of sigma_A ... an initial futures price of E[A]", and
+    (2.125) gives `sigma_A = sqrt((1/t_n) ln(M_2/M_1^2))` - so the **total variance** Black-76 wants
+    is `ln(M_2/M_1^2)`, with no `t_n` left in it.
+
+    The error is measured rather than asserted: the oracle bands this against a Monte-Carlo price of
+    the *real* arithmetic average at `4*SE + the measured TW error`, with the two terms kept apart
+    (§4), and sweeps `sigma*sqrt(T)` to show where it degrades. The honest negative is the point.
+
+    `M_2 >= M_1^2` by Jensen, with equality only at zero volatility, so the logarithm is defined
+    wherever the model is - and at zero vol it is `0`, which `black_price` reads as the
+    deterministic case and returns the intrinsic exactly.
+    """
+    market = model.market
+    currency = product.notional.currency
+    settlement = product.fixings[-1]
+
+    if is_historical(settlement, market.valuation_date):
+        return PricingResult(pv=Money(0.0, currency))
+
+    fixed = [f for f in product.fixings if is_historical(f, market.valuation_date)]
+    if fixed:
+        return PricingFailure(
+            f"{len(fixed)} of {len(product.fixings)} fixings are historical (through "
+            f"{fixed[-1]}); a partly-fixed average needs the realised prints, which this "
+            "snapshot does not carry"
+        )
+
+    underlying = market.commodities.get(product.asset)
+    if underlying is None:
+        return PricingFailure(
+            f"no commodity data for {product.asset.symbol} in the snapshot"
+        )
+    try:
+        discount = market.curves.discount(currency)
+    except KeyError as exc:
+        return PricingFailure(f"cannot price the average-rate option: {exc}")
+
+    first, second = arithmetic_average_moments(
+        underlying, product.fixings, discount, model.volatility
+    )
+    total_variance = math.log(second / (first * first))
+    undiscounted = black_price(first, product.strike, total_variance, product.kind)
     return PricingResult(
         pv=Money(discount.df(settlement) * product.notional.amount * undiscounted, currency)
     )
