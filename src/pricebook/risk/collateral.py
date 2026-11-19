@@ -38,8 +38,13 @@ Provenance:
           `agreement=None` returns the uncollateralized exposure bit-identically) each with the
           non-degenerate companion §4 demands; the simulated gap EPE against T25's
           `expected_positive_exposure` on the gap's own moments at the MC rate; the **flat-in-time**
-          structural signature separating the gap from the mark; collateral never increasing the
-          adjustment, and monotone in `delta`
+          structural signature separating the gap from the mark; collateral not increasing the
+          adjustment *in aggregate for a well-behaved mark* (a PLAUSIBILITY check, not a
+          finance-forced requirement -- pathwise a gap can exceed the uncollateralized exposure, e.g.
+          `V(t-delta)=-100, V(t)=+10`; a gross breach signals implausible inputs, which is how it
+          caught T58's reciprocal basis), and monotone in `delta` (re-audit #6: the original wording
+          "never increasing" claimed a theorem the finance does not force -- §4's floor rule on an
+          oracle's own description)
   crosscheck: quantlib (collateralized exposure / CSA close-out) - deferred to the optional QuantLib
           tier
   slice:  tranche 29 - collateral/CSA, the last build of the XVA spine arc
