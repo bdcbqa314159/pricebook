@@ -250,6 +250,41 @@ def test_the_index_vol_step_DENOMINATORS_matter():
     assert index_vol_step(si, sn, sr, tfn, tfr) != pytest.approx(undivided, rel=1e-9)
 
 
+def test_each_freezing_WEIGHT_saturates_at_one_PER_LEG():
+    """**MM-I's owed second independent killer** (re-audit #5 recorded it, #6 adds it) — and the
+    reason the existing companion did not already serve is worth stating.
+
+    `test_the_index_vol_step_DENOMINATORS_matter` compares against the form with **both**
+    denominators dropped, so a mutation dropping **one** leg's denominator returns a third value
+    that is neither `correct` nor `undivided` — and slips through. Two load-bearing holes
+    (`:154` real, `:155` nominal) therefore sat behind the *same single* pointwise transcription,
+    where deleting one test reopens both.
+
+    This killer is a **requirement** rather than a second transcription, so it shares no arithmetic
+    with the pointwise check: `τF/(1+τF)` is a **weight**, so it lies in `(0,1)` and must
+    **saturate at 1** as `τF` grows. Each leg is asserted on its own, which is what makes a
+    single-leg drop die. Measured: at `τF = 1000` the weight is 0.999 while the undivided form is
+    1000 — three orders, against the ~2% the realistic fixture shows.
+    """
+    enormous = 1000.0
+
+    # The REAL leg alone: nominal vol zeroed, so only `+ σr·τFr/(1+τFr)` is live.
+    real_only = index_vol_step(0.012, 0.0, 0.2, 0.05, enormous)
+    assert real_only < 0.012 + 0.2, (
+        f"the real leg's weight must be bounded by 1, giving at most σI + σr = 0.212, got "
+        f"{real_only} — an undivided τFr would give ~200"
+    )
+    assert real_only == pytest.approx(0.012 + 0.2 * enormous / (1.0 + enormous), rel=1e-12)
+
+    # The NOMINAL leg alone: real vol zeroed, and σI above σn so the guard does not fire.
+    nominal_only = index_vol_step(0.3, 0.2, 0.0, enormous, 0.05)
+    assert nominal_only > 0.3 - 0.2, (
+        f"the nominal leg's weight must be bounded by 1, so the step cannot fall below "
+        f"σI − σn = 0.1, got {nominal_only} — an undivided τFn would give ~−200"
+    )
+    assert nominal_only == pytest.approx(0.3 - 0.2 * enormous / (1.0 + enormous), rel=1e-12)
+
+
 def test_the_index_vol_step_vanishes_when_BOTH_rate_vols_are_zero():
     """An exact reduction: the adjustment is a difference of terms each carrying a rate vol as a
     factor, so with no rate volatility the index-vol term structure is flat."""
