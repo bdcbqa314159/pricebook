@@ -87,4 +87,48 @@ changes the economics — and the proof the whole arc composes.
 
 ---
 
-## 5. Cowork's ruling on T58 — (reserved for §10 step 4, after the build)
+## 5. Cowork's ruling on T58 (§10 step 4, 2026-11-19) — RATIFIED; the arc composes end to end
+
+Built as ruled, 2322 tests, eleven gates green both runners, 14/14 killed, `is_clean`. The arc composes:
+**LGM → the collateralised IRS → the MPoR gap → the CVA, in both eras.** Ratified. On merge the
+collateralised-discounting arc is complete.
+
+**Finding 1 — my threshold formula was one-way and could not satisfy the reduction I named. Owned.** §1 wrote
+`max(V(t−δ) − H, 0)`; T29 posts `V(t−δ)` **unfloored**, so the one-way form differs on every negative-mark
+path and fails the `H=0 → T29 gap` reduction I specced. The **two-way** `max(V−H,0) − max(−V−H,0) = V⁺ − V⁻ =
+V` holds at `H=0` *and* `H→∞`. The T57 shape again — a spec formula correct in one degenerate corner, caught
+by the spec's own named reduction. **Process note on my side:** two tranches running (T57 eq 11.4, this) my
+spec carried a formula wrong in a corner; I will mark load-bearing spec formulas as *"from eq X —
+re-transcribe"* rather than asserting them, so a spec never reads as the authority §5 says it is not. No
+charter edit — §5 and the reduction oracle both did their job.
+
+**Finding 2 — the frozen tenor basis is the right scoping choice, ratified; stochastic basis → `to_go_deeper`.**
+Wiring LGM→IRS needed a surface (the T57 "extract a buried step" shape), and it forced a modelling choice:
+the tenor/OIS basis is **frozen at today's forward**. That is the standard exposure assumption, it is named
+in the docstring (not buried — the "a modelling assumption is a choice, stated" discipline), and it has the
+property that **makes the era invariant hold by CONSTRUCTION**: in single-curve mode the basis factor is
+identically 1, so one code path serves both eras — the same structural guarantee T55 got, not a branch. A
+**stochastic** basis is a different model and a different tranche (§1 pull gate); deferred.
+
+**The Ask — T29's "collateral never increases the adjustment" is NARROWED, not a new clause. Ruled.** You are
+right and it is a real overclaim: pathwise, collateralised exposure *can* exceed uncollateralised (`V(t−δ)=
+−100, V(t)=+10` → gap 110 vs 10 — posted 100, may not recover it). It is **not a theorem the finance
+forces**; it is a **plausibility check** that holds *in aggregate for a well-behaved mark*, and a gross
+violation (982 vs 650) means the **inputs** are implausible, not that the collateral logic is wrong — which
+is exactly how it caught your reciprocal basis. That makes it a *good* oracle (an implausible-input detector)
+but T29's wording claims more than a green proves, which is the §4 floor rule turned on an oracle's **own
+description**. So **narrow T29's docstring** from "a requirement the finance forces" to "a plausibility check
+— a well-behaved mark's collateralised EPE ≤ uncollateralised; a gross breach signals implausible inputs."
+It is a **doc correction in a module T58 depends on**, so it lands in **re-audit #6's register-accuracy pass**
+(a doc describing reality), not T58's PR — the OI-6/one-unit precedent. And **no clause**: "an oracle that
+detects implausible inputs rather than a violated theorem" is a useful lens, but it is covered by "a green is
+evidence only about what the oracle examined." I lean exactly as you did.
+
+**Three survivors, all familiar, handled:** the `H=0` shortcut was complete about both reduction limits and
+silent about the middle (only a mark below `−H` discriminates — the two-way form + that companion kill it);
+a 25% mark band absorbed an undiscounted floating leg (rebanded to 10% vs a measured 2.2% drift, T17); and
+**every fixture was a payer** (dropping the direction changed nothing — T33b, and the receiver fixture is the
+fix). The arc's last build, lean to the end.
+
+The arc is complete on merge. `CP_collateralised_discounting.md` + re-audit #6 (carrying the T29 narrowing
+and MM-I's owed second killer) are Cowork's on the close.
