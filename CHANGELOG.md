@@ -6,6 +6,68 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.62.0] - 2026-11-19
+
+### Added — tranche 60, the commodity arc opens (project eight, `CLARK-2014`)
+
+The commodity **forward** — cost of carry plus **convenience yield** — and the European commodity
+option on it. `market/commodity.py` (L1), `products/commodity_option.py` (L2),
+`models/commodity_black.py` (L3) and `engine/commodity_vanilla.py` (L4).
+
+**The new object is the forward, not the option formula.** `models/black.py` has been
+Black-76-on-a-forward since tranche 5, and `engine/equity_vanilla.py` set the precedent of a product
+engine reusing it — so the engine assembles `(F, K, σ²T, ω)` and reuses `black_price`. A second
+transcription of Black would only have been another chance to be wrong; the reduction to the
+verified function is both the simpler design and the stronger oracle. **The step-1 grep is what made
+this the arc's lightest tranche** rather than a rebuild — third arc running that it has reshaped a
+spec before a line was written.
+
+**The convenience yield enters the drift, not the discounting**, and the source is explicit about
+why: Clark derives it by analogy with FX (§2.2.3), where the tradeable asset is the spot times the
+return on holding the commodity, so the PDE (2.19) carries `(rᵈ − rᶠ)S ∂V/∂S` in the convection term
+and `rᵈ` alone in the forcing term. That asymmetry is the whole of it, and it is why this tranche
+produces a forward and leaves discounting untouched.
+
+### Oracles
+
+- **Eq (2.56) transcribed pointwise** over a `(δ, T)` grid, from both renderings and reconciled —
+  the one genuinely-new formula, so it carries the §4 pointwise obligation.
+- **The source's own earlier derivation step as an independent check.** Clark p.37 prints
+  `F = S₀·E[exp(σW_T + (r−δ−½σ²)T)]` *before* applying the martingale. That expectation is evaluated
+  by **Gauss-Hermite quadrature** — a different numerical path, not a second transcription — and must
+  reproduce the closed form. A misprint would have to corrupt both steps identically to survive.
+- **The `δ = 0` cost-of-carry reduction with its mandatory companion** (§4, T39): the reduction is
+  exact *because* it zeroes the very parameter a convenience-yield defect lives in, so a non-zero-δ
+  case is checked pointwise and measured material (3.8%).
+- **The engine is exactly `df(T)·N·black_price`** on the same forward, to the last bit — the
+  reduction proving this tranche adds carry and does not perturb Black.
+- **Put–call parity**, model-free, swept **off the money** (at `K = F` the identity degenerates to
+  `0 = 0`, which every wrong implementation also satisfies).
+- **The Clark-vs-`black.py` agreement is kept as a CONSISTENCY GUARD and labelled as one** — both
+  render the same Black-76, so it is guaranteed by construction and is not the cross-source
+  independence it resembles (the T17 lesson, named in the test class).
+
+Premises asserted rather than believed: `T ≈ 2.5` (not 1, where the time factor hides), `r ≠ δ` with
+both non-zero and of different magnitude (at `r = δ` the forward collapses to the spot), a sloped-curve
+companion proving the constructor reads the curve rather than a scalar rate, contango and
+backwardation both reachable, and an **in-the-money** expired fixture for invariant 6 (F-4.1's
+sub-shape: an out-of-the-money one returns `0` either way). Ten mutations applied, ten killed.
+
+### Changed
+
+- `MarketSnapshot` gains a `commodities` store, keyed by `CommodityAsset` — its own store rather than
+  a widened one, the `survivals`/`projections` precedent for a new keying dimension.
+- `CLARK-2014` flips `in-hand` → `worked-from`, with the chapters built against recorded.
+
+### Debt
+
+- **OI-7 opened**: `MarketSnapshot` now carries a `# fields-exempt` marker at six fields. It is the
+  gate's own named category (*"a legitimately-wide aggregate"*) and nothing in it is a loose
+  primitive wanting grouping — but bundling the four quote stores behind one `quotes` object is a
+  real alternative, measured at 11 read sites and 26 construction sites across 12 test files. That
+  changes the durable public contract, which is a design ruling and not this tranche's; raised to
+  Cowork, with the ruling as the entry's removal trigger.
+
 ## [0.61.0] - 2026-11-19
 
 ### Fixed — tranche 59, the re-audit #6 remediation
