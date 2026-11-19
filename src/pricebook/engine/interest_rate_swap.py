@@ -100,18 +100,13 @@ def fixed_leg_value(
 
 
 def _curves(market: MarketSnapshot, currency: Currency, tenor: Tenor) -> tuple[CurveHandle, CurveHandle]:
-    """`(projection, discount)` for the era this snapshot describes.
+    """`(projection, discount)` for the era this snapshot describes — `CurveSet.curves_for_era`.
 
-    The one place the mode is selected, and it reads the market rather than a flag: a projection
-    curve for `(currency, tenor)` means the post-crisis era, its absence means the pre-crisis one,
-    where the discount curve projects its own forwards.
+    This used to carry the lookup itself and claim to be "the one place the mode is selected",
+    which the collateralised capstone's inline copy made false. Re-audit #6 (F-6.6) moved the
+    choice to L1, where `projections` lives and below both consumers; the claim is true now.
     """
-    discount = market.curves.discount(currency)
-    from pricebook.market.curve_set import ProjectionKey
-
-    if ProjectionKey(currency, tenor) in market.curves.projections:
-        return market.curves.projection(currency, tenor), discount
-    return discount, discount
+    return market.curves.curves_for_era(currency, tenor)
 
 
 def par_swap_rate(

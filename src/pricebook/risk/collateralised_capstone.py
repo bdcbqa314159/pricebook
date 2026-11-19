@@ -49,9 +49,7 @@ from __future__ import annotations
 
 import math
 
-from pricebook.foundation.schedule import CouponSchedule
 from pricebook.market.curve import CurveHandle
-from pricebook.market.curve_set import ProjectionKey
 from pricebook.market.snapshot import MarketSnapshot
 from pricebook.models.black_mc import MonteCarloConfig
 from pricebook.models.hull_white import HullWhiteParams
@@ -98,13 +96,9 @@ def swap_exposure_on_lgm(
     `collateralized_exposure` makes about an interpolated collateral balance.
     """
     currency = swap.notional.currency
-    discount = market.curves.discount(currency)
-    key = ProjectionKey(currency, swap.tenor)
-    projection = (
-        market.curves.projection(currency, swap.tenor)
-        if key in market.curves.projections
-        else discount
-    )
+    # The era is read once, at L1 (F-6.6) — this module used to re-derive the same lookup inline,
+    # which is what made the swap pricer's "one place the mode is selected" claim false.
+    projection, discount = market.curves.curves_for_era(currency, swap.tenor)
 
     measure = discount.time_measure
     periods = [
@@ -125,9 +119,11 @@ def swap_exposure_on_lgm(
                     "fixing the LGM state does not carry"
                 )
 
-    states = simulate_lgm_states(params, times[-1], sampling)
     # One draw per path at the LAST date would mis-state the earlier ones, so each date is drawn
-    # on its own: the state is Gaussian with a deterministic variance, so each is exact.
+    # on its own: the state is Gaussian with a deterministic variance, so each is exact. (A
+    # `states = simulate_lgm_states(params, times[-1], sampling)` line sat here through tranche 58,
+    # assigned and never read — so every call simulated a whole discarded path set. Removed at
+    # re-audit #6, F-6.3; `simulate_lgm_states` seeds its own source per call, so nothing moves.)
     per_date = [simulate_lgm_states(params, t, sampling) for t in times]
 
     values: list[tuple[float, ...]] = []
