@@ -306,6 +306,55 @@ Spec at `docs/tranches/59_reaudit6_remediation.md` — one test-centred tranche,
 - **F-6.6 — rule-of-two fired: build `CurveSet.curves_for_era` at L1**, both consumers call it (the swap's
   `_curves` "one place" docstring is false today). Single-sources the single-curve invariant into one
   structural home. Bit-identity-in-process proof (op order preserved).
-- **OI-6 — closed in T59** (the `nominal_bootstrap.py` `PricingFailure` guard; natural touch).
+- **OI-6 — closed in T59** (the `nominal_bootstrap.py` guard; natural touch). **Corrected at T59's review:
+  a `ValueError`, not a `PricingFailure`.** The spec's shorthand applied §3's invariant 4 — an **L4 engine**
+  contract by its own title — one layer down to an **L1 curve constructor**. `nominal_bootstrap` returns a
+  `DiscountCurve`, already raises `ValueError` at six other preconditions, and T54's `multi_curve.py` refuses
+  the *identical* precondition with `ValueError` at four sites; a `PricingFailure` would have been the only
+  non-`ValueError` failure in the bootstrap family and would make the two bootstraps disagree on one
+  precondition (§7 cross-module consistency). Code built to the **ratified `OPEN.md` entry** (2026-11-18),
+  which prescribed exactly this, and raised the conflict rather than following the newer spec — ruled correct
+  by Cowork, whose error the spec line was. *(§5 cuts both ways: our own fresh spec is not an authority over a
+  ratified ledger entry. Cowork's process note, not a clause — §3 already scopes invariant 4 to L4.)*
 
-Out of scope, carried: **C2** (widest OWED), **`dividends_before(T)`**. Re-audit #6 closes when T59 merges.
+Out of scope, carried: **C2** (widest OWED), **`dividends_before(T)`** — see below.
+
+---
+
+## CLOSED — remediated at T59, v0.61.0 (2026-11-19)
+
+All six findings and OI-6 closed in one tranche. The mutation proof, per site, which is the measure that
+matters for a re-audit whose findings were all **blind oracles** rather than wrong numbers:
+
+| site | killers before | after |
+|---|---|---|
+| F-6.1 — eq (11.1)'s `½` | **0** | **21** |
+| F-6.2 — the YoY **fixed** leg's `ψ` | **0** | 2 |
+| F-6.2 — the YoY inflation leg, first `ψ` | 1 (in another product's file) | 3 |
+| F-6.2 — the YoY inflation leg, loop `ψ` | 1 (the same test) | 3 |
+| item 3 — MM-I's two denominators | 1 each | 2 each |
+| OI-6 — a skipped pillar | — (it crashed) | 2 |
+| F-6.6 — `curves_for_era`, both branches | — | 42 |
+
+Three things from the remediation worth carrying forward, none of them a charter clause:
+
+- **F-6.1 landed as TWO tests, and the second is what makes the first provably necessary.** The pointwise
+  eq-(11.1) transcription is the anchor; beside it sits a test asserting the `4·SE` band **cannot** resolve
+  the `½` (1.60 SE). That is §4's Box-Muller shape — assert that the wrong variant *does* satisfy the weaker
+  check — rather than an oracle merely added. Eq (11.1) was read from `LICHTERS-2015` p.136 in both
+  renderings (`-raw` splits `H²_t` across lines and renders the braces as `%`/`+`; the content reconciles),
+  which also confirmed eq (11.4) on p.137 as shipped.
+- **F-6.6's duplication guard is textual, and says so.** `curves_for_era` makes the era lookup
+  *structurally* single-homed, so the string check is belt-and-suspenders over a one-home invariant rather
+  than the only thing holding it — and the failure it guards (a second copy reappearing) is itself textual,
+  which is T30's "count the copies of a guard".
+- **The new pillar guard exposed a mis-premised pre-existing fixture.**
+  `test_quotes_out_of_MATURITY_ORDER_are_refused` used `[3y, 1y, 2y]`, whose **first** quote introduces three
+  unknown pillars at once — so it had been passing for the wrong reason. It now walks `1y → 2y → 1y`, which
+  isolates the ascending-maturity rule with every quote legal under the new guard. The degenerate-fixture
+  catalogue working in our favour for once.
+
+**Re-audit #6 is CLOSED** (ruled by Cowork, 2026-11-19). The collateralised-discounting arc is fully closed
+at **v0.61.0**; `OPEN.md` is empty. Carried, untouched this arc and still owed: **C2** (vol lives on one
+clock — the widest OWED convention) and the **`dividends_before(T)` consolidation**. Next: a clean arc
+boundary — Bernardo's interest plus a fresh Cowork spec.
