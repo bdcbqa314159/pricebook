@@ -44,7 +44,11 @@ Provenance:
           `bond_option_variance` to machine precision, and `P(0,T,z0) = P(0,T)`), the MANDATORY MC
           companion pricing a zero-bond option against the analytic Hull-White price within 4*SE,
           the numéraire martingale `E[P(t,T)/N(t)] = P(0,T)` with its resolution stated against the
-          convexity term, and `zeta`'s monotonicity and integral form
+          eq-(11.4) convexity term AND against the eq-(11.1) half it CANNOT resolve (1.60 SE inside
+          a 4*SE band), the POINTWISE transcription of eq (11.1) that covers that gap exactly
+          (re-audit #6, F-6.1 -- the numéraire had only ever appeared as a divisor, so §4's
+          transcribe-every-load-bearing-formula-once was unmet), and `zeta`'s monotonicity and
+          integral form
   crosscheck: quantlib Gsr / LgmImpliedYieldTermStructure - deferred to the optional QuantLib tier
   slice:  tranche 57 - the LGM short-rate model
 """

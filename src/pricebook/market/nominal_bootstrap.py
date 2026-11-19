@@ -42,7 +42,11 @@ Provenance:
   oracle: tests/L1/test_nominal_bootstrap.py — a known SLOPED curve round-trips through its own
           par rates pointwise to 1e-12 (non-telescoping: the test owns the forward map); both
           misprints are asserted to be wrong; later quotes must move later pillars and not earlier
-          ones; negative par rates give df > 1; par-reprice kept only as a consistency guard
+          ones; negative par rates give df > 1; par-reprice kept only as a consistency guard;
+          a quote set that SKIPS a pillar is refused in domain vocabulary naming the unsolved
+          dates, with a companion asserting the message is ours (dropping the guard still raises,
+          so only the message discriminates) and a non-vacuity test that a pillar-by-pillar set
+          still bootstraps -- OI-6, closed at tranche 59
   crosscheck: quantlib PiecewiseYieldCurve / par-swap bootstrap — deferred to the optional QuantLib
           tier
   slice:  tranche 8 — the nominal curve bootstrap
@@ -113,6 +117,22 @@ def _validate(quotes: Sequence[ParSwapQuote], measure: TimeMeasure) -> None:
             raise ValueError(
                 f"each par swap schedule must extend the previous one; the quote maturing "
                 f"{maturity} does not share the earlier payment dates"
+            )
+        # **One equation, one unknown** — the condition the prefix check above leaves incomplete,
+        # and the whole of OI-6. A set can EXTEND the previous one and still *skip* a pillar (a 3y
+        # schedule extends a 1y one), which leaves two unsolved discount factors in a single par
+        # condition; the bootstrap then reached for a pillar it never solved and died with a bare
+        # `KeyError`. A precondition must surface as a refusal, never a crash (§3.4). Tranche 54's
+        # projection bootstrap states the identical rule and names this module as its home.
+        # The pillars are the PAYMENT dates (`dates[1:]`); the anchor is `1.0` by construction and
+        # never an unknown. `previous` is the prior quote's full date tuple, so the already-solved
+        # payments are `previous[1:]` and the new ones start at `max(1, len(previous))`.
+        unknown = list(dates[max(1, len(previous)) :])
+        if len(unknown) != 1:
+            raise ValueError(
+                f"the quote maturing {maturity} introduces {len(unknown)} unknown pillars "
+                f"({', '.join(str(d) for d in unknown) or 'none'}); a par quote determines "
+                "exactly one, so the quote set must step one pillar at a time"
             )
         previous = dates
         last_maturity = maturity

@@ -59,7 +59,6 @@ import math
 from dataclasses import dataclass
 from enum import Enum
 
-from pricebook.foundation.inflation import CapFloorKind
 from pricebook.foundation.mc_estimator import MonteCarloEstimate, estimate
 from pricebook.foundation.rng import UniformSource
 from pricebook.foundation.variates import standard_normals

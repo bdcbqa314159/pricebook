@@ -206,9 +206,15 @@ def test_no_quotes_is_refused():
 
 
 def test_quotes_out_of_MATURITY_ORDER_are_refused():
-    quotes = _quotes_from(SLOPED)[:3]
+    """The set steps forward then **back**, rather than simply being shuffled.
+
+    OI-6's one-equation-one-unknown guard made the old fixture (`[3y, 1y, 2y]`) refuse for the
+    *other* reason first — a 3y quote in first position introduces three unknown pillars at once,
+    which the new guard now catches and the old `_validate` did not. A set that walks 1y → 2y → 1y
+    still isolates the ascending-maturity rule, with every quote legal under the pillar guard."""
+    quotes = _quotes_from(SLOPED)[:2]
     with pytest.raises(ValueError, match="ascending maturity"):
-        nominal_curve_from_par_swaps(MEASURE, [quotes[2], quotes[0], quotes[1]])
+        nominal_curve_from_par_swaps(MEASURE, [quotes[0], quotes[1], quotes[0]])
 
 
 def test_DUPLICATE_maturities_are_refused():
@@ -227,6 +233,42 @@ def test_a_quote_whose_schedule_does_not_EXTEND_the_previous_one_is_refused():
     quotes = [_quotes_from(SLOPED)[0], ParSwapQuote(offset, 0.03)]
     with pytest.raises(ValueError, match="extend"):
         nominal_curve_from_par_swaps(MEASURE, quotes)
+
+
+def test_a_quote_set_that_SKIPS_a_pillar_is_REFUSED_rather_than_crashing():
+    """**OI-6.** The prefix check above admits a set that *skips* a pillar — a 3y schedule does
+    extend a 1y one — which leaves **two** unknown discount factors in one par condition. The
+    bootstrap then reached for a pillar it never solved and died with a bare
+    `KeyError: datetime.date(...)`: a precondition surfacing as a crash instead of a refusal, which
+    §3.4 is explicit about.
+
+    The condition is the one T54's projection bootstrap already carries and named as this module's:
+    **one equation, one unknown** — a par quote determines exactly one new pillar, so a set must
+    step one at a time. A `ValueError` in domain vocabulary, beside the prefix check whose intent it
+    completes, and matching every other guard in `_validate` and T54's identical refusal.
+    """
+    skipping = [ParSwapQuote(_schedule(1), 0.03), ParSwapQuote(_schedule(3), 0.03)]
+    with pytest.raises(ValueError, match="unknown pillar"):
+        nominal_curve_from_par_swaps(MEASURE, skipping)
+
+
+def test_the_SKIPPED_PILLAR_refusal_NAMES_the_pillars_it_could_not_solve():
+    """The companion that keeps the refusal from degenerating into a bare raise: dropping the guard
+    still raises (a `KeyError`), so only a test asserting the message is **ours** and names the
+    unsolved dates discriminates. The T44b reachability shape — 1 killer → 2."""
+    skipping = [ParSwapQuote(_schedule(1), 0.03), ParSwapQuote(_schedule(3), 0.03)]
+    with pytest.raises(ValueError) as caught:
+        nominal_curve_from_par_swaps(MEASURE, skipping)
+    message = str(caught.value)
+    assert "2 unknown pillars" in message, message
+    assert str(DATES[2]) in message and str(DATES[3]) in message, message
+
+
+def test_a_pillar_by_pillar_quote_set_is_ACCEPTED_so_the_guard_is_not_vacuous():
+    """The non-degeneracy premise for the two above: every quote set the library actually uses steps
+    one pillar at a time, and must keep bootstrapping. A guard that refused everything would pass
+    both refusal tests."""
+    assert nominal_curve_from_par_swaps(MEASURE, _quotes_from(SLOPED)) is not None
 
 
 def test_a_schedule_not_anchored_at_the_curve_anchor_is_refused():

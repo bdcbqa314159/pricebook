@@ -317,3 +317,165 @@ def test_the_swap_round_trips_and_refuses_an_unknown_version() -> None:
     bad["schema_version"] = 99
     with pytest.raises(ValueError, match="reads up to"):
         YearOnYearInflationSwap.from_dict(bad)
+
+
+# ============================================================================================
+# RE-AUDIT #6, F-6.2 -- the `tau=1` degeneracy, in the oldest corner of the tree.
+#
+# Every fixture above is `VAL + 365*k` on ACT/365F, so **every psi is exactly 1.0**. The
+# transcription at the top of this file *does* write `psi1` and the loop `psi` -- and multiplies
+# by 1.0 on both sides, so it cannot see either. Measured by the re-audit:
+#
+#   | mutation                                      | killers |
+#   | `yoy_inflation_leg_value`, the first `psi`    | 1, and in ANOTHER PRODUCT'S file |
+#   | `yoy_inflation_leg_value`, the loop `psi`     | 1, the same test                 |
+#   | `yoy_fixed_leg_value`, `psi`                  | **0 -- a surviving mutant**      |
+#
+# The single killer of the two inflation-leg sites is T13's cross-product oracle in
+# `tests/L3/test_market_model_ii.py` -- exactly what CLAUDE.md §4 credits a cross-product oracle
+# with, doing all the work here. The fixed leg had no cover at all; dropping its `psi` overstates
+# the leg by +100.5% semi-annual, +301% quarterly, +1117% monthly.
+#
+# ONE non-unit-psi fixture closes all three sites. That is the premise §4 already demands: the
+# fixture must make the dropped-`psi` branch produce a different number.
+# ============================================================================================
+
+#: Semi-annual, so `psi ~ 0.4986` -- and deliberately NOT uniform: 182/183-day periods alternate,
+#: so a mutation reading the wrong period's accrual is caught too (§4's "a varying fixture can
+#: still be degenerate if it is invariant under the transformation the code performs").
+SEMI_DATES = (
+    VAL,
+    VAL + timedelta(days=182),
+    VAL + timedelta(days=365),
+    VAL + timedelta(days=547),
+    VAL + timedelta(days=730),
+    VAL + timedelta(days=913),
+)
+SEMI_SCHEDULE = CouponSchedule(SEMI_DATES, DC)
+
+
+def _semi_swap(fixed: float = FIXED) -> YearOnYearInflationSwap:
+    return YearOnYearInflationSwap(HICP, YoYLeg(SEMI_SCHEDULE, fixed), Money(N, EUR))
+
+
+def test_the_SEMI_ANNUAL_fixtures_accruals_are_NON_DEGENERATE() -> None:
+    """The premise, asserted rather than believed -- which is the whole lesson of F-6.2 and of the
+    third bite of the tenth shape: a premise that is only *believed* written is not written.
+
+    Two things must hold. The accruals must differ from `1.0` (or a dropped `psi` is invisible),
+    and they must differ from **each other** (or a mutation reading a neighbouring period's accrual
+    survives)."""
+    accruals = [psi for _, _, psi in SEMI_SCHEDULE.periods()]
+    assert all(abs(psi - 1.0) > 0.4 for psi in accruals), accruals
+    assert len(set(accruals)) > 1, f"the accruals must not be uniform either: {accruals}"
+
+
+def test_the_FIXED_leg_is_ACCRUAL_WEIGHTED_on_a_NON_UNIT_schedule() -> None:
+    """**The site that had ZERO killers.** `N * sum(psi_i * C_fix * Pn(0,T_i))` -- eq 1.2.18
+    discounted, transcribed here from the formula against curves this test owns."""
+    from pricebook.engine.yoy import yoy_fixed_leg_value
+
+    nominal_rate = 0.03
+    model = _model(nominal_rate)
+    expected = N * sum(
+        FIXED * psi * math.exp(-nominal_rate * (pay - VAL).days / 365.0)
+        for _, pay, psi in SEMI_SCHEDULE.periods()
+    )
+    assert yoy_fixed_leg_value(_semi_swap(), model) == pytest.approx(expected, rel=1e-12)
+
+
+def test_the_FIXED_leg_WITHOUT_its_accrual_would_differ_MEASURABLY() -> None:
+    """The companion that gives the test above its teeth, and the measurement that makes F-6.2 a
+    hole rather than a tidiness note: on this schedule the un-weighted form is **~100% high**."""
+    from pricebook.engine.yoy import yoy_fixed_leg_value
+
+    nominal_rate = 0.03
+    df = [math.exp(-nominal_rate * (pay - VAL).days / 365.0) for _, pay, _ in SEMI_SCHEDULE.periods()]
+    weighted = N * sum(FIXED * psi * d for (_, _, psi), d in zip(SEMI_SCHEDULE.periods(), df))
+    unweighted = N * sum(FIXED * d for d in df)
+    assert unweighted / weighted - 1.0 > 0.9, (weighted, unweighted)
+    assert yoy_fixed_leg_value(_semi_swap(), _model(nominal_rate)) != pytest.approx(
+        unweighted, rel=1e-6
+    )
+
+
+def test_the_INFLATION_leg_is_ACCRUAL_WEIGHTED_at_BOTH_psi_sites() -> None:
+    """The two sites whose only killer lived in another product's test file: the first period's
+    `psi_1 * [Pr(0,T1) - Pn(0,T1)]` and the loop's `psi_i * Pn(0,T_i) * (m_i - 1)`.
+
+    Transcribed here from eq 2.5.13 against this test's own curves, on the non-unit schedule, so
+    each `psi` multiplies something that is no longer `1.0`."""
+    from pricebook.engine.yoy import yoy_inflation_leg_value
+
+    nominal_rate, real_rate, real_vol = 0.03, 0.01, 0.008
+    model = _model(nominal_rate, real_rate, real_vol)
+
+    def pn(d: date) -> float:
+        return math.exp(-nominal_rate * (d - VAL).days / 365.0)
+
+    def pr(d: date) -> float:
+        return math.exp(-real_rate * (d - VAL).days / 365.0)
+
+    periods = SEMI_SCHEDULE.periods()
+    _, first_pay, psi1 = periods[0]
+    expected = psi1 * (pr(first_pay) - pn(first_pay))
+    for start, pay, psi in periods[1:]:
+        c = yoy_convexity(
+            0.0,
+            (start - VAL).days / 365.0,
+            (pay - VAL).days / 365.0,
+            JYParams(NOM_P, HullWhiteParams(REAL_P.kappa, real_vol), SI, CORR),
+        )
+        expected += psi * (pn(start) * pr(pay) / pr(start) * math.exp(c) - pn(pay))
+    assert yoy_inflation_leg_value(_semi_swap(), model) == pytest.approx(N * expected, rel=1e-12)
+
+
+def test_EACH_inflation_leg_psi_site_is_SEPARATELY_pinned() -> None:
+    """Per-site, for the reason MM-I taught this re-audit: a companion that drops **both** `psi`
+    sites at once leaves a one-site drop landing on a third value, which slips through. So each is
+    asserted against the leg with only *that* site un-weighted."""
+    from pricebook.engine.yoy import yoy_inflation_leg_value
+
+    nominal_rate, real_rate, real_vol = 0.03, 0.01, 0.008
+    model = _model(nominal_rate, real_rate, real_vol)
+    actual = yoy_inflation_leg_value(_semi_swap(), model)
+
+    def pn(d: date) -> float:
+        return math.exp(-nominal_rate * (d - VAL).days / 365.0)
+
+    def pr(d: date) -> float:
+        return math.exp(-real_rate * (d - VAL).days / 365.0)
+
+    periods = SEMI_SCHEDULE.periods()
+    _, first_pay, psi1 = periods[0]
+    first_term = psi1 * (pr(first_pay) - pn(first_pay))
+    later = 0.0
+    for start, pay, psi in periods[1:]:
+        c = yoy_convexity(
+            0.0,
+            (start - VAL).days / 365.0,
+            (pay - VAL).days / 365.0,
+            JYParams(NOM_P, HullWhiteParams(REAL_P.kappa, real_vol), SI, CORR),
+        )
+        later += psi * (pn(start) * pr(pay) / pr(start) * math.exp(c) - pn(pay))
+
+    # `psi_1` dropped alone, and the loop's `psi` dropped alone — each a DIFFERENT number from
+    # both the correct leg and from each other, which is what per-site pinning means.
+    no_first = N * (first_term / psi1 + later)
+    no_later = N * (
+        first_term
+        + sum(
+            (pn(start) * pr(pay) / pr(start) * math.exp(
+                yoy_convexity(
+                    0.0,
+                    (start - VAL).days / 365.0,
+                    (pay - VAL).days / 365.0,
+                    JYParams(NOM_P, HullWhiteParams(REAL_P.kappa, real_vol), SI, CORR),
+                )
+            ) - pn(pay))
+            for start, pay, _ in periods[1:]
+        )
+    )
+    assert actual != pytest.approx(no_first, rel=1e-6), "psi_1 alone must be visible"
+    assert actual != pytest.approx(no_later, rel=1e-6), "the loop psi alone must be visible"
+    assert no_first != pytest.approx(no_later, rel=1e-6), "and the two sites must differ"

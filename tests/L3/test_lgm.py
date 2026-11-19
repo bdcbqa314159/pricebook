@@ -165,10 +165,18 @@ class TestTheNumeraireMartingale:
             f"({abs(mean - target) / se:.1f} SE)"
         )
 
-    def test_THE_RESOLUTION_this_band_sees_the_convexity_term(self) -> None:
-        """What a green rules out, stated: the band is ~4·SE, and dropping the `−½(H_T²−H_t²)ζ`
-        convexity moves the mean far outside it. Measured against the spec's own (wrong) variant,
-        which differs only in that term: **7.5 SE**."""
+    def test_THE_RESOLUTION_this_band_sees_the_EQ_11_4_convexity_defect(self) -> None:
+        """What a green rules out — and **which defect**, because that is the whole content of a
+        resolution statement (§4, F-5.3's per-defect rule).
+
+        The band is ~4·SE, and dropping the eq-(11.4) `−½(H_T²−H_t²)ζ` convexity moves the mean far
+        outside it: **7.5 SE**, measured against the spec's own (wrong) variant, which differs only
+        in that term.
+
+        **It does NOT follow that the band sees every defect in this formula family** — see
+        `test_THIS_BAND_CANNOT_see_the_eq_11_1_half` below. Re-audit #6 found exactly that: a
+        correct, §4-compliant resolution test for one defect reading as "resolution asserted" while
+        a sibling sat inside the band."""
         t, maturity = 3.0, 10.0
         states = simulate_lgm_states(PARAMS, t, MonteCarloConfig(paths=self.PATHS, seed=20_571))
         target = CURVE.df_at(maturity)
@@ -193,6 +201,89 @@ class TestTheNumeraireMartingale:
         assert abs(mean - target) > 4.0 * se, (
             "the spec's convexity term must fail this band, or the oracle cannot see the term"
         )
+
+    def test_THIS_BAND_CANNOT_see_the_eq_11_1_half(self) -> None:
+        """**Re-audit #6, F-6.1 — the band's limit, stated rather than left to look covered.**
+
+        Dropping the `½` in eq (11.1)'s own exponent shifts this mean by only
+        `exp(−½H_t²ζ_t) − 1` — **0.197%** at `t = 3` — which is **1.60 SE** here, comfortably
+        inside the 4·SE band. The defect is *weakly* observable (T17's shape, not T34's: the
+        sensitivity is nonzero, just small), so no realistic path count rescues this oracle —
+        reaching 4 SE needs ~6.25× the paths, and §4's T51 clause says the first question is
+        whether a **closed-form** quantity needs a band at all. It does not:
+        `test_the_numeraire_matches_eq_11_1_POINTWISE` pins it exactly, at ~1e-15 and no paths.
+
+        This test asserts the gap is real — it is the proof that the pointwise oracle is
+        *necessary*, in the same shape §4 demands for a Box-Muller angle: assert that the wrong
+        variant **does** satisfy the weaker check."""
+        t, maturity = 3.0, 10.0
+        states = simulate_lgm_states(PARAMS, t, MonteCarloConfig(paths=self.PATHS, seed=20_571))
+        target = CURVE.df_at(maturity)
+        ratios = np.array(
+            [
+                lgm_zero_bond(PARAMS, t, maturity, z, CURVE) / lgm_numeraire(PARAMS, t, z, CURVE)
+                for z in states
+            ]
+        )
+        se = float(ratios.std(ddof=1) / math.sqrt(self.PATHS))
+
+        # Dropping the `½` multiplies N by exp(+½H²ζ), so the ratio falls by exp(−½H²ζ).
+        shortfall = math.exp(-0.5 * lgm_H(PARAMS, t) ** 2 * lgm_zeta(PARAMS, t))
+        halved = float((ratios * shortfall).mean())
+        assert abs(halved - target) < 4.0 * se, (
+            f"the eq-(11.1) half-defect must sit INSIDE this band, or the claim that the band "
+            f"cannot see it is false: {abs(halved - target) / se:.2f} SE"
+        )
+        assert 1.0 - shortfall < 0.01, (
+            f"and it is inside because the defect is small, not because the band is wide: "
+            f"{1.0 - shortfall:.4%}"
+        )
+
+
+class TestEq111Pointwise:
+    """**The §4 obligation eq (11.1) did not carry until re-audit #6 (F-6.1).**
+
+    `lgm_numeraire` appeared in this file only ever as a **divisor** inside the martingale ratio —
+    never on its own against an independently computed value — so the numéraire had its requirement
+    oracle and no pointwise transcription. §4 is explicit that the two catch different failures and
+    neither substitutes for the other, and the `½` surviving the whole suite is what that costs.
+
+    Transcribed from `LICHTERS-2015` eq (11.1) in **both** renderings and reconciled:
+
+        -layout:  N(t) = (1/P(0,t)) · exp{ H_t z_t + ½ H_t² ζ_t }
+        -raw:     N(t) = 1/P(0,t) exp[ H_t z_t + 1/2 H²_t ζ_t ]
+
+    (The `-raw` pass splits `H²_t` across lines and renders the braces as `%`/`+`; the two agree on
+    the content, which is what reconciliation means.) The reference below is built from the printed
+    closed forms — `H(t) = (1−e^{−κt})/κ` and `ζ(t) = σ²(e^{2κt}−1)/(2κ)` — not from `lgm_H` and
+    `lgm_zeta`, so it shares no code path with the implementation."""
+
+    @pytest.mark.parametrize("years", [0.5, 1.0, 3.0, 7.0])
+    @pytest.mark.parametrize("state", [-1.4, -0.3, 0.0, 0.6, 2.1])
+    def test_the_numeraire_matches_eq_11_1_POINTWISE(self, years: float, state: float) -> None:
+        kappa, sigma = PARAMS.kappa, PARAMS.sigma
+        h = (1.0 - math.exp(-kappa * years)) / kappa
+        zeta = sigma * sigma * (math.exp(2.0 * kappa * years) - 1.0) / (2.0 * kappa)
+        expected = math.exp(h * state + 0.5 * h * h * zeta) / CURVE.df_at(years)
+        assert lgm_numeraire(PARAMS, years, state, CURVE) == pytest.approx(expected, rel=1e-14)
+
+    def test_the_POINTWISE_fixture_is_NON_DEGENERATE_in_the_half_term(self) -> None:
+        """The premise §4 demands: the fixture must make the two branches produce **different**
+        numbers. At `z = 0` and small `t` the `½H²ζ` term is tiny, so a parametrisation that only
+        sampled there would let the `½` hide — the same `τ=1` shape one guard over. Measured at the
+        widest point of the grid above."""
+        kappa, sigma = PARAMS.kappa, PARAMS.sigma
+        h = (1.0 - math.exp(-kappa * 7.0)) / kappa
+        zeta = sigma * sigma * (math.exp(2.0 * kappa * 7.0) - 1.0) / (2.0 * kappa)
+        correct, doubled = 0.5 * h * h * zeta, h * h * zeta
+        assert abs(math.exp(correct) / math.exp(doubled) - 1.0) > 1e-3, (
+            f"the half must be worth something at t=7: {correct} vs {doubled}"
+        )
+
+    def test_the_numeraire_STARTS_AT_ONE(self) -> None:
+        """`H(0) = 0` and `ζ(0) = 0`, so `N(0) = 1/P(0,0) = 1` — a requirement the finance forces,
+        and the reduction companion to the transcription above."""
+        assert lgm_numeraire(PARAMS, 0.0, 0.0, CURVE) == pytest.approx(1.0, rel=1e-15)
 
 
 class TestTheMonteCarloCompanion:

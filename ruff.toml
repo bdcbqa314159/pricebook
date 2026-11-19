@@ -10,7 +10,16 @@ extend-exclude = ["_stock"]
 #   built machinery out of a model's privates; the import edge is legal, so a dependency check
 #   cannot see it, and the privacy is the violation. A legitimate access takes a `# noqa` WITH a
 #   reason and a ledger entry — never silent.
-select = ["PLR0913", "SLF001"]
+# F841 — an unused local. Re-audit #6 found two: `yoy.py`'s `measure` (tranche 4) and, worse,
+#   `collateralised_capstone.py`'s `states = simulate_lgm_states(...)`, which made tranche 58
+#   simulate a whole path set per call and discard it. Gated rather than merely cleaned because
+#   §9's test is met exactly: the violation is **statically decidable** and has no legitimate
+#   exception, so the gate cannot false-flag and cannot need an exemption list.
+#   `F401` (unused import) is deliberately NOT selected — the engine registry's `@register`
+#   imports are unused *by design*, so a wholesale select would need per-file-ignores, which is
+#   the exemption-list shape §9 declines. Routed to `to_go_deeper`: gate it once those modules
+#   carry `__all__` and no exemption is needed.
+select = ["PLR0913", "SLF001", "F841"]
 
 [lint.pylint]
 max-args = 5

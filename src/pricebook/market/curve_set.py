@@ -8,9 +8,16 @@ Provenance:
   stock:  _stock/src/pricebook/market/curve_set.py (purified: the DISCOUNT role only; projection
           and survival roles arrive with the products that need them)
   source: CLAUDE.md-era doc 19 §3 (closed shapes × open keys)
-  oracle: a missing curve raises a KeyError the engine turns into a PricingFailure
+  oracle: a missing curve raises a KeyError the engine turns into a PricingFailure;
+          tests/L1/test_curves_for_era.py -- both eras of `curves_for_era` asserted (the
+          pre-crisis branch returns the SAME OBJECT twice, which is what makes the capstone's
+          `projection is discount` shortcut structural), keyed on currency AND tenor, with the
+          two eras measured to differ so neither branch is vacuous, and both consumers asserted
+          to share this one lookup (re-audit #6, F-6.6)
   crosscheck: none — a keyed container of curves, no numerics
-  slice:  tranche 1 — minimal spine
+  slice:  tranche 1 — minimal spine; `curves_for_era` added at tranche 59 (re-audit #6, F-6.6 —
+          §6's rule-of-two fired at its second consumer; the single-curve design invariant is
+          realised through this lookup, so it gets one structural home)
 """
 
 from __future__ import annotations
@@ -108,16 +115,44 @@ class CurveSet:
         precisely the pre-crisis pricing error, and it would price every collateralised trade as if
         there were no tenor basis — a wrong number wearing the right shape.
 
-        **Its absence is how the era is chosen, and that is the caller's business, not this
-        accessor's.** A snapshot with no projections is the single-curve era; a pricer asks
-        `projections` whether it holds one before reaching for it, so this method never has to
-        guess which world it is in."""
+        **Its absence is how the era is chosen — and that choice now lives in
+        `curves_for_era`, not in each caller.** This accessor still never guesses: it answers for a
+        projection curve that must exist, and raises when it does not. A caller that wants the era
+        decided asks `curves_for_era`. *(Through tranche 58 the era test was written out at each
+        consumer, and the comment here said the choice was "the caller's business"; re-audit #6's
+        F-6.6 found two copies and §6's rule-of-two fired.)*"""
         try:
             return self.projections[ProjectionKey(currency, tenor)]
         except KeyError:
             raise KeyError(
                 f"no projection curve for {currency} {tenor.label} in the curve set"
             ) from None
+
+    def curves_for_era(
+        self, currency: Currency, tenor: Tenor
+    ) -> tuple[CurveHandle, CurveHandle]:
+        """`(projection, discount)` for the era this curve set describes — **the one place the
+        mode is selected.**
+
+        A projection curve for `(currency, tenor)` means the post-crisis era, and its absence means
+        the pre-crisis one, where the discount curve projects its own forwards. The era is read off
+        the **market**, never a flag, so there is no second code path to atrophy — and because both
+        branches return the same pair shape, every consumer is written once.
+
+        **Why this lives at L1, and why it is one method rather than two call sites.** Through
+        tranche 58 the lookup was written out twice — in the swap pricer (L4) and in the
+        collateralised capstone (L5) — and the swap's helper docstring claimed to be "the one place
+        the mode is selected" while that was false. Re-audit #6 (F-6.6) found the pair: a shared
+        **shape**, not a shared word, so §6's rule-of-two fires. It belongs here because
+        `projections` is here, below both consumers, so dependencies still point down. The real
+        argument is not tidiness: **the single-curve design invariant is realised through exactly
+        this lookup**, so single-sourcing it gives the invariant one structural home instead of a
+        per-consumer re-derivation.
+        """
+        discount = self.discount(currency)
+        if ProjectionKey(currency, tenor) in self.projections:
+            return self.projection(currency, tenor), discount
+        return discount, discount
 
     def survival(self, entity: ReferenceEntity) -> SurvivalCurve:
         """The survival curve for `entity`. Raises on an unknown key rather than defaulting to a

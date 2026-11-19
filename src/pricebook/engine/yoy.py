@@ -31,13 +31,16 @@ Provenance:
   oracle: eq 2.5.13 against an independent transcription; sigma_r -> 0 gives the deterministic
           limit exactly (the anchor), with a companion test that the convexity MOVES the leg so
           the anchor is not vacuous; the first period equals tranche 2's ZCIIS leg; par-rate
-          reprice; matured -> PV 0; prices with no index fixing
+          reprice; matured -> PV 0; prices with no index fixing; and a NON-UNIT-psi (semi-annual,
+          non-uniform) schedule pinning all three accrual sites -- the fixed leg's, which had zero
+          killers, and the inflation leg's two, whose only killer was another product's
+          cross-check (re-audit #6, F-6.2: every original fixture was 365-day on ACT/365F, so
+          every psi was exactly 1.0 -- the tau=1 degeneracy in the oldest corner of the tree)
   slice:  tranche 4 -- the year-on-year swap and Jarrow-Yildirim
 """
 
 from __future__ import annotations
 
-import math
 from datetime import date
 
 from pricebook.engine.registry import register
@@ -96,7 +99,6 @@ def yoy_inflation_leg_value(swap: YearOnYearInflationSwap, model: IndexRatioMode
     currency = swap.notional.currency
     nominal = market.curves.discount(currency)
     real = market.curves.real(currency)
-    measure = nominal.time_measure
     schedule = list(swap.leg.schedule.periods())
     periods = [p for p in schedule if not is_historical(p[1], market.valuation_date)]
     if not periods:

@@ -6,6 +6,79 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.61.0] - 2026-11-19
+
+### Fixed — tranche 59, the re-audit #6 remediation
+
+Re-audit #6 swept **76 applied / 74 killed / 2 survived** and ruled six findings. This tranche
+closes all of them plus `OPEN.md`'s last item, under one stamp (the reaudit/05 precedent).
+
+**Two blind oracles closed — the code was right, the tests could not see a mutation.**
+
+**F-6.1 — the LGM numéraire's `½` (eq 11.1) died to nothing.** `lgm_numeraire` appeared in its test
+file only ever as a **divisor** inside the martingale ratio, so §4's "every load-bearing formula is
+transcribed pointwise at least once" was simply unmet. The file's resolution test is a *correct*
+measurement — the `4·SE` band does resolve the eq-(11.4) convexity defect at 7.5 SE — and is silent
+about a different defect in the same family: the `½` shifts the mean 0.197%, **1.60 SE**, inside the
+band. F-5.3's per-defect rule one arc on, in its sharper form where the satisfied clause is what
+hides the sibling. Fixed by transcribing eq (11.1) pointwise from both renderings (0 → **21**
+killers), and by stating the band's limit as its own test rather than letting it look covered.
+Per §4's T51 clause the answer is not more paths: `lgm_numeraire` is closed form, so it is pinned
+exactly, for free.
+
+**F-6.2 — T4's YoY module was `ψ`-blind, and the fixed leg's `ψ` survived the whole suite.** Every
+fixture was `VAL + 365·k` on ACT/365F, so **every `ψ` was exactly `1.0`** — the `τ=1` degeneracy, in
+the oldest corner of the tree (§9's "full-tree means the oldest tranches", earning itself again).
+`yoy_fixed_leg_value`'s `ψ` had **zero** killers: dropping it overstates the leg +100.5% semi-annual,
++301% quarterly, +1117% monthly. Both inflation-leg sites had exactly one, and it lived in *another
+product's* file (T13's cross-product oracle, doing precisely what §4 credits it with). One non-unit,
+non-uniform semi-annual fixture closes all three: 0 → 2, 1 → 3, 1 → 3.
+
+### Changed
+
+- **MM-I's owed second killer, since re-audit #5** (`market_model_i.py:154/:155`). The existing
+  companion compares against the form with **both** denominators dropped, so a **single-leg** drop
+  landed on a third value and slipped through — which is why two load-bearing holes sat behind one
+  test. The new killer is a *requirement*, not a second transcription: `τF/(1+τF)` is a weight, so it
+  must **saturate at 1**, asserted per leg. Each denominator now dies to two tests.
+- **F-6.6 — the era selection consolidated into `CurveSet.curves_for_era` (L1).** It was written out
+  twice (the swap pricer at L4, the capstone at L5), and the swap helper's "the one place the mode is
+  selected" docstring was false. §6's rule-of-two fired on a shared **shape**. The argument is not
+  tidiness: the arc's single-curve design invariant *is realised through this lookup*, so one home
+  gives the invariant one structural place to be guarded instead of a per-consumer re-derivation.
+  Pure refactor, no floating-point work reordered — proved **bit-identical in-process** across 18
+  swap PVs in both eras and 6 capstone exposure grids with their CVAs; committed at tolerance, never
+  as bit patterns (§9/T49).
+- **F-6.5 — the T29 narrowing finished.** The T58 ruling narrowed `collateral.py`'s `oracle:` line
+  from "collateral never increases the adjustment" to a plausibility check, but left
+  `test_collateral_can_never_INCREASE_the_adjustment` inside
+  `class TestTheRequirementOraclesTheFinanceForces` — name and class both still asserting the
+  retracted theorem. The check is right and stays; it is now `TestThePlausibilityChecks`.
+- **F-6.4 — the single-killer re-run table brought current**, and its conflation corrected: the
+  "second killer at T37" credit belongs to T3's **linker** (re-measured at 2), not to the YoY module.
+  The T45–T58 rows, owed for two re-audits, are added.
+
+### Removed — F-6.3
+
+Pyflakes had never been selected (`ruff.toml` carried only `PLR0913` and `SLF001`). Removed the two
+dead locals it finds — including `collateralised_capstone.py`'s `states = simulate_lgm_states(...)`,
+assigned and never read, so **T58 simulated a whole path set on every call and discarded it** — and
+ten genuinely unused imports. **`F841` is now gated**: statically decidable with no legitimate
+exception, which is exactly §9's test. **`F401` is not** — the registry's `@register` imports are
+unused by design, so a wholesale select needs the exemption list §9 declines; routed to
+`to_go_deeper` behind an `__all__` prerequisite.
+
+### Fixed — OI-6 closed, the ledger empty again
+
+`nominal_bootstrap._validate` admitted a quote set that **skips** a pillar (a 3y schedule does extend
+a 1y one), leaving two unknowns in one par condition, and died with a bare `KeyError` — a
+precondition surfacing as a crash rather than a refusal (§3.4). It now counts the pillars a quote
+introduces and refuses unless it is exactly one, naming the unsolved dates. Two killers: dropping the
+guard still *raises*, so only a test asserting the message is ours discriminates (the T44b shape).
+A `ValueError` beside the prefix check — matching every other guard in `_validate` and T54's identical
+refusal — not the spec's shorthand `PricingFailure`, which is §3's *engine* return and would change an
+L1 curve constructor's type for every caller; raised to Cowork rather than settled.
+
 ## [0.60.0] - 2026-11-18
 
 ### Added — tranche 58, the collateralised-discounting arc's capstone
