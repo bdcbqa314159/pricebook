@@ -13,6 +13,49 @@ exists in `src/` or `tests/` (verified at v0.6.0).
 
 ## Other open items
 
+### OI-7 · `MarketSnapshot` carries a `# fields-exempt` marker — OPEN (taken at tranche 60, 2026-11-19)
+
+**The exemption.** `market/snapshot.py`'s `MarketSnapshot` declares `# fields-exempt:` with its
+reason in place. Tranche 60 added a `commodities` store — the commodity quote side, keyed by
+`CommodityAsset` — which took the class from five fields to six.
+
+**Why the marker rather than a bundle.** `verify.py fields`'s own docstring names the category: *"a
+legitimately-wide aggregate / output-record / config type is allowed with an explicit
+`# fields-exempt: <reason>` marker."* `MarketSnapshot` is the tree's one aggregate — a clock, the
+term structures, and **one quote store per keying dimension** (inflation prints by index, equity
+quotes and skews by ticker, commodity quotes by symbol). Nothing in it is a loose primitive wanting
+grouping, which is the smell §7's limit exists to catch; and the §6 precedent set by `survivals` and
+`projections` is that a different keying dimension gets its own store rather than a `None` hung on an
+existing one. So this is not §7's "un-bundled vocabulary" case, and raising the limit was never on
+the table.
+
+**What the alternative would cost, measured rather than asserted.** Bundling the four quote stores
+(`fixings`, `equities`, `equity_skews`, `commodities`) behind one `quotes` value object takes the
+class to three fields with room for the whole arc. It would read `market.quotes.equities` at **11
+sites in `src/`** and change **26 construction sites across 12 test files**. That is affordable — but
+it changes the **durable public contract** §0 names as in scope for this library, which is a design
+ruling, and tranche 60 was specced as the arc's lightest tranche.
+
+**Severity: none numerically.** No number moves either way; this is about where a boundary is drawn.
+The risk the marker carries is that a seventh and eighth store accrete behind it unexamined, which is
+exactly why it is ledgered rather than left silent.
+
+**Ruled by Cowork, 2026-11-19 (the T60 review): the exemption STANDS, and the bundle is DEFERRED
+rather than declined.** `MarketSnapshot` is the tree's one true aggregate and every field is already
+a value object, so this is the gate's sanctioned category and not the loose-primitive smell §7's
+limit exists to catch. The deciding argument against bundling *now* is that reshaping the **durable
+public contract** (§0, explicitly in scope for this library) under field-count pressure from a
+commodity-forward tranche is backwards: the bundle should be a deliberate contract decision, not a
+side effect of a gate firing in an unrelated arc.
+
+**Re-open trigger:** **the next market-data arc that adds a keying dimension to `MarketSnapshot`.**
+FX is the likely one. The bundle becomes the right shape when the aggregate grows again, and the
+field pressure is then its forcing function rather than its cause — §6's decide-at-the-next-consumer
+discipline, applied to the aggregate: three keyed stores today, one more and we bundle.
+
+The marker should stay **rare** — aggregate, output-record or config types only. It is the first in
+`src/`, and that is the bar it sets.
+
 ### OI-6 · `nominal_bootstrap._validate` admits a quote set that skips a pillar, then crashes — CLOSED (fixed at v0.61.0, tranche 59)
 
 **The defect.** `market/nominal_bootstrap.py`'s `_validate` checks that each par-swap quote's

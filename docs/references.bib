@@ -1,0 +1,250 @@
+% ============================================================================
+%  pricebook — bibliography
+% ----------------------------------------------------------------------------
+%  A BibTeX mirror of docs/references.md, for the Substack prose (FP-1) and any
+%  LaTeX write-up. The citation keys match references.md EXACTLY, so a \cite in
+%  a draft and a `source:` in a src/ header name the same thing.
+%
+%  references.md remains THE AUTHORITY: it carries each source's status
+%  (in-hand / worked-from / named-but-not-in-hand), its per-tranche oracle use,
+%  and — the material the series lives on — the source DEFECTS found. This file
+%  carries none of that; it is the formal citation only. When the two disagree,
+%  references.md wins and this file is regenerated.
+%
+%  The `keywords` field records our working status:
+%    held     — the PDF/scan is in hand (_stock/NewDocuments/, gitignored)
+%    worked-from — held AND built/oracled against (citable as `source:`, §7)
+%    in-hand  — held, read, not yet built against (flips to worked-from at build)
+%    not-in-hand — named by a held source only; NOT citable until obtained (§7)
+%  and `annote` ties the source to the arc/tranche it served.
+%
+%  Last synced to references.md: 2026-11-19 (v0.61.0, commodity arc opening).
+% ============================================================================
+
+% ---------------------------------------------------------------------------
+%  HELD SOURCES — worked-from / in-hand
+% ---------------------------------------------------------------------------
+
+@mastersthesis{BERHAN-2012,
+  author  = {Berhan, Damir Tewolde},
+  title   = {Pricing Inflation Derivatives: A Survey of Short-rate and Market Models},
+  school  = {KTH Royal Institute of Technology},
+  year    = {2012},
+  type    = {{MSc} thesis},
+  number  = {TRITA-MAT-E 2012:13},
+  keywords = {held, worked-from},
+  annote  = {Project one — the inflation vertical. JY (ch 2), market models (ch 3--4),
+             calibration (ch 5). Source defects logged: the §5.1 sign/annuity misprints.}
+}
+
+@book{JAECKEL-2002,
+  author    = {J{\"a}ckel, Peter},
+  title     = {Monte Carlo Methods in Finance},
+  publisher = {Wiley},
+  year      = {2002},
+  series    = {Wiley Finance},
+  keywords  = {held, worked-from},
+  annote    = {Project two — the Monte-Carlo spine (T15--T22). A methods source: the
+               method is transcribed, its output oracled against our own closed forms.
+               9 of 14 chapters built; the rest to_go_deeper.}
+}
+
+@book{MCINERNEY-ZASTAWNIAK,
+  author    = {McInerney, Daragh and Zastawniak, Tomasz},
+  title     = {Stochastic Interest Rates},
+  publisher = {Cambridge University Press},
+  series    = {Mastering Mathematical Finance},
+  keywords  = {held, worked-from},
+  annote    = {Acquired to unblock the Hull-White cap formula BERHAN declines to print
+               (§3.5 eq 3.21, the HW caplet). Cited by ten modules since T10.}
+}
+
+@misc{ACKLAM-2000,
+  author       = {Acklam, Peter J.},
+  title        = {An Algorithm for Computing the Inverse Normal Cumulative Distribution Function},
+  year         = {2000},
+  howpublished = {\url{home.online.no/~pjacklam/notes/invnorm/} (Wayback capture, 2015-08-11)},
+  keywords     = {held, worked-from},
+  annote       = {The inverse-normal-CDF rational approximation Jäckel §9.3 recommends but
+                  does not print. Its coefficients stay untrusted until they agree with our
+                  own root-find on norm_cdf (T20a).}
+}
+
+@book{CREPEY-2026,
+  author    = {Cr{\'e}pey, St{\'e}phane},
+  title     = {{XVA} Analysis: Probabilistic, Risk Measure, and Machine Learning Issues},
+  publisher = {CRC Press},
+  year      = {2026},
+  edition   = {First},
+  series    = {Chapman \& Hall/CRC Financial Mathematics Series},
+  isbn      = {978-1-041-01420-1},
+  keywords  = {held, worked-from},
+  annote    = {Project three — the XVA frame. Used for its balance-sheet IDENTITIES as
+               requirement oracles (CVA/FVA/KVA relations), not for prices: its numerics
+               are neural-net regression (out_of_method). Concrete numbers come from
+               CAPINSKI-ZASTAWNIAK.}
+}
+
+@book{CAPINSKI-ZASTAWNIAK,
+  author    = {Capi{\'n}ski, Marek and Zastawniak, Tomasz},
+  title     = {Credit Risk},
+  publisher = {Cambridge University Press},
+  series    = {Mastering Mathematical Finance},
+  keywords  = {held, worked-from},
+  annote    = {The closed-form credit authority the XVA spine pulls (survival curve ch 2,
+               defaultable bond ch 3, CDS par spread ch 4). Pointwise-transcription anchors.}
+}
+
+@book{BROCKHAUS-2016,
+  author    = {Brockhaus, Oliver},
+  title     = {Equity Derivatives and Hybrids: Markets, Models and Methods},
+  publisher = {Palgrave Macmillan},
+  year      = {2016},
+  series    = {Applied Quantitative Finance},
+  keywords  = {held, worked-from},
+  annote    = {Project four — the equity-hybrids vertical. Ch 18 ("Gauss") is a closed-form
+               appendix used as oracle anchors; much of the book maps onto the tree already held.}
+}
+
+@book{OKANE-2008,
+  author    = {O'Kane, Dominic},
+  title     = {Modelling Single-name and Multi-name Credit Derivatives},
+  publisher = {Wiley},
+  year      = {2008},
+  series    = {Wiley Finance},
+  keywords  = {held, worked-from},
+  annote    = {Project five — the credit-derivatives authority (T38--T44b). Credit triangle
+               (ch 3), CDS legs (ch 5--6), survival bootstrap (ch 7), Gaussian copula and the
+               LHP tranche / base correlation (ch 13--20). A second source for the survival
+               curve and CDS par spread.}
+}
+
+@book{GATHERAL-2006,
+  author    = {Gatheral, Jim},
+  title     = {The Volatility Surface: A Practitioner's Guide},
+  publisher = {Wiley},
+  year      = {2006},
+  series    = {Wiley Finance},
+  keywords  = {held, worked-from},
+  annote    = {Project six — the volatility-surface authority (T46--T53). SVI (ch 3), Lee's
+               asymptotics (ch 7), volatility derivatives (ch 11), SVJ/Bates (ch 5). The
+               rigorous SVI butterfly condition is Gatheral--Jacquier (2014), NOT held.}
+}
+
+@book{LICHTERS-2015,
+  author    = {Lichters, Roland and Stamm, Roland and Gallagher, Donal},
+  title     = {Modern Derivatives Pricing and Credit Exposure Analysis: Theory and Practice
+               of {CSA} and {XVA} Pricing, Exposure Simulation and Backtesting},
+  publisher = {Palgrave Macmillan},
+  year      = {2015},
+  keywords  = {held, worked-from},
+  annote    = {Project seven — the collateralised-discounting authority (T54--T59). OIS /
+               multi-curve bootstrap (ch 3), CSA discounting (ch 5), the LGM short rate
+               (ch 11). Cross-currency collateralisation (ch 4) deferred — needs an FX layer.}
+}
+
+@book{CLARK-2014,
+  author    = {Clark, Iain J.},
+  title     = {Commodity Option Pricing: A Practitioner's Guide},
+  publisher = {Wiley},
+  year      = {2014},
+  series    = {Wiley Finance},
+  isbn      = {978-1-119-94451-5},
+  keywords  = {held, in-hand},
+  annote    = {Project eight — the commodities authority (T60--). Ch 2 is the closed-form
+               spine: the convenience-yield forward, Black-76, Asian and spread options, the
+               Schwartz mean-reverting model. Chs 3--9 market-specific, largely
+               to_go_deeper/out_of_method. Flips to worked-from at T60.}
+}
+
+% ---------------------------------------------------------------------------
+%  NAMED-BUT-NOT-IN-HAND — transcribed from a held source's reference list,
+%  NOT citable as `source:` until obtained (§7). Listed for provenance only.
+% ---------------------------------------------------------------------------
+
+@article{JARROW-YILDIRIM-2003,
+  author  = {Jarrow, Robert and Yildirim, Yildiray},
+  title   = {Pricing Treasury Inflation Protected Securities and Related Derivatives using
+             an {HJM} Model},
+  journal = {Journal of Financial and Quantitative Analysis},
+  volume  = {38},
+  number  = {2},
+  pages   = {409--430},
+  year    = {2003},
+  keywords = {not-in-hand},
+  annote  = {referenced-by: BERHAN-2012 [1].}
+}
+
+@article{MERCURIO-2005,
+  author  = {Mercurio, Fabio},
+  title   = {Pricing Inflation-indexed Derivatives},
+  journal = {Quantitative Finance},
+  volume  = {5},
+  number  = {3},
+  pages   = {289--302},
+  year    = {2005},
+  keywords = {not-in-hand},
+  annote  = {referenced-by: BERHAN-2012 [2].}
+}
+
+@book{BRIGO-MERCURIO-2007,
+  author    = {Brigo, Damiano and Mercurio, Fabio},
+  title     = {Interest Rate Models --- Theory and Practice},
+  publisher = {Springer Finance},
+  year      = {2007},
+  keywords  = {not-in-hand},
+  annote    = {referenced-by: BERHAN-2012 [3]. Listed there as "Damiano M. and Mercurio F.";
+               the author is Damiano Brigo — a transcription inference, not silently corrected.}
+}
+
+@misc{BELGRADE-BENHAMOU-KOEHLER-2004,
+  author       = {Belgrade, Nabyl and Benhamou, Eric and Koehler, Etienne},
+  title        = {A Market Model for Inflation},
+  year         = {2004},
+  howpublished = {\url{ssrn.com/abstract=576081}},
+  keywords     = {not-in-hand},
+  annote       = {referenced-by: BERHAN-2012 [4].}
+}
+
+@article{HJM-1992,
+  author  = {Heath, David and Jarrow, Robert and Morton, Andrew},
+  title   = {Bond Pricing and the Term Structure of Interest Rates: A New Methodology for
+             Contingent Claims Valuation},
+  journal = {Econometrica},
+  volume  = {60},
+  number  = {1},
+  pages   = {77--105},
+  year    = {1992},
+  keywords = {not-in-hand},
+  annote  = {referenced-by: BERHAN-2012 [5].}
+}
+
+@article{BRIGO-MERCURIO-2005-SV,
+  author  = {Brigo, Damiano and Mercurio, Fabio},
+  title   = {Pricing Inflation-indexed Options with Stochastic Volatility},
+  year    = {2005},
+  keywords = {not-in-hand},
+  annote  = {referenced-by: BERHAN-2012 [6]. Author listed "Damiano M." — i.e. Damiano Brigo.}
+}
+
+@article{BRIGO-MERCURIO-2009-SABR,
+  author  = {Brigo, Damiano and Mercurio, Fabio},
+  title   = {Inflation Modelling with {SABR} Dynamics},
+  journal = {Risk},
+  month   = {June},
+  pages   = {106--111},
+  year    = {2009},
+  keywords = {not-in-hand},
+  annote  = {referenced-by: BERHAN-2012 [7]. Author listed "Damiano M." — i.e. Damiano Brigo.}
+}
+
+@article{KENYON-2008,
+  author  = {Kenyon, Chris},
+  title   = {Inflation is Normal},
+  journal = {Risk},
+  volume  = {21},
+  number  = {7},
+  year    = {2008},
+  keywords = {not-in-hand},
+  annote  = {referenced-by: BERHAN-2012 [8].}
+}

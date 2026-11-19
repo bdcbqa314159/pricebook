@@ -23,6 +23,7 @@ from datetime import date
 
 from pricebook.foundation.inflation import InflationIndex
 from pricebook.market.curve_set import CurveSet
+from pricebook.market.commodity import CommodityAsset, CommodityUnderlying
 from pricebook.market.equity import EquityAsset, EquityUnderlying
 from pricebook.market.equity_skew import ImpliedVolSkew
 from pricebook.market.fixing_series import FixingSeries
@@ -31,6 +32,19 @@ from pricebook.market.fixing_series import FixingSeries
 @dataclass(frozen=True)
 class MarketSnapshot:
     """Everything the market said at `valuation_date`. Frozen; a bump produces a new snapshot."""
+
+    # fields-exempt: the tree's one AGGREGATE — the gate's own named category ("a legitimately-wide
+    # aggregate / output-record / config type"). It is a clock, the term structures, and one quote
+    # store per KEYING DIMENSION: inflation prints by index, equity quotes and skews by ticker,
+    # commodity quotes by symbol. They are not un-bundled vocabulary — nothing here is a loose
+    # primitive that wants grouping — and the §6 precedent (`survivals`, `projections`) is that a
+    # different keying dimension gets its own store rather than a `None` hung on an existing one.
+    # Bundling them behind a `quotes` object is a real option (it would read `market.quotes.equities`
+    # at 11 sites and change 26 construction sites across 12 test files), but it changes the DURABLE
+    # PUBLIC CONTRACT §0 names — and reshaping that under field-count pressure from a commodity
+    # tranche is backwards. Ruled by Cowork at the T60 review: take the exemption, defer the bundle,
+    # and re-open at the next market-data arc that adds a keying dimension here (FX, likely), where
+    # the field pressure is the forcing function rather than the cause. Ledgered as OI-7.
 
     valuation_date: date
     curves: CurveSet
@@ -47,6 +61,12 @@ class MarketSnapshot:
     #: `fixings`: the snapshot is a mapping of what the market said, and an engine reaches it only
     #: through `model.market` (§3), so an equity option cannot be priced against another name's data.
     equities: Mapping[EquityAsset, EquityUnderlying] = field(default_factory=dict)
+    #: The commodity quote side per asset - spot and convenience yield (tranche 60). Keyed like
+    #: `equities`, and its own store rather than a widened one: a commodity underlying is a
+    #: different *kind* of quote, not another equity. The precedent is `survivals` and
+    #: `projections` - a different keying dimension gets its own store and its own accessor, never
+    #: a `None` hung on the existing one (§6's carried-but-unread rule).
+    commodities: Mapping[CommodityAsset, CommodityUnderlying] = field(default_factory=dict)
     #: The implied-volatility skew per asset (tranche 31) - the price source a model-free
     #: replication integrates across strikes. Market data, not a model: the variance swap's fair
     #: variance assumes no dynamics, only quoted prices.

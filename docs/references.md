@@ -390,6 +390,46 @@ Candidate map (ruled per-tranche at build; the arc plan is `docs/modern_discount
 
 ---
 
+### `CLARK-2014` — `worked-from`
+
+Clark, I. J., *Commodity Option Pricing: A Practitioner's Guide*, Wiley Finance, 2014. 343 pp.
+ISBN 978-1-119-94451-5. Held at `_stock/NewDocuments/Commodity Option Pricing A Practitioners Guide.pdf`
+(gitignored — copyrighted; only this record is tracked).
+
+**The commodities authority — project eight (Bernardo, 2026-11-19).** The practitioner text on
+**commodity option pricing**. Its quant spine is Ch 2 ("Commodity Mathematics and Products"), which is
+unusually closed-form-dense: the commodity forward (cost-of-carry + convenience yield), Black-76 on
+futures, Asian options (geometric exact + arithmetic moment-matched), spread options (Margrabe + Kirk),
+and mean-reverting (Schwartz) models. Chapters 3–9 are market-by-market (precious/base metals, energy,
+power, agriculturals, alternative) — conventions and structure, largely `to_go_deeper`/`out_of_method`.
+A **second source** for Black-76 (vs our `black.py`/`BERHAN-2012`) and the OU short rate (vs our
+Hull-White/LGM), so cross-source checks are available where they render the same object (§4's
+same-formula caveat applies — a different parameterisation is its own transcription target).
+
+Candidate map (ruled per-tranche at build; the arc plan is `docs/commodity_arc.md`):
+
+| ch | what | reuse / status |
+|---|---|---|
+| 2.1–2.2 | spot/forward/futures, cost-of-carry, **convenience yield**; **Black-76** | forward new (L1/L2); Black-76 **held** — `models/black.py` IS Black-76-on-a-forward (`black_price`), reused not rebuilt |
+| 2.5 | European options on spot/futures | the commodity option product + engine reusing `black_price` |
+| 2.7 | **Asian options** — geometric (exact closed form), arithmetic (Turnbull–Wakeman) | new; geometric exact, arithmetic a moment-match with an MC companion (reuses `mc_estimator`) |
+| 2.9 | **spread options** — Margrabe (exact), Kirk (approx) | new; both 1-D on a combined vol, so **reuse `black_price`** — no bivariate normal needed |
+| 2.10.1 | **mean-reverting (Schwartz one-factor)** | new; OU log-spot — **reduces to the LGM/OU simulator** (`simulate_lgm_states`), GBM limit at κ→0 |
+| 2.6 | American (Barone-Adesi-Whaley), lattice | `to_go_deeper` — its natural oracle is a binomial lattice the tree would build only for it |
+| 2.10.2–2.10.3 | multi-factor, stochastic convenience-yield models | `to_go_deeper` |
+| 3–9 | market-specific: vol surfaces, seasonality, electricity spikes, weather/freight | `to_go_deeper` / **`out_of_method`** (quotes-and-plots, structural/statistical, no closed-form oracle) |
+
+**Status `worked-from`** (held, full TOC read 2026-11-19; **built and oracled against at T60**).
+
+**Worked from at T60:** §2.1.2 (forwards; contango and backwardation), §2.2.3 (the convenience-yield
+Black–Scholes PDE 2.19, where `r^f` enters the convection term and not the forcing term — which is
+why a convenience yield moves the forward and not the discounting) and §2.2.6 (eqs 2.55/2.56, the
+cost-of-carry forward, transcribed in both renderings). The same page prints the **pre-substitution
+expectation** `F = S₀·E[exp(σW_T + (r−δ−½σ²)T)]`, an earlier derivation step used as an independent
+check on the final form (§4) — evaluated by Gauss-Hermite quadrature rather than transcribed twice.
+
+---
+
 ## Named-but-not-in-hand — NOT citable as `source:` until obtained
 
 Transcribed verbatim from `BERHAN-2012`'s reference list (p. 49), so they are grounded in a held
