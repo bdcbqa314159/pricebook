@@ -37,7 +37,6 @@ Provenance:
 
 from __future__ import annotations
 
-import math
 from datetime import date
 
 from pricebook.engine.registry import register
@@ -96,7 +95,6 @@ def yoy_inflation_leg_value(swap: YearOnYearInflationSwap, model: IndexRatioMode
     currency = swap.notional.currency
     nominal = market.curves.discount(currency)
     real = market.curves.real(currency)
-    measure = nominal.time_measure
     schedule = list(swap.leg.schedule.periods())
     periods = [p for p in schedule if not is_historical(p[1], market.valuation_date)]
     if not periods:

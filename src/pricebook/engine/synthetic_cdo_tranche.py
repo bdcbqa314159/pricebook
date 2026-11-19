@@ -42,7 +42,6 @@ from pricebook.foundation.time_measure import is_historical
 from pricebook.market.credit_legs import protection_leg_from_survival, risky_pv01
 from pricebook.models.lhp import LHPModel
 from pricebook.models.tranche_loss import (
-    TrancheSurvival,
     tranche_survival_curve,
 )
 from pricebook.products.synthetic_cdo_tranche import SyntheticCDOTranche
