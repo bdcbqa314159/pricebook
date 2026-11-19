@@ -6,6 +6,86 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.65.0] - 2026-11-19
+
+### Added — tranche 63, commodity spread options: Margrabe (exact) and Kirk (approximate)
+
+An option on `S⁽¹⁾ − S⁽²⁾ − K` — the crack, spark and calendar spreads a commodity desk trades.
+`products/commodity_spread.py` (L2), `models/commodity_spread.py` (L3),
+`engine/commodity_spread.py` (L4).
+
+**One function serves both methods, and the reduction is structural.** `S₀e^{−r^fT}` is `F·df(T)`
+under T60's carry, so Margrabe (2.138) is exactly `df(T)·black_price(F₁, F₂, σ_M²T, call)` —
+Black-76 with the *second forward as the strike* — and Kirk is the same with strike `F₂ + K` and the
+short-leg vol scaled by `w = F₂/(F₂+K)`. At `K = 0` the weight is exactly 1, so **the same code is
+exact at zero strike and an approximation away from it**, rather than two near-duplicate functions
+kept in step. No bivariate normal is needed.
+
+### The finding the measurement forced: ρ, not the strike, is where Kirk degrades
+
+Kirk's stated assumption is `K ≪ S⁽²⁾`, so the strike looks like the axis to sweep. On this fixture
+it is the **weaker axis by an order of magnitude**. Measured at `K = 40`:
+
+| `ρ` | Kirk error |
+|---|---|
+| −0.9 | +2.32% |
+| −0.45 | +1.50% |
+| 0.0 | +0.58% |
+| +0.45 | −0.19% |
+| +0.9 | **+8.37%** |
+
+against **under 1% across the entire strike range** `K = 4…90` at `ρ = 0.45`. The mechanism is in
+the combined vol: as `ρ → 1` it tends to `|σ₁ − wσ₂|`, which is small, so the spread approaches
+deterministic and a modest *absolute* vol error becomes a large *relative* price error. `|ρ| → 1` is
+therefore where Kirk should be distrusted — which matters precisely because a crack spread is a
+highly correlated pair. In the strike direction the error also **changes sign** (between `K = 60` and
+`K = 90`), the same shape T62 found along its own axis and for the same reason: an approximation
+pinned by matching something exactly cannot be one-signed everywhere. So monotonicity in the strike
+is *not* asserted — it is not true.
+
+**Measuring any of this needed the T16 one-seed differencing instrument.** The raw `Kirk − MC` gap is
+about `−0.047` at *every* strike — a shared sampling offset some twenty times the real effect at
+`K = 4`. Because `K = 0` is Margrabe and therefore **exact**, the gap there is pure noise, so
+subtracting it at the same seed cancels everything the two runs share and leaves Kirk's own error.
+A test asserts the instrument is necessary rather than decorative.
+
+### Oracles
+
+- **The combined variance transcribed pointwise BY VALUE** over a `(ρ, strike)` grid. `ρ` enters only
+  through the product `σ₁σ₂ρ`, so an oracle set establishing it is present and correctly signed would
+  be *complete about presence and sign and silent about magnitude* (T43) — the magnitude is the thing
+  pinned.
+- **The weight asserted to multiply BOTH the squared and the cross term** — the half-right mutation
+  this most attracts, and both halves are measured to differ.
+- **The `ρ = ±1` limits as requirement oracles**: `σ_M = |σ₁ − σ₂|` and `σ₁ + σ₂`, which pin the
+  cross term's **sign** (the two are a factor of twenty apart here), plus monotonicity in `ρ` and
+  non-negativity across the whole range.
+- **The correlation proved unbiased BEFORE the companion is credited** (T19), by the T17 pin: the
+  realised covariance of the simulated log-increments reproduces `σ₁σ₂ρ·t` — the quantity `ρ` *is*,
+  not a contraction of it — with the error halving as `√N` **over six seeds**, because a null needs
+  averaging as much as an effect does (T21).
+- **Margrabe exact against the simulation at `4·SE` with no approximation term**, which is what
+  "exact" means operationally and what separates it from every Kirk point.
+- **Zero short-leg vol reduces to T60's vanilla** — a cross-product check against a different engine.
+- Put–call parity (the vol cancels, so it survives a transcription error outright); invariant 6 with
+  an **in-the-money** expired fixture.
+
+**Eighteen mutations applied, eighteen killed** — the cross term dropped, sign-flipped, de-doubled,
+`ρ → ρ²`, each half of the weighting, the legs swapped in Black, and both engine guards.
+
+### Changed
+
+- The two legs are bundled into an **ordered** `SpreadLegs` pair — six loose fields is over the §7
+  ceiling, and the fix is to group, never to raise the limit. Ordered because `WTI − BRENT` is not
+  `BRENT − WTI`, and equality sees it.
+- **A spread option's strike may be zero or negative**, unlike every other option in the tree: zero
+  is Margrabe, and negative just means the holder is paid to enter. So there is no positive-strike
+  construction guard. The real constraint is `F₂ + K > 0` — which needs market data, and is therefore
+  a `PricingFailure` rather than a `ValueError` (§3.4).
+- `foundation/linalg.py`'s `pseudo_square_root` reused for the correlated simulation: at two factors
+  on a 2×2 correlation it is full rank, so nothing is truncated and the reuse inherits the L0
+  `A·Aᵀ = C` oracle rather than hand-rolling `ρZ₁ + √(1−ρ²)Z₂`.
+
 ## [0.64.0] - 2026-11-19
 
 ### Added — tranche 62, arithmetic Asian options (Turnbull–Wakeman)
