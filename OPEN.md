@@ -40,10 +40,21 @@ ruling, and tranche 60 was specced as the arc's lightest tranche.
 The risk the marker carries is that a seventh and eighth store accrete behind it unexamined, which is
 exactly why it is ledgered rather than left silent.
 
-**Re-open trigger:** Cowork's ruling on the `quotes` bundle (raised at the T60 handoff), **or** the
-next tranche that would add a *seventh* field — whichever comes first. If the ruling is to bundle,
-this entry closes with that refactor; if it is to keep the aggregate, this entry closes by recording
-the ruling and the marker stands on it.
+**Ruled by Cowork, 2026-11-19 (the T60 review): the exemption STANDS, and the bundle is DEFERRED
+rather than declined.** `MarketSnapshot` is the tree's one true aggregate and every field is already
+a value object, so this is the gate's sanctioned category and not the loose-primitive smell §7's
+limit exists to catch. The deciding argument against bundling *now* is that reshaping the **durable
+public contract** (§0, explicitly in scope for this library) under field-count pressure from a
+commodity-forward tranche is backwards: the bundle should be a deliberate contract decision, not a
+side effect of a gate firing in an unrelated arc.
+
+**Re-open trigger:** **the next market-data arc that adds a keying dimension to `MarketSnapshot`.**
+FX is the likely one. The bundle becomes the right shape when the aggregate grows again, and the
+field pressure is then its forcing function rather than its cause — §6's decide-at-the-next-consumer
+discipline, applied to the aggregate: three keyed stores today, one more and we bundle.
+
+The marker should stay **rare** — aggregate, output-record or config types only. It is the first in
+`src/`, and that is the bar it sets.
 
 ### OI-6 · `nominal_bootstrap._validate` admits a quote set that skips a pillar, then crashes — CLOSED (fixed at v0.61.0, tranche 59)
 

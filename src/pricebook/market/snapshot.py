@@ -41,8 +41,10 @@ class MarketSnapshot:
     # different keying dimension gets its own store rather than a `None` hung on an existing one.
     # Bundling them behind a `quotes` object is a real option (it would read `market.quotes.equities`
     # at 11 sites and change 26 construction sites across 12 test files), but it changes the DURABLE
-    # PUBLIC CONTRACT §0 names, which is a design ruling and not tranche 60's to make. Raised to
-    # Cowork at the T60 handoff; ledgered as OI-7 with that ruling as its removal trigger.
+    # PUBLIC CONTRACT §0 names — and reshaping that under field-count pressure from a commodity
+    # tranche is backwards. Ruled by Cowork at the T60 review: take the exemption, defer the bundle,
+    # and re-open at the next market-data arc that adds a keying dimension here (FX, likely), where
+    # the field pressure is the forcing function rather than the cause. Ledgered as OI-7.
 
     valuation_date: date
     curves: CurveSet
