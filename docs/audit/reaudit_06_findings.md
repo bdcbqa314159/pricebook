@@ -282,3 +282,30 @@ transcription, F-6.2's non-unit-`ψ` fixture, F-6.5's rename — under one stamp
 floor across two branches.
 
 Re-audit #6 **logged open**; the arc boundary is settled once the remediation is ruled.
+
+---
+
+## Cowork rulings (2026-11-19) — all six findings ruled; **T59** specced
+
+Spec at `docs/tranches/59_reaudit6_remediation.md` — one test-centred tranche, reaudit/05 precedent,
+→ **v0.61.0**, one floor bump, one `CHANGELOG`.
+
+- **F-6.1 — fix both causes.** Add the missing **pointwise eq-(11.1) transcription** (`lgm_numeraire` is
+  only ever a divisor, so §4's "every load-bearing formula transcribed pointwise once" is unmet) + make the
+  resolution statement name *which* defect (the band correctly resolves the eq-(11.4) convexity defect and is
+  silent about the `½` sibling — F-5.3 sharper). The `½` is T17-weak, so a power test states the band's reach.
+- **F-6.2 — one non-unit-`ψ` fixture** closes all three sites; **correct the `audit_log` conflation** (the
+  "second killer at T37" row is T3's *linker*, holds at 2 — not this YoY module).
+- **F-6.3 — SPLIT: gate `F841`, not `F401`.** Remove 2 dead locals + 10 unused imports; keep the 10
+  `@register` side-effect imports. `F841` is a clean gate (statically decidable, no exception). `F401` needs
+  per-file-ignores for the registry pattern — the exemption-list shape §9 declines → `to_go_deeper` behind an
+  `__all__` prerequisite.
+- **F-6.4 — add T45–T58 rows.**
+- **F-6.5 — finish the narrowing in the test name + class** (the check stays). *(Process note: when
+  narrowing an oracle's description, grep its claim in test/class names too — pass (3) missed these.)*
+- **F-6.6 — rule-of-two fired: build `CurveSet.curves_for_era` at L1**, both consumers call it (the swap's
+  `_curves` "one place" docstring is false today). Single-sources the single-curve invariant into one
+  structural home. Bit-identity-in-process proof (op order preserved).
+- **OI-6 — closed in T59** (the `nominal_bootstrap.py` `PricingFailure` guard; natural touch).
+
+Out of scope, carried: **C2** (widest OWED), **`dividends_before(T)`**. Re-audit #6 closes when T59 merges.
