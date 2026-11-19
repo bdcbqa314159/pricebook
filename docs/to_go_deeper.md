@@ -300,7 +300,7 @@ Opened at T46 (SVI), closed at T49 (SVJ); the completion ratio is in `CP_gathera
    product ever prices in that regime — a far-wing tail hedge, or a replication whose weights blow up
    out there.
 
-## `LICHTERS-2015` — *Modern Derivatives Pricing and Credit Exposure Analysis* (the collateralised-discounting arc: T54–, in progress)
+## `LICHTERS-2015` — *Modern Derivatives Pricing and Credit Exposure Analysis* (the collateralised-discounting arc: T54–T58, **CLOSED** v0.60.0)
 
 Routes recorded as the arc runs; the full deferred set is the completion ratio in
 `docs/modern_discounting_arc.md`. The recorded routes:
