@@ -6,6 +6,77 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.64.0] - 2026-11-19
+
+### Added — tranche 62, arithmetic Asian options (Turnbull–Wakeman)
+
+The average-rate option that is actually traded — Clark: *"The overwhelming majority of Asian options
+in actual traded markets are with arithmetic averaging not geometric averaging."* A sum of lognormals
+is **not** lognormal, so unlike T61 there is no exact closed form: Turnbull–Wakeman matches the
+arithmetic average's first two moments to a lognormal and prices with Black-76.
+
+**This is the arc's first approximation, and the deliverable is its measured error.** The moments are
+*exact*; the only approximation is the lognormal assumption applied afterwards. Measured at the
+money against a 400,000-path simulation of the real arithmetic average:
+
+| `σ√T` | TW relative error |
+|---|---|
+| 0.079 | 0.41% |
+| 0.158 | 0.58% |
+| 0.316 | 0.98% |
+| 0.490 | 1.66% |
+| 0.948 | **4.81%** |
+
+So it crosses **0.5% at about `σ√T ≈ 0.12`** and is a four-to-five-percent effect by `σ√T ≈ 1`. The
+honest negative is the material.
+
+### Two findings the measurement forced, neither anticipated by the spec
+
+**1. The TW error changes sign across strikes, so a universal per-strike resolution claim is
+impossible.** Matching two moments *exactly* means the error cannot be one-signed: TW over-prices
+the low strikes (+5.9 SE at `K = 65`) and under-prices the high ones (−4.9 SE at `K = 115`), passing
+through **zero** near `K ≈ 98`. At that strike no path count resolves the error because there is
+none to resolve. The first draft of the oracle asserted the error must be resolvable everywhere and
+failed at `K = 95` — the band now treats the measured error as a **bound**, and the sign change is
+asserted as the structural property that explains why.
+
+**2. The band resolves a 25% second-moment defect, not 10% — and that is the right answer, not a
+weakness.** The limiting term is TW's own approximation error (a third of the band), not sampling, so
+more paths would not sharpen it. §4's T51 clause applies exactly: when a band cannot resolve a
+defect, ask whether that quantity needs a band at all. `M₁` and `M₂` are **closed form** and are
+pinned pointwise at `rel=1e-14` — twelve orders tighter than any path count buys — so the moments are
+not the band's business. What the band *is* for is the one thing no exact check can see: **the
+lognormal assumption**, to which a moment-built oracle is structurally blind.
+
+### Oracles
+
+- **`M₂`'s two independent printed forms** required to agree (2.120's symmetric double sum against
+  2.122's diagonal-plus-twice-upper-triangle), and a companion showing they **part company on a
+  descending schedule** — which is what makes the ascending guard load-bearing for *this* engine too.
+- **`M₁` and `M₂` transcribed pointwise**, as named surface (F-6.1), plus `M₁` asserted **independent
+  of the volatility** (it is the average of today's forwards, a martingale statement) and
+  `M₂ ≥ M₁²` by Jensen with equality at zero vol, so (2.125)'s logarithm is defined.
+- **Geometric ≤ arithmetic (AM–GM), the free cross-product oracle** — T61's exact closed form against
+  T62's moment match, different code each side — with the ordering **reversed for puts** as the
+  companion, and equality at a single fixing.
+- **The `n = 1` reduction banded, not `==`** — the spec pre-paid T61's lesson, and the
+  vol-invariance proof carried over.
+
+**Fifteen mutations applied, fifteen killed** — `min → max` in the kernel, the kernel dropped, cross
+terms dropped, `1/n² → 1/n`, the log dropped from (2.125), `M₂` fed to Black as the forward, and both
+engines' invariant-6 and partly-fixed guards.
+
+### Changed
+
+- **The shared schedule guard, extracted once** (`_checked_fixings`). §6's rule-of-two fired on the
+  one piece of knowledge the two Asian products genuinely share: an averaging schedule must be
+  non-empty and strictly ascending, because the source's sorted evaluations of *both* the geometric
+  variance (p.64) and the arithmetic second moment (2.122) are valid only for an ascending schedule.
+  *(This corrects what Code reported at T61's handoff — that the guard was a geometric-only
+  constraint. Re-derived from the print rather than carried forward from its own report.)* The two
+  products stay **distinct types**: field-identical but priced by different methods, so a flag would
+  select a whole pricing method and the dispatch could no longer tell exact from approximate.
+
 ## [0.63.0] - 2026-11-19
 
 ### Added — tranche 61, geometric Asian options (exact closed form)
