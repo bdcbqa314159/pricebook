@@ -338,3 +338,15 @@ gate needing a 7-of-14 exemption list cannot fail"). Ten such imports exist toda
 point Pyflakes is satisfied without an ignore and the gate is honest rather than exempted. Until then
 an unused import can accumulate unseen — the cost is small and visible (`ruff check --select F401` on
 demand), which is why this is a route and not a tranche.
+
+## Commodities (project eight, `CLARK-2014`)
+
+- **Partly-fixed (seasoned) Asian options** — an average-rate option on which some fixings have
+  already settled. `CLARK-2014` scopes itself identically ("no historical fixings have taken place
+  yet"), and T61 refuses a partly-fixed schedule rather than price it: a commodity `MarketSnapshot`
+  carries no realised prints, so treating a seasoned Asian as unfixed is a plausible *wrong* number
+  (not a refusal §3.4 roughness). **Needs a commodity fixing series first** (an L1 market-data
+  primitive, a real piece — not a flag), at which point the realised geometric/arithmetic partial
+  average is a known constant folded into the adjusted forward. Oracle-able (reduces to T61 at zero
+  settled fixings, to a deterministic payoff at all settled); unpulled — no product needs seasoned
+  Asians yet. *(Surfaced at T61, 2026-11-19.)*

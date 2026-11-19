@@ -8,6 +8,11 @@ from pricebook.engine.capfloor import price_inflation_capfloor
 from pricebook.engine.cash import price_fixed_cashflow
 from pricebook.engine.equity_vanilla import price_european_equity_option
 from pricebook.engine.commodity_vanilla import price_commodity_option
+from pricebook.engine.commodity_asian import (
+    geometric_average_forward,
+    geometric_average_variance,
+    price_commodity_geometric_asian,
+)
 from pricebook.engine.variance_replication import fair_variance, price_variance_swap
 from pricebook.engine.heston_fourier import FourierGrid, heston_call_price, heston_probabilities
 from pricebook.engine.equity_rate_hybrid import price_european_equity_option_hull_white
@@ -43,6 +48,9 @@ __all__ = [
     "fair_variance",
     "price_variance_swap",
     "price_european_equity_option",
-    "price_commodity_option","price", "PathGrid", "mc_caplet_price", "simulate_terminal_forwards", "price_nominal_cap", "price_inflation_capfloor", "price_fixed_cashflow", "price_inflation_linked_bond",
+    "price_commodity_option",
+    "price_commodity_geometric_asian",
+    "geometric_average_forward",
+    "geometric_average_variance","price", "PathGrid", "mc_caplet_price", "simulate_terminal_forwards", "price_nominal_cap", "price_inflation_capfloor", "price_fixed_cashflow", "price_inflation_linked_bond",
            "price_yoy_inflation_swap",
            "price_zc_inflation_swap", "register"]
