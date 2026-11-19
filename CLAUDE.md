@@ -138,6 +138,24 @@ not an oracle. Ruled principles:
 
 - **Pre-register the oracle.** The failing reference-value test (RED) is committed *before* the
   code that satisfies it. Implement-then-check invites bending the code to a number.
+- **A spec names the oracle's OBLIGATION, not the FORM of its result.** A spec (Cowork's step-1
+  product) says *what must be pinned and measured* — the quantity, the invariant, the reduction, the
+  error to quantify — never the *shape the answer will take*: a specific `==`, a monotonicity, a
+  sign, a resolution number. The mathematics may not supply the pre-committed form, and when it does
+  not, a spec that asserted one **invites bending the build to it** — the §4 anti-pattern the
+  pre-register bullet names, one level up, because here it is the *reviewer's* own instruction doing
+  the inviting. Three instances earned this, each identical in shape: `==` on a reduction that is
+  exact in ℝ but carries a `log`/`exp` ULP gap (T61); "resolution per strike" where matching two
+  moments forces the error through zero so no per-strike claim can exist (T62); "monotone Kirk error
+  in strike" where the error changes sign and the real degradation is in ρ, not strike (T63). Each
+  was caught at build by Code verifying rather than ratifying — which is the split working, but a
+  spec that systematically pre-commits outcomes relies on that catch every time instead of being
+  structural. So the spec states the obligation; the build measures the form and reports it, and a
+  measured form that contradicts the spec's guess is a finding, not a failure. *(Ruled by Cowork,
+  2026-11-19, at the third instance — the count Code flagged as the looking-threshold. Distinct from
+  the derivation-structure-as-oracle watch item, which is a missed-opportunity pattern clause-worthy
+  only when it discriminates; this one is a bending-invitation pattern, clause-worthy once its shape
+  is established, because each instance is a live chance to bend.)*
 - **Independence.** The test computes its own reference (e.g. `t = days/365`), never reads a value
   back from the code under test — **nor from the same source rendering the code was transcribed
   from.** A `pdftotext -layout` reflow merges a formula's parentheses, so a second transcription of
