@@ -46,6 +46,162 @@ Full-tree, **oldest-first** (§9), in order:
 
 Survivors ruled by Cowork, appended here. Any real hole → a test-only fix-tranche (the T45/T51/T59 pattern).
 
+## (1) Oracle-power mutation sweep — DONE (Code). **77 applied, 76 killed, 1 real hole**
+
+Run on the committed instrument (`tests/tooling/mutation_sweep.py`, T52) in Cowork's order. Totals are
+**applied/killed/survived** throughout — a bare survivor count is not a result (§9).
+
+| item | scope | applied | killed | survived |
+|---|---|---|---|---|
+| 1 | the proactive invariant-6 / historical-flow sweep | 31/31 | 31 | 0 |
+| 2 | the arc's new closed forms (T60–T64), **counting killers** | 18/18 | 18 | 0 |
+| 3 | MM-I's second killer, re-confirmed | *(in item 2)* | — | — |
+| 4 | the rest of the tree T1–T59, oldest-first, fresh targets | 24/24 | 23 | 1 *(selection error, not a hole)* |
+| 4b | the corrected probes for item 4's survivor | 4/4 | 3 | **1 (F-7.1)** |
+| | **total** | **77/77** | **76** | **1 real** |
+
+**Item 1 — clean (31/31), and the surface has grown.** Every `is_historical` site in `src/` dropped,
+addressed positionally: **31 sites across 23 modules**, against 24 at re-audit #6 — the commodity arc added
+seven (T60's option, T61/T62's settled-and-partly-fixed pair each, T63's spread, T64's Schwartz). Cowork's
+read was right that the arc adds little invariant-6 *risk* — the Asians **refuse** partly-fixed schedules, so
+there is no historical fixing to mis-filter — but it does add guards, and all seven bite. No new
+straddle-degeneracy.
+
+**Item 2 — the arc's closed forms, measured by KILLER COUNT rather than yes/no.** The build-time sweeps
+already asked "does it die?" (74 mutations across T60–T64, all killed). The re-audit's standing §9 question
+is *to how many tests* — a load-bearing mutation killed by exactly one test is a single-point-of-failure
+oracle whose killer a later edit can silently delete. Measured:
+
+| target | killers |
+|---|---|
+| T60 forward: `T` dropped from the carry | 24 |
+| T60 forward: `δ`'s sign flipped (the `r`/`δ` swap) | 33 |
+| T61 variance: `min → max` | 22 |
+| T61 variance: cross terms dropped | 18 |
+| T61 forward: the convexity half dropped | 26 |
+| T62 `M₂`: `min → max` | 13 |
+| T62 `M₂`: the `exp(σ²·min)` kernel dropped | 16 |
+| T62 TW: the moment ratio's square dropped | 12 |
+| T63: the `ρ` cross term dropped entirely | 20 |
+| T63: the cross term's sign flipped | 20 |
+| T63: `ρ → ρ²` (magnitude, not presence/sign) | 18 |
+| T63: the Kirk weight forced to 1 | 17 |
+| T64 variance: the `(1−e^{−2κT})` mean-reversion factor dropped | 34 |
+| T64 variance: `1/(2κ) → 1/κ` | 38 |
+| T64 forward: `κ`'s sign flipped in the decay | 10 |
+| T64 forward: the convexity half dropped | 11 |
+
+**Zero single-killers.** The lowest count in the arc is **10**, and the two correlation instruments Cowork
+named both bite independently: `ρ → ρ²` — the mutation that preserves presence *and* sign and changes only
+**magnitude**, which is T43's exact trap — dies to 18 tests, so the value pin and the realised-covariance pin
+are each doing work. The single-killer re-run table rows for T60–T64 are filled from these measurements, not
+guessed (per Cowork's note, a guessed count would be the obligation-not-form thing §4 now forbids).
+
+**Item 3 — MM-I's T59 hardening holds.** Both denominators (`market_model_i.py:154/:155`) die to **2** tests
+each, as T59 left them.
+
+## Findings
+
+### F-7.1 — the inflation index's LINEAR interpolation has an unpinned month length. Blind oracle, `main` since T7
+
+`market/fixing_series.py`'s `reference_level` interpolates by `(day − 1)/days_in_month`, with
+`days_in_month` from `calendar.monthrange`. **Hard-coding it to `30.0` survives all 2625 tests.**
+
+The source is **correct**; the oracle is what is thin — so this is a blind oracle, not a shipped defect.
+The cause is a *doubled* degeneracy, and the second half is the interesting one:
+
+1. The file's **only pointwise LINEAR value test** reads `date(2026, 4, 15)` — and **April has exactly 30
+   days**, so the real divisor and the literal are the same number.
+2. **That test's own reference hard-codes 30 as well**: `expected = lo + (15 - 1) / 30 * (hi - lo)`. So even
+   had the month been a 31-day one, the reference would have moved with the mutation rather than against it.
+
+The other mid-month tests cannot see it either, and each for a reason already in the §4 catalogue: the
+`flat ≠ linear` discriminator asserts an **inequality** (survives any weight), the first-of-month test sits
+where the weight is **exactly zero** (survives any divisor), the flat-series test has **zero slope** (the
+weight multiplies nothing), and the February date is a `KeyError` test that never reaches the arithmetic.
+
+Severity swept across the domain rather than taken from one point (§8), on the fixture's `+1.0`
+point-per-month slope and a ~112 index level:
+
+| reference date | days in month | correct weight | weight at 30 | weight rel. error | index-level error |
+|---|---|---|---|---|---|
+| 2026-02-15 | 28 | 0.5000 | 0.4667 | **−6.67%** | 0.0298% |
+| 2026-01-20 | 31 | 0.6129 | 0.6333 | +3.33% | 0.0182% |
+| 2026-03-15 | 31 | 0.4516 | 0.4667 | +3.33% | 0.0134% |
+| 2026-04-15 | 30 | 0.4667 | 0.4667 | 0.00% | **0.0000%** |
+
+It is the **`τ=1` family again** — a fixture parameter sitting where two branches agree — and the eleventh
+instance, but the first where the degeneracy is **shared between the fixture and the test's own reference**.
+That is a sharper shape than the catalogue's existing entries: §4's independence rule says the test computes
+its own reference, and this one does — it just computes it with the same hard-coded constant, so the
+independence is formal rather than real. *The reference was independent of the code and not of the
+coincidence.*
+
+Note what it is **not**: not a case of the reference being read back from the code (§4's named hazard), and
+not a transcription shared with the source. It is a literal that happens to be right for the month chosen.
+
+### F-7.2 — duplication (pass 2): four byte-identical ascending-time-grid guards. No hole; rule-of-two fired four times over
+
+Pass (2) asked Code to confirm the arc's types are single-sourced. They are — `_checked_fixings`,
+`SpreadLegs`, `SchwartzParams`, `CommodityAsset`, `CommodityUnderlying` each have exactly one definition, and
+the deliberately-separate models stay separate. But the sweep for *other* duplication turned up a standing
+one that **predates the commodity arc entirely** and that six previous pass-(2) runs did not name:
+
+```python
+if any(b <= a for a, b in zip(self.times, self.times[1:])):
+    raise ValueError("times must be strictly ascending")
+```
+
+**byte-identical, in four modules across three layers** — `market/curve.py:69`,
+`market/survival_curve.py:88`, `risk/credit_valuation_adjustment.py:97`, `risk/mc_exposure.py:125`. And the
+first two share **three** consecutive identical lines (the at-least-one-pillar check and the `t = 0.0` check
+as well), i.e. a six-line triplicate.
+
+All four work, so there is **no hole** — this is §6's rule-of-two having fired *four* times on one shared
+shape: an ascending grid of year fractions. The knowledge is identical and identically justified (every
+consumer either bisects the grid or zips it pairwise, so a grid that doubles back is not a grid).
+
+A **separate** group of four ascending guards — `foundation/schedule.py` (dates), `nominal_bootstrap.py` and
+`implied_vol_surface.py` (quote maturity order), `products/commodity_asian.py` (fixing dates) — is *not* part
+of this: those are different objects with their own vocabulary and their own messages, and merging them would
+be the shared-word-not-shared-shape error. The finding is the four identical float-time-grid guards only.
+
+Code's read on the remedy, raised rather than ruled (§10): the T62 precedent fits exactly — extract the
+**guard** (the knowledge), not a `TimeGrid` **type** (vocabulary), because none of the four classes is over
+the §7 field limit, so no bundle is *compelled*. That would be one small `foundation/` validator and four
+call sites. Cowork's call.
+
+### F-7.3 — the committed instrument cannot count killers, so the standing single-killer re-run must be hand-rolled — and this re-audit was bitten by exactly that
+
+`sweep()` returns `applied/killed/survived`, never *which* tests failed. But §9 makes the single-killer
+re-run a **standing** obligation, so every re-audit since #2 has hand-rolled a counting loop beside the
+instrument — and a hand-rolled loop does not inherit the instrument's guards.
+
+This re-audit paid for it. The first counting run exceeded a command timeout and was killed **between
+mutating `engine/schwartz.py` and restoring it**, leaving `decay = math.exp(+κ·years)` on disk. The second
+run then started from that corrupted baseline and measured against it. Nothing shipped — the mutation was
+caught, the file restored, 2625 green re-confirmed — but it is precisely the failure T52 committed the
+instrument to prevent, arriving through the one obligation the instrument does not cover. The rerun added a
+**verified baseline** (refuse to sweep unless the suite is green first) and a `try/finally` restore, which
+is the instrument's own discipline re-implemented by hand for the fourth time.
+
+Code raises the shape; the ruling is Cowork's. The obvious candidate is for `SweepResult` to carry the
+failing-test set per mutant so the counting re-run becomes an instrument call rather than a script — which
+would also make the single-killer table a measurement the tool produces rather than one a re-audit retypes.
+
+### F-7.4 — a mutation-SELECTION error of mine, recorded because §9 makes selection the audit's judgement
+
+Item 4's one survivor was `"strictly ascending maturity order"` → `"ascending maturity order"` in
+`implied_vol_surface.py`. **It is not a hole.** The condition, the `raise`, and the substring the test matches
+(`match="ascending maturity"`) are all unchanged, so no behaviour that matters moved; I had mutated **prose
+inside an f-string**.
+
+§9 is explicit that *which* mutations to apply is the re-audit's judgement and not the tool's, "because a
+tool choosing its own would sweep where it is easy rather than where the failure lives". This one swept where
+the failure does not live. The corrected probes — the guard's condition loosened to allow duplicates, and the
+guard bypassed outright — both **die**, so that guard's logic is fully pinned. Recorded so the sweep's
+applied-count is not inflated by a probe that could not have found anything.
+
 ## (2) Duplication — PARTIAL (Cowork read; Code sweep informs)
 
 - **The Asian family guard** (`_checked_fixings`, the ascending-schedule knowledge) was extracted at T62 to
@@ -91,11 +247,26 @@ Survivors ruled by Cowork, appended here. Any real hole → a test-only fix-tran
 
 ## Status
 
-- (3) and (4): **DONE** (Cowork). `CLARK-2014` worked-from, arc plan closed, to_go_deeper routes recorded,
-  charter clean.
-- (1) and (2): **scope set, PENDING Code's execution** oldest-first — the proactive invariant-6 sweep first,
-  then the arc's new closed forms (the T39 κ→0 companion, the T43/T17 spread correlation pins, the Asian
-  double sums), MM-I's second killer, then the full-tree sweep.
-- Remediation (if any survivor is a real hole): a test-only fix-tranche (T65).
+- (1) **DONE (Code): 77 applied, 76 killed, 1 real hole** — a **blind oracle**, no shipped defect.
+  Items 1 and 2 clean (31/31, 18/18); item 2's killer counts show **zero single-killers** across the arc
+  (lowest 10, highest 38); item 3 confirms MM-I's T59 hardening at 2 killers each; item 4's T1–T59 pass gave
+  one survivor that is **F-7.4, a selection error of mine**, and its corrected probes gave **F-7.1**.
+- (2) **DONE** — the arc's types single-sourced and the deliberately-separate models still separate, plus
+  **F-7.2**, a standing four-fold duplication that predates the arc. C2 still OWED; `dividends_before(T)`
+  still owed.
+- (3) and (4): **DONE (Cowork)**, clean.
 
-Re-audit #7 **logged open**; the arc boundary is settled once the sweep lands and any remediation is ruled.
+**Four findings for Cowork to rule. One is a hole; none is a shipped mispricing.**
+
+| # | what | kind | severity |
+|---|---|---|---|
+| F-7.1 | the LINEAR interpolation's month length is unpinned — the only value test sits in a 30-day month **and** hard-codes 30 in its own reference | blind oracle (`τ=1` family, 11th) | up to 6.67% on the weight, ~0.03% on the index level |
+| F-7.2 | four byte-identical ascending-time-grid guards (two sharing three lines) | duplication | no hole |
+| F-7.3 | the instrument cannot count killers, so the standing single-killer re-run is hand-rolled — and corrupted the tree this run | tooling | nothing shipped |
+| F-7.4 | one of my probes mutated prose, not logic | sweep selection | no coverage lost |
+
+A remediation tranche is earned by **F-7.1** alone: a pointwise LINEAR test in a **non-30-day** month whose
+reference **derives** the month length rather than writing a literal. **F-7.2** and **F-7.3** are Cowork's
+rulings before any code moves; **F-7.4** needs nothing but the record.
+
+Re-audit #7 **logged open**; the arc boundary is settled once any remediation is ruled.
