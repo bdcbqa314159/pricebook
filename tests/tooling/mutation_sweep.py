@@ -52,24 +52,38 @@ silently mutating whatever has moved there.
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 import subprocess
 import sys
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
 #: What the sweep runs to decide a verdict. `-x` stops at the first failure (a verdict needs one
 #: failing test, not all of them), and the cache provider is disabled so a sweep leaves no state
 #: behind to influence the next run.
+#: The verdict run: `-x` stops at the first failure, because a verdict needs one failing test and
+#: nothing is gained by finding the rest.
 _PYTEST = ("-m", "pytest", "-x", "-q", "--no-header", "-p", "no:cacheprovider")
+#: The **counting** run, which must NOT stop early. `-x` and a killer count are incompatible by
+#: construction: with `-x` pytest reports exactly one `FAILED` line however many tests would have
+#: failed, so every kill would read as a single-killer. That is a false-positive machine — the
+#: mirror of the false clean sheet this file was built to prevent — and it is why counting is a
+#: separate mode rather than always-on. The cost is real (a counting run does not short-circuit),
+#: which is the other reason it is opt-in. *(Caught by this file's own known-answer test while
+#: building F-7.3's fix, which is the argument for having them.)*
+_PYTEST_COUNTING = ("-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider")
 
 #: pytest's exit codes. `0` is "everything passed" and `1` is "tests ran and one failed" — the only
 #: code that means *killed*. `2` (interrupted), `3` (internal error), `4` (usage error) and `5` (no
 #: tests collected) all mean the run did not deliver a verdict, and counting them as kills is exactly
 #: how re-audit #4 reported a clean sheet from 21 runs that had every one errored.
 _ALL_PASSED = 0
+#: pytest's own `FAILED <test id>` summary line, which `-q` prints. Anchored at the line start so a
+#: test whose *name* contains the word cannot be mistaken for a summary line.
+_FAILED_LINE = re.compile(r"^FAILED (\S+)", re.MULTILINE)
 _TESTS_FAILED = 1
 
 
@@ -113,6 +127,52 @@ class SweepResult:
     survivors: tuple[str, ...]
     not_applied: tuple[str, ...]
     errored: tuple[str, ...] = ()
+    #: The tests that failed, per mutation label — so §9's **standing single-killer re-run** reads
+    #: its counts from the instrument and inherits the verified baseline and the `finally` restore.
+    #: Re-audit #7's F-7.3: that obligation was standing but uninstrumented, so it was hand-rolled
+    #: beside the sweep five times, and on the fifth a timeout killed the loop between mutating a
+    #: source and restoring it — the next run then measured against a corrupted baseline. Nothing
+    #: shipped, but it is exactly the failure T52 committed this file to prevent, arriving through
+    #: the one obligation T52 left out. An obligation that is standing but uninstrumented will be
+    #: re-implemented until it fails.
+    killers: Mapping[str, tuple[str, ...]] | None = None
+
+    def single_killers(self) -> tuple[str, ...]:
+        """Labels whose mutant died to **exactly one** test — §9's single-point-of-failure oracles.
+
+        A later edit can delete that one test and silently reopen the hole with the suite still
+        green, which is the project's signature defect turned on its own test suite. Empty is the
+        good answer and is meaningful only beside a full applied count, like every count here.
+
+        **Raises when the sweep did not count**, rather than returning `()`. An empty tuple from a
+        verdict-only run would read as "no single-killer oracles" when the truth is "nobody looked"
+        — the can't-fail shape §9 forbids, and the same reading error as a `0` survivor count from a
+        run where nothing applied.
+        """
+        if self.killers is None:
+            raise ValueError(
+                "this sweep did not count killers, so it cannot say whether any oracle is a "
+                "single point of failure — re-run with count_killers=True. Returning an empty "
+                "tuple here would report 'none found' where the truth is 'nobody looked'"
+            )
+        return tuple(
+            label
+            for label, failing in self.killers.items()
+            if len(failing) == 1
+        )
+
+    def killer_counts(self) -> tuple[tuple[str, int], ...]:
+        """`(label, number of failing tests)` for every mutation that produced a verdict.
+
+        The measurement the single-killer table is filled from, so a re-audit records what it
+        measured rather than retyping what it remembers. Raises when the sweep did not count, for
+        the reason `single_killers` gives.
+        """
+        if self.killers is None:
+            raise ValueError(
+                "this sweep did not count killers — re-run with count_killers=True"
+            )
+        return tuple((label, len(failing)) for label, failing in self.killers.items())
 
     @property
     def is_clean(self) -> bool:
@@ -135,7 +195,26 @@ class SweepResult:
             text += f"\nNOT APPLIED ({len(self.not_applied)}): " + ", ".join(self.not_applied)
         if self.survivors:
             text += f"\nSURVIVORS ({len(self.survivors)}): " + ", ".join(self.survivors)
+        single = self.single_killers() if self.killers is not None else ()
+        if single:
+            text += (
+                f"\nSINGLE-KILLER ({len(single)}) — one test each, a later deletion reopens the "
+                "hole silently: " + ", ".join(single)
+            )
         return text
+
+
+def _failing_tests(stdout: str) -> tuple[str, ...]:
+    """The test ids pytest reported as failed, from its `FAILED <id>` summary lines.
+
+    Deduplicated and sorted, so a count is a count of distinct tests rather than of report lines —
+    a parametrised test failing at several parameters is **one** killer, which is the honest reading
+    for §9's purpose: deleting that one test function removes all of them at once.
+
+    `-q` still prints the `FAILED` summary, so this needs no extra pytest flag and cannot change the
+    verdict: the exit code decides killed-or-not, and this only says *by whom*.
+    """
+    return tuple(sorted({m.group(1) for m in _FAILED_LINE.finditer(stdout)}))
 
 
 def _tree_digest(root: Path) -> str:
@@ -200,6 +279,7 @@ def sweep(
     tests: Sequence[str],
     root: Path,
     timeout: float = 3600.0,
+    count_killers: bool = False,
 ) -> SweepResult:
     """Apply each mutation in turn, run `tests`, and score the verdict.
 
@@ -218,7 +298,9 @@ def sweep(
 
     _verified_baseline(tuple(tests), str(root), _tree_digest(root), timeout)
 
+    flags = _PYTEST_COUNTING if count_killers else _PYTEST
     killed = survived = 0
+    killers: dict[str, tuple[str, ...]] | None = {} if count_killers else None
     survivors: list[str] = []
     not_applied: list[str] = []
     errored: list[str] = []
@@ -231,7 +313,7 @@ def sweep(
         try:
             _invalidate_bytecode(root)
             completed = subprocess.run(
-                [sys.executable, *_PYTEST, *tests],
+                [sys.executable, *flags, *tests],
                 cwd=root,
                 capture_output=True,
                 text=True,
@@ -242,6 +324,8 @@ def sweep(
                 survivors.append(mutation.label)
             elif completed.returncode == _TESTS_FAILED:
                 killed += 1
+                if killers is not None:
+                    killers[mutation.label] = _failing_tests(completed.stdout)
             else:
                 # Not a verdict: an import error, a usage error or an empty collection. Counting
                 # this as a kill is re-audit #4's false clean sheet.
@@ -260,4 +344,5 @@ def sweep(
         survivors=tuple(survivors),
         not_applied=tuple(not_applied),
         errored=tuple(errored),
+        killers=killers,
     )
