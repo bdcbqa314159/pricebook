@@ -6,6 +6,88 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.66.0] - 2026-11-20
+
+### Added — tranche 64, the Schwartz one-factor model: the commodity arc's capstone
+
+Mean reversion in **log-spot** (`CLARK-2014` ch 2.10.1.1), which gives a commodity the *term
+structure of volatility* a flat Black vol cannot. `models/schwartz.py` (L3) and
+`engine/schwartz.py` (L4); the product is T60's `CommodityOption`, unchanged — which is the point of
+a stateless engine keyed on `(product, model)`: the trade is the same and the model is what was
+swapped.
+
+**The variance saturates, and that is the whole qualitative difference from GBM.**
+`Var[X_T] = (σ²/2κ)(1 − e^{−2κT})` is bounded by `σ²/(2κ)`, where a GBM's `σ²T` grows without
+bound. Measured term structure of annualised variance at `κ = 0.55`, `σ = 31%`:
+
+| maturity | annualised variance |
+|---|---|
+| 3 months | 0.0840 |
+| 1 year | 0.0583 |
+| 2.5 years | 0.0327 |
+| 5 years | 0.0174 |
+| 20 years | 0.0044 |
+
+a factor of **19.2** from the near end to the far — the **Samuelson effect**, reported as a
+measured consequence rather than asserted as a shape (§4's new obligation-not-form clause, applied).
+And this is where `CommodityBlackModel`'s own docstring prophecy comes true: it said a commodity's
+volatility was "on a path to diverge from an equity's within this very arc", which is why the two
+models stayed separate types at T60 rather than being merged to save six lines.
+
+### The spec's κ → 0 reduction was wrong, and the corrected one is stronger
+
+The spec had `F(t,T) →` the cost-of-carry forward, so the price would reduce to T60's. **It does
+not**: there is no `r − δ` anywhere in (2.147) — the Schwartz drift is *pure mean reversion* — so as
+`κ → 0` the log-spot becomes driftless arithmetic Brownian motion and `F → S₀·exp(σ²T/2)`. Measured:
+**88.5136** against T60's carry forward of **83.9785**. Different models, not a discrepancy, and
+Clark says so on p.82 — matching market forwards means *calibrating* `α̂_X`, not something the model
+supplies for free.
+
+The cross-engine anchor survives with the true condition attached: the two agree exactly when T60's
+carry reproduces the κ → 0 Schwartz drift, i.e. at **`δ = r − σ²/2`**. The oracle asserts that *and*
+asserts the two **disagree by >20% at a genuine κ**, so the anchor is not vacuous — which the
+spec's version could not have done, since it was comparing numbers that never matched.
+
+### The capstone reuse, and it is exact
+
+The MC companion reuses **T57's `simulate_lgm_states`**. The LGM state is `z_T ~ N(0, ζ(T))` with
+`ζ(T) = σ²(e^{2κT} − 1)/(2κ)`, so `Var(e^{−κT}·z_T) = σ²(1 − e^{−2κT})/(2κ)` is **identically**
+(2.150b) — the same `X̂_t = e^{κt}X_t` integrating factor Clark uses to integrate the SDE. The
+Schwartz state is the LGM state scaled by `e^{−κT}` plus a deterministic mean. Asserted as an
+identity on the two **closed forms**, not as a tolerance on a measurement, and labelled a
+**consistency guard rather than independence** (one simulator, two readings — the T17 caveat).
+
+### Oracles
+
+- (2.150b) and (2.156) transcribed **pointwise** over a `(κ, horizon)` grid, both named surface
+  (F-6.1); `F(0,0) = S₀` and zero variance at zero horizon as requirement companions.
+- **The stationary limit `σ²/(2κ)`** asserted, plus the measured term structure against the closed
+  form, plus monotonicity in `κ` as a requirement the algebra forces.
+- **The simulated OU mean AND variance pinned before the price band is credited** (T19), each
+  against its own closed form — a price would see them only through one scalar (T17) — with the
+  error improving as `√N` over **six seeds** (T21: a null needs averaging as much as an effect).
+- An MC price band at `4·SE` with **no approximation term** (the closed form is exact), its
+  resolution named against the **mean-reversion factor**: replacing `(1−e^{−2κT})/(2κ)` by `T` falls
+  far outside.
+- Put–call parity on the model's own futures price; invariant 6 with an in-the-money expired fixture.
+
+**Sixteen mutations applied, sixteen killed** — including the convexity half, the blend weight
+inverted, θ swapped for the log-spot, the spot's `e^{−κT}` power dropped, and the invariant-6 bypass.
+
+### Changed
+
+- **`SchwartzParams` is its own type, not `HullWhiteParams` plus a level** (the ruling the spec left
+  to Code). The algebra is shared — both are OU — but a *rate's* mean reversion and a
+  *log-commodity-price's* are different ideas, and the DRY rule is about knowledge. T57's LGM reuse
+  was the opposite case and is the contrast that makes the line clear: the LGM's numbers literally
+  *are* Hull-White's, reparameterised.
+- **The model carries the risk-neutral level `α̂_X`, and says so.** Clark's decomposition is
+  `α̂_X = α_S − σ²/(2κ) − λ/κ`, so the physical level and the market price of risk reach every
+  observable *only* through that composite — no set of futures prices can separate them. That is
+  T11's identifiability lesson arriving at **design time** rather than at a calibration that fails
+  to converge, so what the type carries is what is observable and the decomposition is documented
+  rather than folded in silently.
+
 ## [0.65.0] - 2026-11-19
 
 ### Added — tranche 63, commodity spread options: Margrabe (exact) and Kirk (approximate)
