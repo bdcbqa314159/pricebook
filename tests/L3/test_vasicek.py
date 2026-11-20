@@ -304,11 +304,17 @@ class TestTheMertonReduction:
             )
             assert abs(vasicek / quadrature - 1.0) < 1e-9, (alpha, vasicek, quadrature)
             gaps.append((alpha, abs(vasicek - merton)))
-        # O(alpha): each ~3.3x drop in alpha must cut the gap by ~3.3x, never by 1x or 10x.
+        # O(alpha): each ~3.3x drop in alpha must cut the gap by ~3.3x, never by 1x (no reduction)
+        # or 10x (a second-order one). Measured ratios: 0.949, 0.985, 0.995, 0.998 — approaching 1
+        # from below, the residual being the next order in the expansion.
         for (coarse, wide), (fine, narrow) in zip(gaps, gaps[1:]):
             ratio = (wide / narrow) / (coarse / fine)
-            assert 0.8 < ratio < 1.25, (coarse, fine, wide, narrow, ratio)
-        assert gaps[-1][1] < 0.01 * gaps[0][1]
+            assert 0.9 < ratio < 1.1, (coarse, fine, wide, narrow, ratio)
+        # And end to end: 92.7x over a 100x range in alpha, measured. Not 100x, because the widest
+        # point still carries a second-order term — which is itself the evidence the rate is first
+        # order rather than something steeper, and is why this is stated from measurement.
+        end_to_end = gaps[0][1] / gaps[-1][1]
+        assert 90.0 < end_to_end < 100.0, (gaps, end_to_end)
 
     def test_the_CLOSED_FORM_is_asserted_to_DEGRADE_so_the_regime_is_stated(self) -> None:
         """The companion that makes the regime claim checkable rather than rhetorical, and the
