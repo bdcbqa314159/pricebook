@@ -6,6 +6,69 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.67.0] - 2026-11-20
+
+### Fixed — tranche 65, the re-audit #7 remediation
+
+Re-audit #7 swept **77 applied / 76 killed / 1 real hole** and ruled four findings. This tranche
+closes all of them, test- and tooling-only — **no `src/` behaviour changes** — with two charter
+edits riding in the same merge so neither clause describes a practice that does not yet exist.
+
+**F-7.1 — a new shape in the degenerate-fixture catalogue: a reference sharing a coincidental
+literal.** Hard-coding `days_in_month = 30.0` in `reference_level` survived all 2625 tests. The
+source was always right; the oracle was blind, for **two** reasons that had to be broken together:
+the only pointwise LINEAR value test read **2026-04-15 — and April has exactly 30 days** — *and that
+test's own reference wrote `/ 30` as well*. So §4's independence rule was satisfied **formally** while
+the reference was independent of the **code** and not of the **coincidence**. Fixed with a February
+fixture (28 days) whose reference **derives** the month length, plus a 31-day companion so the
+fixture brackets 30 rather than merely avoiding it. The mutant now dies in both directions, and a
+companion measures the −6.67% weight error that was invisible.
+
+**F-7.2 — four byte-identical guards, one home.** `if any(b <= a for a, b in zip(self.times, ...))`
+with the identical message existed in `market/curve.py`, `market/survival_curve.py`,
+`risk/credit_valuation_adjustment.py` and `risk/mc_exposure.py` — four consumers across three
+layers, two of them sharing three consecutive lines. §6's rule-of-two had fired four times over and
+six prior duplication passes had not named it, because an identical two-line block in four files
+reads as idiom. Extracted to `foundation/time_grid.py` as a **guard, not a `TimeGrid` type** (the T62
+precedent: nothing compels a bundle, and a value object would have changed `self.times` to
+`self.grid.times` at every site for nothing). Pure refactor — **bit-identical in-process** across 22
+curve and survival values, committed at tolerance only (T49). The separate group of four
+*domain-specific* ascending guards is deliberately excluded: merging those would be §6's
+shared-word-not-shared-shape error.
+
+**F-7.3 — the instrument now owns the single-killer count, and writing the fix exposed a second
+defect.** §9 makes the single-killer re-run standing, but `SweepResult` returned only
+applied/killed/survived, so every re-audit since #2 hand-rolled a counting loop *beside* the
+instrument, inheriting none of its verified baseline or `finally` restore. Re-audit #7 paid: a
+timeout killed the counter between mutating `schwartz.py` and restoring it, and the next run
+measured against the corrupted baseline. The lesson is sharper than "the instrument had a gap" — **an
+obligation that is standing but uninstrumented will be re-implemented until it fails.**
+
+`SweepResult` now carries the per-mutant failing-test set, with `single_killers()` and
+`killer_counts()`. **And the instrument's own known-answer tests caught the first draft of that
+fix:** the verdict run carries `-x`, so pytest stops at the first failure and reports one `FAILED`
+line however many tests would have failed — counting from it would have reported *every* kill as a
+single-killer, a false-positive machine and the exact mirror of the false clean sheet this instrument
+exists to prevent. So counting is a **separate mode**, and a verdict-only result **refuses** the
+single-killer question rather than answering "none", since an empty answer reads as "none found"
+where the truth is "nobody looked". Second time those known-answer tests have found a defect in the
+thing they test.
+
+**F-7.4 — no action, recorded.** One re-audit probe mutated prose inside an f-string and survived
+correctly; the corrected probes die, so the guard is pinned. Recorded for applied-count honesty.
+
+### Charter
+
+- **§4** gains the degenerate-fixture catalogue's **eleventh** shape (F-7.1): a reference that
+  derives independently can still be blind if it shares a coincidental literal the fixture makes
+  correct — distinct from a value read back from the code and from a transcription shared with the
+  source.
+- **§9**'s committed-instrument clause gains the single-killer count, the standing-but-uninstrumented
+  lesson, and the `-x`-incompatibility that makes counting a separate mode.
+
+**Six mutations applied, six killed, zero single-killers** — counted *by the instrument*, which is
+F-7.3's whole point.
+
 ## [0.66.0] - 2026-11-20
 
 ### Added — tranche 64, the Schwartz one-factor model: the commodity arc's capstone
