@@ -69,6 +69,27 @@ correctly; the corrected probes die, so the guard is pinned. Recorded for applie
 **Six mutations applied, six killed, zero single-killers** — counted *by the instrument*, which is
 F-7.3's whole point.
 
+### Also — the §9 slow gate did its job, and CI was the measurement
+
+The eight new tooling tests put `test_mutation_sweep.py` at **13.2s on Windows** against the 10.0s
+ceiling, while reading **3.45s locally** — §9's "for a numerically-heavy file a local re-time is not
+the measurement, CI is", third instance. The cost is structural: every `sweep()` call verifies the
+baseline by running the suite *before* mutating, so each sweeping test pays two subprocess runs, and
+a Windows process spawn is expensive. The file was already at ~73% of the ceiling before this tranche.
+
+Both reductions taken were **lossless**, in the order §9 prescribes: the assertions reading identical
+inputs now share **one** module-scoped counting sweep (the T50/T53 memoisation pattern — nothing any
+of them examines changed), and the file was then **split along a real subject seam** into
+`test_mutation_sweep_counting.py`. The seam is a capability, not a clock: counting is its own opt-in
+mode with its own pytest arguments and its own refusal semantics, and its tests share fixtures the
+mechanics tests never touch. No test was deleted and no oracle narrowed — §9 declines trading the
+oracle for the stopwatch, and no exemption was needed. Measured after: **1.99s** and **1.03s**.
+
+*(A `# noqa: E402` briefly appeared in the new file's imports and the `debt` gate rejected it within
+the minute. `tests/tooling/conftest.py` already puts the path in place, and its own docstring warns
+against precisely the `sys.path` insert that had made the suppression look necessary — §7's "fix the
+cause, never silence it", enforced by the gate rather than by memory.)*
+
 ## [0.66.0] - 2026-11-20
 
 ### Added — tranche 64, the Schwartz one-factor model: the commodity arc's capstone
