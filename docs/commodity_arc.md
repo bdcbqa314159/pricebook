@@ -87,6 +87,14 @@ and foreign-commodity pricing at once, or the American/lattice infrastructure); 
 now that CLARK gives a second Black-76 and a second OU short rate against the tree's own. Noted here so the
 boundary conversation has its options in hand.
 
-## Status
-- **T60 specced** (`docs/tranches/60_commodity_forward.md`); queue T60→T61→T62→T63→T64.
-- `CLARK-2014` registered `in-hand` (`docs/references.md`), flips to `worked-from` at T60.
+## Status — CLOSED (v0.66.0, 2026-11-20)
+- **Spine complete:** T60 forward+Black-76 (v0.62.0) → T61 geometric Asian (v0.63.0) → T62 arithmetic
+  Asian/TW (v0.64.0) → T63 spread options Margrabe+Kirk (v0.65.0) → T64 Schwartz mean-reverting (v0.66.0,
+  the capstone). All five merged.
+- `CLARK-2014` is `worked-from` (built/oracled at T60).
+- Checkpoint: `docs/checkpoints/CP_commodity_options.md`. Arc close triggered **re-audit #7**
+  (`docs/audit/reaudit_07_findings.md`).
+- One charter advance: §4's obligation-not-form clause (earned T61/T62/T63).
+- Deferrals in `to_go_deeper.md` (commodity section): partly-fixed Asians, American/lattice, two-factor /
+  stochastic-convenience models, calendar/Asian spreads, the Schwartz `α̂_X` calibration, seasonality.
+- **Next: arc boundary** — Bernardo's interest (a new reference is likely) + a Cowork spec.
