@@ -229,6 +229,12 @@ not an oracle. Ruled principles:
   own closed form (Merton). *(T66 finding 2: the Vasicek→Merton `α→0` reduction, ratios 0.949→0.998 over a
   100× `α` range — the third sibling in the reduction-verification family after exact-reduction and
   exact-in-ℝ-band-it. It will recur at every `α→0`-type limit this arc — G2++, HJM, the smile models.)*
+  **And the sound regime is MEASURED per model, never inherited** — the boundary where cancellation bites
+  depends on how many times the formula divides by the vanishing parameter, so a prior tranche's boundary is
+  not this one's. *(T67: G2++'s bond variance divides by `α³` after an `O(α³)` bracket — a `0/0` three times
+  over where Vasicek's was once — so at `α=1e-3`, sound for Vasicek, it is already 1.7e-8 wrong and 1.9e-6 at
+  `3e-4`; inheriting T66's `1e-3` boundary would have measured arithmetic. "State the regime" is empty if the
+  regime is copied rather than measured for the model at hand.)*
 - **Self-consistency telescopes.** A par-reprice-to-zero is satisfied by construction when
   construction and pricing share a convention — *even a wrong one*. Keep it as a consistency guard;
   the correctness anchor is a non-telescoping check of the structure itself (a pointwise identity,
