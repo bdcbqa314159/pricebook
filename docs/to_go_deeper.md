@@ -350,3 +350,21 @@ demand), which is why this is a route and not a tranche.
   average is a known constant folded into the adjusted forward. Oracle-able (reduces to T61 at zero
   settled fixings, to a deterministic payoff at all settled); unpulled — no product needs seasoned
   Asians yet. *(Surfaced at T61, 2026-11-19.)*
+
+### More commodity routes (recorded at the arc close, re-audit #7)
+
+- **American commodity options — Barone-Adesi-Whaley + a binomial lattice** (`CLARK-2014` ch 2.6).
+  Oracle-able, but its natural anchor is a lattice the tree would build only for it; not pulled by the
+  closed-form spine. The lattice would also serve American options under Schwartz.
+- **Two-factor / stochastic-convenience-yield models** (ch 2.10.2–2.10.3, Gibson–Schwartz). The one-factor
+  Schwartz (T64) is the spine; the second factor is pulled only if a product needs it. Reduces to T64 at
+  zero second-factor vol.
+- **Calendar and Asian spread options** (ch 2.9.3–2.9.4). The Asian spread composes T61/T62 with T63's
+  spread machinery — a real route, unpulled. Oracle-able (reduces to the vanilla spread at a single fixing).
+- **Schwartz market-forward calibration (`α̂_X`)** (ch 2.10.1, surfaced at T64). T64 carries the
+  risk-neutral composite `α̂_X = α_S − σ²/2κ − λ/κ` because no futures set separates its parts (T11
+  identifiability); *calibrating* `α̂_X` to a market forward curve is the fit nothing has pulled yet.
+  Oracle-able (a one-equation inversion with the T8 round-trip pattern).
+- **Seasonality / deseasonalised forward curves** (ch 5.2.1). A seasonal deterministic shift on the forward
+  — oracle-able as a deterministic overlay, but the market-specific seasonal *estimation* (ch 3–9) is
+  quotes-and-plots, closer to `out_of_method`. Recorded; unpulled.
