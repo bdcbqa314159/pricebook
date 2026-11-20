@@ -15,6 +15,7 @@ LINEAR degenerates to FLAT. So the fixtures are a SLOPED series read at a MID-MO
 degeneracy is asserted rather than assumed (`test_on_the_first_of_a_month_...`).
 """
 
+import calendar
 from datetime import date
 
 import pytest
@@ -92,6 +93,66 @@ def test_a_flat_series_cannot_discriminate_the_conventions_either():
     ln = InflationIndex("X", publication_lag=3, interpolation=IndexInterpolation.LINEAR)
     d = date(2025, 7, 15)
     assert reference_level(flat_series, d, f) == reference_level(flat_series, d, ln)
+
+
+# ---- F-7.1: the month length, which survived fifteen tranches unpinned ----
+
+def test_linear_interpolates_in_a_NON_THIRTY_DAY_month_with_a_DERIVED_divisor():
+    """**Re-audit #7, F-7.1 — a blind oracle, and a new shape in the degenerate-fixture catalogue.**
+
+    Hard-coding `days_in_month = 30.0` in `reference_level` survived all 2625 tests. The source was
+    always right; the oracle was blind, for **two** reasons that had to be broken together:
+
+    1. The only pointwise linear value test read **2026-04-15 — and April has exactly 30 days**, so
+       the real divisor and the literal were the same number.
+    2. **That test's own reference wrote `/ 30` as well.** So §4's independence rule was satisfied
+       *formally* — the test did compute its own reference — while the reference was independent of
+       the **code** and not of the **coincidence**.
+
+    So this test does two things the old one could not: it reads **February (28 days)**, and it
+    **derives** the month length with `calendar.monthrange` instead of writing a literal. Either
+    alone would be insufficient — a non-30-day month with a hard-coded `30` in the reference still
+    agrees with the mutant, and a derived divisor read in April still cannot see it.
+
+    Measured: at 28 days the weight is `14/28 = 0.5000` against the mutant's `14/30 = 0.4667`, a
+    **6.67%** relative error on the weight.
+    """
+    reference_date = date(2026, 2, 15)
+    days_in_month = calendar.monthrange(reference_date.year, reference_date.month)[1]
+    assert days_in_month == 28, "February must be the fixture, or the coincidence is not broken"
+
+    # TIPS, 3-month lag: 2026-02 resolves to the 2025-11 print, the next month is 2025-12.
+    lo, hi = PRINTS[date(2025, 11, 1)], PRINTS[date(2025, 12, 1)]
+    expected = lo + (reference_date.day - 1) / days_in_month * (hi - lo)
+    assert reference_level(SERIES, reference_date, TIPS) == pytest.approx(expected, rel=1e-15)
+
+
+def test_the_MONTH_LENGTH_is_what_the_new_fixture_pins():
+    """The companion that proves the test above is the one with power, rather than another reading
+    of the same thing: on this date a hard-coded 30 gives a **measurably different** answer, and
+    this states by how much. In April it would give the identical answer, which is the whole of
+    F-7.1."""
+    february, april = date(2026, 2, 15), date(2026, 4, 15)
+    for reference_date, must_differ in ((february, True), (april, False)):
+        days = calendar.monthrange(reference_date.year, reference_date.month)[1]
+        correct = (reference_date.day - 1) / days
+        hard_coded = (reference_date.day - 1) / 30.0
+        assert (abs(correct - hard_coded) > 1e-9) is must_differ, (
+            f"{reference_date}: {days} days, correct weight {correct}, at 30 {hard_coded}"
+        )
+    # And the size of it, so the finding's severity is in the suite and not only in the findings doc.
+    assert abs(0.5 - 14.0 / 30.0) / 0.5 > 0.06
+
+
+def test_a_THIRTY_ONE_DAY_month_interpolates_from_a_DERIVED_divisor_too():
+    """The other side of 30, so the fixture is not merely non-30 but brackets it — a mutant rounding
+    the month length in either direction is caught."""
+    reference_date = date(2026, 1, 20)
+    days_in_month = calendar.monthrange(reference_date.year, reference_date.month)[1]
+    assert days_in_month == 31
+    lo, hi = PRINTS[date(2025, 10, 1)], PRINTS[date(2025, 11, 1)]
+    expected = lo + (reference_date.day - 1) / days_in_month * (hi - lo)
+    assert reference_level(SERIES, reference_date, TIPS) == pytest.approx(expected, rel=1e-15)
 
 
 # ---- oracle 7: failure is a value, never a guess ----

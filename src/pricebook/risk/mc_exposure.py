@@ -54,6 +54,7 @@ from pricebook.foundation.mc_estimator import MonteCarloEstimate, estimate
 from pricebook.foundation.money import Currency, Money
 from pricebook.foundation.results import PricingResult
 from pricebook.foundation.time_measure import TimeMeasure, is_historical
+from pricebook.foundation.time_grid import checked_ascending_times
 from pricebook.market.curve import CurveHandle
 from pricebook.market.survival_curve import SurvivalCurve
 from pricebook.models.libor_market_model import LmmTenor
@@ -122,8 +123,7 @@ class SimulatedExposure:
             raise ValueError("an exposure needs at least one path")
         if any(len(row) != len(self.times) for row in self.values):
             raise ValueError("every path must carry the same number of values as there are times")
-        if any(b <= a for a, b in zip(self.times, self.times[1:])):
-            raise ValueError("times must be strictly ascending")
+        checked_ascending_times(self.times)
         if self.times[0] <= 0.0:
             raise ValueError(f"an exposure time must be positive, got {self.times[0]}")
 

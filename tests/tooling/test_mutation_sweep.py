@@ -35,7 +35,7 @@ from pathlib import Path
 
 import pytest
 
-from mutation_sweep import Mutation, _apply, sweep
+from mutation_sweep import Mutation, SweepResult, _apply, sweep
 
 TOOLING = Path(__file__).resolve().parent
 FIXTURES = TOOLING / "fixtures"
