@@ -207,9 +207,10 @@ class TestTheVarianceTermStructure:
         self,
     ) -> None:
         """Measured across well-spread maturities — a single maturity cannot see a term structure
-        at all. The reported consequence: the annualised variance falls from 0.0906 at three months
-        to 0.0048 at twenty years, i.e. the **Samuelson effect**, which is a statement about what
-        was measured rather than an asserted monotonicity."""
+        at all. The reported consequence: the annualised variance falls from **0.0840** at three
+        months through 0.0583, 0.0327 and 0.0174 to **0.0044** at twenty years — a factor of 19.2,
+        i.e. the **Samuelson effect**. That is a statement about what was measured, not an asserted
+        monotonicity (§4's obligation-not-form clause)."""
         measured = [
             (years, schwartz_total_variance(_params(), years) / years)
             for years in (0.25, 1.0, 2.4986, 5.0, 20.0)

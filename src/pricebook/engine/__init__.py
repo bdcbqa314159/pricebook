@@ -8,6 +8,11 @@ from pricebook.engine.capfloor import price_inflation_capfloor
 from pricebook.engine.cash import price_fixed_cashflow
 from pricebook.engine.equity_vanilla import price_european_equity_option
 from pricebook.engine.commodity_vanilla import price_commodity_option
+from pricebook.engine.schwartz import (
+    price_commodity_option_schwartz,
+    schwartz_futures,
+    schwartz_total_variance,
+)
 from pricebook.engine.commodity_spread import (
     kirk_weight,
     price_commodity_spread_option,
@@ -59,6 +64,9 @@ __all__ = [
     "price_commodity_geometric_asian",
     "price_commodity_arithmetic_asian",
     "price_commodity_spread_option",
+    "price_commodity_option_schwartz",
+    "schwartz_futures",
+    "schwartz_total_variance",
     "kirk_weight",
     "spread_total_variance",
     "arithmetic_average_moments",
