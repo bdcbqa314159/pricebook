@@ -46,6 +46,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from pricebook.foundation.time_grid import checked_ascending_times
 from pricebook.market.curve import CurveHandle
 from pricebook.market.survival_curve import SurvivalCurve
 
@@ -94,8 +95,7 @@ class ExposureProfile:
     def __post_init__(self) -> None:
         if len(self.times) != len(self.epe):
             raise ValueError("times and epe must have equal length")
-        if any(b <= a for a, b in zip(self.times, self.times[1:])):
-            raise ValueError("times must be strictly ascending")
+        checked_ascending_times(self.times)
         if any(e < 0.0 for e in self.epe):
             raise ValueError("an expected POSITIVE exposure may not be negative")
 

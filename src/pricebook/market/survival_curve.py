@@ -40,6 +40,7 @@ from datetime import date
 
 from pricebook.foundation.day_count import DayCountConvention
 from pricebook.foundation.time_measure import TimeMeasure
+from pricebook.foundation.time_grid import checked_ascending_times
 
 
 @dataclass(frozen=True)
@@ -85,8 +86,7 @@ class SurvivalCurve:
             raise ValueError("a curve needs at least one pillar")
         if self.times[0] != 0.0:
             raise ValueError(f"the first pillar must be t=0.0, got {self.times[0]}")
-        if any(b <= a for a, b in zip(self.times, self.times[1:])):
-            raise ValueError("times must be strictly ascending")
+        checked_ascending_times(self.times)
         if any(h < 0.0 for h in self.hazards):
             raise ValueError("a hazard rate may not be negative — survival would exceed 1")
 
