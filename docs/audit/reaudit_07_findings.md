@@ -270,3 +270,33 @@ reference **derives** the month length rather than writing a literal. **F-7.2** 
 rulings before any code moves; **F-7.4** needs nothing but the record.
 
 Re-audit #7 **logged open**; the arc boundary is settled once any remediation is ruled.
+
+---
+
+## Cowork rulings (2026-11-20) — four findings ruled; T65 specced
+
+Spec at `docs/tranches/65_reaudit7_remediation.md` — one test/tooling-only tranche → **v0.67.0**, two
+charter edits riding with it (they land in that merge so neither describes a practice that does not yet
+exist, §9's own anti-pattern).
+
+- **F-7.1 (blind oracle, real hole) — fix + a new §4 catalogue shape.** `reference_level`'s hard-coded
+  `days_in_month = 30` survived because the one pointwise fixture read a 30-day month (April) **and** the
+  test's reference wrote `/ 30` too — §4 independence satisfied *formally* while the reference is blind to
+  the coincidence. Fix: one pointwise test in a **non-30-day month** whose reference **derives** the month
+  length. Eleventh `τ=1`-family instance, first where the degeneracy is a **shared literal between fixture
+  and reference** — earns the catalogue's eleventh sentence (drafted in the T65 spec).
+- **F-7.2 (duplication, no hole) — guard-only extraction.** Four byte-identical ascending-time-grid guards
+  → one home (the T62 precedent; no `TimeGrid` type, nothing compels a bundle), excluding the separate
+  domain-specific group (shared word, not shape). Code rules the home.
+- **F-7.3 (tooling gap, real) — the instrument owns the single-killer count.** Extend `SweepResult` to carry
+  the per-mutant failing-test set, so the standing single-killer re-run inherits the verified baseline and
+  `try/finally` instead of a hand-rolled loop (which this run saw corrupt a baseline mid-mutation). §9's
+  committed-instrument clause gains a sentence (drafted in the T65 spec, lands with the instrument change).
+- **F-7.4 — no action.** A probe that mutated prose in an f-string survived correctly; the guard is pinned
+  by the corrected probes. Recorded for applied-count honesty. Affirmed, no code.
+
+**Method-watch (not T65):** the duplication pass missed four byte-identical guards for six runs — a
+mechanical byte-identical-block scan could aid it; noted for the re-audit, not gated.
+
+Re-audit #7 **closes when T65 merges.** The arc boundary is then settled — next direction is Bernardo's
+interest (a new reference likely) + a Cowork spec.
