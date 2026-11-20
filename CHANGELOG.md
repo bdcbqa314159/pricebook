@@ -6,6 +6,74 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.68.0] - 2026-11-20
+
+### Added — tranche 66, the Vasicek short-rate model: the single-curve arc opens
+
+`models/vasicek.py` (L3) — the canonical mean-reverting Gaussian short rate, plus Merton as its own
+model. Project nine (`MCINERNEY-ZASTAWNIAK` §3.3/§3.4), the deliberate counterpoint to the
+collateralised arc: a short-rate model **makes** the discount curve out of `r`, so the single-curve
+mode of the design invariant is exercised **by construction** rather than selected by a snapshot's
+shape.
+
+`D(t,T) = (1−e^{−ατ})/α` **is** `hw_beta`, reused rather than re-derived — the reuse the whole arc
+rests on, since every model in the book's chapter 3 is affine and shares it.
+
+### The source leaves the closed form as an exercise, which is a better oracle than two renderings
+
+Eq (3.6) is printed as **integrals** — `B = exp(−rD − θ∫D du + ½σ²∫D² du)` — and the explicit form is
+the book's **Exercise 3.2**. So both integrals are oracled against **numerical quadrature of the
+printed integrands**: a genuinely different computation path (a Gauss rule over `u` against closed
+forms rational in `1/α`), not a second transcription of something the source never prints. A
+companion asserts the reference would *disagree* with a plausible mis-working, so the check is
+independent rather than circular.
+
+### Two findings the source read forced
+
+**1. The book's `α` means two different things three pages apart.** Vasicek (§3.4) is
+`dr = (θ − αr)dt + σdW`, so **α is the mean reversion and the long-run mean is `θ/α`**; Merton
+(§3.3) is `dr = α dt + σdW`, where α is a plain drift. The tranche spec used `dr = κ(θ−r)dt`, the
+other common parameterisation, in which `θ` *is* the level — and the two readings of `θ` differ by a
+factor of α, **5.6× on this fixture**. The module follows the source (§5), names Merton's parameter
+`drift` rather than `α` so the collision cannot propagate, and an oracle asserts the long-run mean
+is `θ/α` and not `θ`.
+
+**2. The α→0 reduction is exact in ℝ and numerically unreachable, so it is asserted as a RATE.** The
+spec called it "exact by construction". `∫D du = (τ−D)/α` is `0/0` as `α→0` and `∫D²du` is a `0/0`
+over `α²`, so catastrophic cancellation sets in long before the limit: measured against quadrature
+the closed form is machine-exact at `α = 0.1`, 5e-11 at `1e-3`, and **1.4% wrong at `1e-6`**. The
+formula *diverges* from its own limit rather than approaching it to a few ULP, so this is **not** the
+T61 "exact in ℝ, banded in float" case — banding would not help. It is a **stated-regime** case: the
+reduction is asserted as the **O(α) convergence rate** over the range where the closed form is sound
+(the T25 rate-detector), measured at ratios 0.949 → 0.998 and 92.7× end to end over a 100× range in
+α, with a companion asserting the closed form **degrades** outside that regime so the regime is
+stated rather than assumed. Merton is therefore its own closed form (3.4), which is also how the
+source presents it.
+
+### Oracles
+
+- `I1`, `I2` and the bond each against quadrature of the printed integrand; `B(T,T) = 1` **exactly**
+  as the requirement companion (every term carries a factor of τ, so equality not tolerance).
+- `D` cross-checked against `hw_beta` and **labelled a consistency guard, not independence** — one
+  object read twice (§4's same-formula caveat).
+- The short-rate moments pointwise, with the **stationary variance measured to saturate** rather
+  than pre-asserted as a shape (§4's obligation-not-form clause) — a quarter of `σ²/(2α)` inside a
+  year, 99.9% inside twenty.
+- Merton's (3.4) pointwise; the T39 companion measured at a 17% bond difference from Merton.
+
+**Nineteen mutations applied, nineteen killed** — including both `α²` divisors, every factor of 2,
+the `θ/α`-to-`θ` slip, and Merton's `1/6`.
+
+### Changed
+
+- `VasicekParams` is its own type, not `HullWhiteParams` + θ: `α` and `σ` play the same algebraic
+  role and `D` *is* `hw_beta`, but Vasicek's **constant** θ against Hull-White's curve-fitted `θ(t)`
+  is the difference between a model that *produces* a curve and one that *reproduces* it (§6). T57's
+  LGM reuse is the contrast that draws the line.
+- `short_rate` is carried as the model's **initial state**, not read from the snapshot: recovering
+  `r(0)` from a curve means differentiating an interpolated curve for an instantaneous forward, a
+  real piece nothing pulls yet (§6). A short-rate model's curve is its *output*.
+
 ## [0.67.0] - 2026-11-20
 
 ### Fixed — tranche 65, the re-audit #7 remediation

@@ -214,7 +214,21 @@ not an oracle. Ruled principles:
   a flat hazard has no interior pillars, and the protection-leg trapezoid loses an order *only* at a
   pillar where `default_density = λQ` jumps; the exact anchor could not see a first-vs-second-order
   integration defect, which a term-structured companion measured by its O(1/M) vs O(1/M²) rate catches at
-  once.)*
+  once.)* **And a reduction can be exact in ℝ yet numerically UNREACHABLE at the limit — then it earns a
+  convergence RATE in a stated regime, never a band.** Where the general formula carries a *removable
+  singularity* at the degenerate parameter (a `(1−e^{−ατ})/α` form at `α→0`: `0/0`), catastrophic
+  cancellation arrives **before** the limit, so the closed form diverges from its own limit as you approach
+  it — machine-exact at `α=0.1`, 5e-11 at `1e-3`, **1.4% wrong at `1e-6`**. This is **not** T61's
+  exact-in-ℝ-few-ULP case ("band it"): any band wide enough for the unstable regime is useless, and a band
+  measured where the formula is sound says nothing about the limit — it would pass and read as "reduction
+  verified" while the limit is unverified (the F-5.3 satisfied-clause trap, and the exact **over-application
+  of the T61 band-it clause**, which is why this is a bending-invitation and not merely self-catching — the
+  tempting wrong move goes green). So assert the approach as an **O(α) convergence rate over the regime where
+  the closed form is numerically sound** (the T25 rate-detector), with a companion asserting the formula
+  **degrades** outside that regime so the regime is stated, not assumed; the degenerate case itself is its
+  own closed form (Merton). *(T66 finding 2: the Vasicek→Merton `α→0` reduction, ratios 0.949→0.998 over a
+  100× `α` range — the third sibling in the reduction-verification family after exact-reduction and
+  exact-in-ℝ-band-it. It will recur at every `α→0`-type limit this arc — G2++, HJM, the smile models.)*
 - **Self-consistency telescopes.** A par-reprice-to-zero is satisfied by construction when
   construction and pricing share a convention — *even a wrong one*. Keep it as a consistency guard;
   the correctness anchor is a non-telescoping check of the structure itself (a pointwise identity,

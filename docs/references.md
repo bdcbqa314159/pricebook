@@ -157,6 +157,26 @@ in full and is the primary source; McInerney ch 5–6 is sufficient LMM backgrou
 this project's main topic, so **no dedicated LMM text is to be acquired.** (Verified: §5.1 LMM, §5.2
 Black's caplet, §5.6 Brace–Gatarek–Musiela, §5.9 swap market model, §6 implementation + calibration.)
 
+**Project nine — the single-curve short-rate revisit (Bernardo, 2026-11-20).** The "later units" above,
+pulled: a solid **single-curve** short-rate spine (the deliberate pre-crisis counterpoint to the
+collateralised/multi-curve arc, project seven — these models generate ONE curve for both discounting and
+forwarding, which is the single-curve design invariant exercised by construction). Already `worked-from`
+since T10 (the HW cap machinery); this arc mines the chapters T10 left: ch 3 (Vasicek, Merton, two-factor
+HW), ch 4 (the HJM framework), ch 8 (the volatility-smile short-rate models). Arc plan
+`docs/stochastic_rates_arc.md`.
+
+| ch | what | reuse / status |
+|---|---|---|
+| 3.3–3.4 | **Merton, Vasicek** — affine Gaussian short rates | new; the short rate is OU, so reuses `simulate_lgm_states`; `hw_beta` IS Vasicek's `B(t,T)`; Merton is Vasicek at κ→0 |
+| 3.5 | Hull–White | **held** (T10) — the time-dependent-θ extended Vasicek, reused not rebuilt |
+| 3.6 | **Bermudan swaptions in Hull–White** | new; reuses the T18 `exercise_boundary` in a short-rate model |
+| 3.7 | **two-factor Hull–White (G2++)** | new; reduces to 1F HW, reuses `linalg` Cholesky (T63) |
+| 4.1–4.5 | **the HJM forward-rate framework** (1-factor + drift condition, Gaussian, multi-factor, calibration) | new; **Gaussian HJM reduces to Hull–White** exactly |
+| 8.1–8.4 | **volatility-smile short-rate models** — Normal/Bachelier, CEV, displaced-diffusion | new; extend the Black caplet to the smile; closed-form or semi-closed |
+| 8.5 | stochastic volatility | `to_go_deeper` (SABR-adjacent, harder to oracle) |
+| 5–6 | LMM / SMM | **held** (BERHAN MM-I + the Jäckel arc) — a second source, not rebuilt |
+| 7 | exotic IR products (CMS, range accruals, trigger swaps, ratchet floaters) | `to_go_deeper` unless pulled |
+
 ---
 
 ### `ACKLAM-2000` — `worked-from`
