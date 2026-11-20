@@ -395,7 +395,22 @@ not an oracle. Ruled principles:
   artifact; re-derive the artifact, never ratify on the recollection.** Cowork nearly ratified #62 on
   Code's report that all three fixtures straddled; the 0253 caveat — "a reported premise I have not
   re-derived is content, not an oracle" — is what caught it, and it is now a rule, not a caveat: the
-  reviewing surface re-derives a load-bearing premise it is about to rule on.)* Mutation is also the
+  reviewing surface re-derives a load-bearing premise it is about to rule on.)* **And a reference computed independently can still be blind, if it shares a coincidental
+  LITERAL CONSTANT with the code that the chosen fixture happens to make correct.** §4's
+  independence rule says the test computes its own reference, and this is the case where that is
+  satisfied *formally* while the reference is independent of the **code** and not of the
+  **coincidence**. `reference_level`'s hard-coded `days_in_month = 30` survived all 2625 tests
+  because the one pointwise fixture read a 30-day month (April) **and** the test's own reference
+  wrote `/ 30` too — two coincidences that had to be broken together, since a non-30-day month with
+  a literal `30` in the reference still agrees with the mutant, and a derived divisor read in April
+  still cannot see it. So the premise is double: a reference **derives** any constant the code is
+  supposed to compute rather than restating it as a literal, **and** the fixture exercises a value
+  where that constant is not its coincidental default. Distinct from the two named hazards above —
+  it is neither a value read back from the code nor a transcription shared with the source, but a
+  literal that is simply right for the fixture chosen. Eleventh appearance of the family, and the
+  first where the degeneracy is a **shared literal between fixture and reference** rather than a
+  property of the fixture alone. *(F-7.1, re-audit #7; closed at T65 with a February fixture whose
+  reference derives the month length.)* Mutation is also the
   **mandatory recovery when pre-registration
   was missed** — the empirical proof of power that RED-first would otherwise have given, never a
   licence to skip RED-first. **A surviving mutant is a hole — unless it is an *equivalent mutant*,
@@ -749,7 +764,19 @@ unconditionally only for the fraction.)*
   already red make every mutant look killed), and an **ERRORED verdict that is never a kill** — pytest exit
   1 means killed, while 2-5 mean the run returned no verdict, which is re-audit #4's false clean sheet
   exactly. `is_clean` is false unless every mutation applied, nothing survived and nothing errored, so
-  "survivors: 0" from a run that never ran is not expressible. **It is the engine, never the audit:**
+  "survivors: 0" from a run that never ran is not expressible. **The sweep also returns the
+  per-mutant failing-test set, so the standing single-killer re-run reads its counts from the
+  instrument** — inheriting the verified baseline and the `finally` restore — rather than from a loop
+  hand-rolled beside it, which for five re-audits inherited none of the guards and once measured
+  against a baseline a timeout had corrupted mid-mutation. The general lesson is sharper than "the
+  instrument had a gap": **an obligation that is standing but uninstrumented will be re-implemented
+  until it fails.** Counting is a **separate mode**, because the verdict run carries `-x` and stops
+  at the first failure, so counting from it would report *every* kill as a single-killer — a
+  false-positive machine, the mirror of the false clean sheet; and a verdict-only result therefore
+  **refuses** the single-killer question instead of answering "none", since an empty answer would
+  read as "none found" where the truth is "nobody looked". *(F-7.3, T65. The `-x` incompatibility was
+  caught by the instrument's own known-answer tests while the fix was being written, which is the
+  second time those tests have found a defect in the thing they test.)* **It is the engine, never the audit:**
   *which* mutations to apply stays the re-audit's judgement — where a transcription error lands, which
   blind spot to probe — because a tool choosing its own would sweep where it is easy rather than where the
   failure lives, which is the can't-fail gate wearing an instrument's clothes. *(T52. The ERRORED clause
