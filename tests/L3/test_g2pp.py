@@ -61,6 +61,7 @@ from pricebook.models.black_mc import MonteCarloConfig
 from pricebook.models.g2pp import (
     G2ppModel,
     G2ppParams,
+    G2ppState,
     g2pp_bond,
     g2pp_bond_option_variance,
     g2pp_bond_variance,
@@ -267,31 +268,91 @@ class TestTheBond:
         vanishes identically at `t = T`. A requirement oracle, so it survives a transcription error
         the quadrature reference shares with the closed form."""
         for maturity in (0.5, 2.4986, 10.0):
-            assert g2pp_bond(_params(), 0.0, 0.0, maturity, maturity, CURVE) == 1.0
+            assert g2pp_bond(_params(), G2ppState(0.0, 0.0), maturity, maturity, CURVE) == 1.0
 
-    def test_at_ZERO_FACTORS_and_t_zero_the_bond_is_the_CURVE(self) -> None:
+    def test_at_INCEPTION_the_bond_is_the_CURVE(self) -> None:
         """The term-structure fit (3.42) is exact by construction at `t = 0`: `x(0) = y(0) = 0` and
         the `V` terms cancel, so the model reproduces today's curve rather than approximating it.
         That is what `φ` is for, and it is the single-curve arc's thesis — the model *makes* the
         curve."""
         for maturity in (0.5, 2.4986, 10.0):
-            assert g2pp_bond(_params(), 0.0, 0.0, 0.0, maturity, CURVE) == pytest.approx(
+            assert g2pp_bond(
+                _params(), G2ppState.at_inception(), 0.0, maturity, CURVE
+            ) == pytest.approx(
                 CURVE.df_at(maturity), rel=1e-14
             )
+
+    @pytest.mark.parametrize("observed", [0.5, 1.0, 2.0])
+    @pytest.mark.parametrize("maturity", [3.0, 7.0, 10.0])
+    def test_the_bond_matches_eq_3_42_POINTWISE_at_a_FUTURE_time(
+        self, observed: float, maturity: float
+    ) -> None:
+        """**The oracle the mutation sweep demanded, and the degeneracy is the lesson.**
+
+        Every other bond oracle here sits at `t = 0` — and at `t = 0` the deterministic-shift
+        correction `½(V(0,t) − V(0,T) + V(t,T))` **cancels identically**: `V(0,0) = 0` and the other
+        two terms are the same quantity. So dropping `V(0,t)`, or dropping the `½`, is *invisible*
+        to the inception fit, to `B(T,T) = 1` (which returns early), and to the monotonicity
+        companions (which the correction does not enter). Both mutations survived the whole suite
+        until this test existed — the §4 catalogue's oldest shape, a fixture whose key parameter
+        sits exactly where it cannot be seen, here the observation time.
+
+        So the reference is built at `t > 0` from **quadrature of the printed `V` integrand**, so it
+        shares no algebra with the integrated form the code uses."""
+        params = _params()
+        state = G2ppState(0.0035, -0.0012)
+        correction = 0.5 * (
+            _quadrature_variance(params, 0.0, observed)
+            - _quadrature_variance(params, 0.0, maturity)
+            + _quadrature_variance(params, observed, maturity)
+        )
+        expected = (
+            CURVE.df_at(maturity)
+            / CURVE.df_at(observed)
+            * math.exp(
+                -state.x * hw_beta(ALPHA, observed, maturity)
+                - state.y * hw_beta(BETA, observed, maturity)
+                + correction
+            )
+        )
+        assert g2pp_bond(params, state, observed, maturity, CURVE) == pytest.approx(
+            expected, rel=1e-11
+        )
+
+    def test_the_variance_CORRECTION_is_MATERIAL_at_a_future_time(self) -> None:
+        """The companion that gives the test above its teeth and states why `t = 0` could not: the
+        correction is identically zero at inception and non-zero after it, so only a future
+        observation time can see it. Measured here, and the half is worth the difference between
+        the two."""
+        params, state = _params(), G2ppState(0.0035, -0.0012)
+        observed, maturity = 1.0, 7.0
+        correction = 0.5 * (
+            g2pp_bond_variance(params, 0.0, observed)
+            - g2pp_bond_variance(params, 0.0, maturity)
+            + g2pp_bond_variance(params, observed, maturity)
+        )
+        assert abs(correction) > 1e-6, correction
+        # At inception the same expression is exactly zero, which is the degeneracy named above.
+        at_inception = 0.5 * (
+            g2pp_bond_variance(params, 0.0, 0.0)
+            - g2pp_bond_variance(params, 0.0, maturity)
+            + g2pp_bond_variance(params, 0.0, maturity)
+        )
+        assert at_inception == 0.0
 
     def test_the_bond_FALLS_as_either_FACTOR_rises(self) -> None:
         """Both affine coefficients are positive, so a higher factor means a higher short rate and a
         lower bond — a requirement, and the companion that stops the `x = y = 0` oracle above from
         being the only witness."""
-        base = g2pp_bond(_params(), 0.0, 0.0, 1.0, 5.0, CURVE)
-        assert g2pp_bond(_params(), 0.004, 0.0, 1.0, 5.0, CURVE) < base
-        assert g2pp_bond(_params(), 0.0, 0.004, 1.0, 5.0, CURVE) < base
+        base = g2pp_bond(_params(), G2ppState(0.0, 0.0), 1.0, 5.0, CURVE)
+        assert g2pp_bond(_params(), G2ppState(0.004, 0.0), 1.0, 5.0, CURVE) < base
+        assert g2pp_bond(_params(), G2ppState(0.0, 0.004), 1.0, 5.0, CURVE) < base
 
     def test_the_TWO_FACTORS_enter_with_DIFFERENT_weights(self) -> None:
         """`α ≠ β`, so swapping which factor is which changes the bond — the premise that makes a
         factor-swap mutation visible."""
-        swapped = g2pp_bond(_params(), 0.0, 0.004, 1.0, 5.0, CURVE)
-        straight = g2pp_bond(_params(), 0.004, 0.0, 1.0, 5.0, CURVE)
+        swapped = g2pp_bond(_params(), G2ppState(0.0, 0.004), 1.0, 5.0, CURVE)
+        straight = g2pp_bond(_params(), G2ppState(0.004, 0.0), 1.0, 5.0, CURVE)
         assert straight != pytest.approx(swapped, rel=1e-6)
 
 
@@ -315,7 +376,7 @@ class TestTheSpeedToZeroLimitsAreRATESNotBands:
         tau = HORIZON
         limit = SIGMA * SIGMA * tau**3 / 3.0
         gaps = []
-        for alpha in (0.4, 0.2, 0.1, 0.05):
+        for alpha in (0.4, 0.2, 0.1, 0.05, 0.025):
             # Only the first factor: the second and the cross term are held at zero so the limit is
             # the one being measured rather than a sum of three.
             value = g2pp_bond_variance(
@@ -326,10 +387,20 @@ class TestTheSpeedToZeroLimitsAreRATESNotBands:
             )
             assert abs(value / reference - 1.0) < 1e-10, (alpha, value, reference)
             gaps.append((alpha, abs(value - limit)))
-        # O(alpha): halving alpha must halve the gap, measured.
-        for (coarse, wide), (fine, narrow) in zip(gaps, gaps[1:]):
-            ratio = (wide / narrow) / (coarse / fine)
-            assert 0.85 < ratio < 1.2, (coarse, fine, wide, narrow, ratio)
+
+        # The rate approaches 1 **from below** — measured 0.823, 0.899, 0.946, 0.972 — because the
+        # coarse end still carries a large second-order term. So a flat band is the wrong
+        # instrument: what is asserted is that the measured order **rises monotonically toward 1**
+        # and reaches it, which is a stronger statement than any single ratio and is what
+        # distinguishes a genuine O(alpha) approach from an O(alpha^2) one (whose ratios would sit
+        # near 2) or from no convergence at all (ratios near 0).
+        rates = [
+            (wide / narrow) / (coarse / fine)
+            for (coarse, wide), (fine, narrow) in zip(gaps, gaps[1:])
+        ]
+        assert all(b > a for a, b in zip(rates, rates[1:])), rates
+        assert 0.95 < rates[-1] < 1.05, rates
+        assert rates[0] > 0.75, rates
 
     def test_the_CLOSED_FORM_is_asserted_to_DEGRADE_so_the_regime_is_STATED(self) -> None:
         """The companion the clause requires, and the reason the rate test stops at `α = 0.05`. At
@@ -490,7 +561,7 @@ class TestTheBondOptionAndItsGuards:
 
     def test_a_bond_maturing_BEFORE_it_is_observed_is_refused(self) -> None:
         with pytest.raises(ValueError, match="before"):
-            g2pp_bond(_params(), 0.0, 0.0, 5.0, 2.0, CURVE)
+            g2pp_bond(_params(), G2ppState(0.0, 0.0), 5.0, 2.0, CURVE)
 
     def test_the_PARAMS_are_ONE_object_because_the_CORRELATION_makes_them_one(self) -> None:
         """§6, and the ruling the spec left to Code. Two `HullWhiteParams` plus a loose `ρ` would be
@@ -500,3 +571,17 @@ class TestTheBondOptionAndItsGuards:
         p = _params()
         assert (p.alpha, p.beta, p.sigma, p.eta, p.rho) == (ALPHA, BETA, SIGMA, ETA, RHO)
         assert not isinstance(p, HullWhiteParams)
+
+
+def test_the_STATE_is_bundled_and_guards_its_own_fields() -> None:
+    """§7's compelled bundling, and the guards that come with being a type rather than two floats.
+
+    `g2pp_bond` would otherwise take six arguments. The pair is cohesive rather than merely
+    co-located: `x` and `y` are the two *correlated* factors of one model and the simulation produces
+    them together, so a loose signature would let one path's `x` pair with another's `y`.
+    """
+    assert G2ppState.at_inception() == G2ppState(0.0, 0.0)
+    assert G2ppState(0.004, 0.0) != G2ppState(0.0, 0.004), "the two factors are not interchangeable"
+    for bad in ({"x": float("nan")}, {"y": float("inf")}):
+        with pytest.raises(ValueError, match="factor"):
+            G2ppState(**{"x": 0.0, "y": 0.0, **bad})
