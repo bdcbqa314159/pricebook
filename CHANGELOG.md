@@ -6,6 +6,65 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.72.0] - 2026-11-21
+
+### Added — tranche 70, multi-factor HJM
+
+`models/multifactor_hjm.py` (L3) — tranche 69 with `n` driving factors.
+
+### Two things the source settled, and the second REMOVED an oracle
+
+The spec wrote per-factor drifts `αₖ` and an explicit factor correlation `ρₖⱼ`. §4.4 has neither:
+there is **one** drift (the forward rate has a single drift and `n` diffusion terms, per eq 4.10),
+and the Brownian motions are **independent** — the section opens with exactly that word.
+
+The second matters beyond notation. The spec expected the **T17/T43 correlation discipline** to
+return here as it did at G2++, and it does not: **there is no correlation parameter to pin.**
+Correlation between forward rates of *different maturities* is an **output** of the volatility
+vector, not an input to it — which is the framework's actual content. Where G2++ had a `ρ` needing
+two independent instruments, this model has a structure that can be checked exactly.
+
+### Which makes the reduction an identity rather than an agreement
+
+With independent factors every quantity is a plain **sum** of T69's — `α = Σᵢ(T69's drift)`,
+`ν = Σᵢ(T69's variance)`, no cross terms — so the module **calls T69's functions and sums them**.
+The `N = 1` reduction is therefore **bit-identical by construction**: a one-element sum *is* its
+summand. That is the arc's reduce-to-already-verified-code anchor in its strongest form, and it is
+why there is no second transcription of the per-factor integrals here — rewriting them to
+"generalise" them would have created the one defect the reduction could not then detect.
+
+The chain is asserted end to end: multi-factor at `N = 1` is T69, and T69 at the Hull-White vol is
+tranche 10's `bond_option_variance`. Three tranches, one number.
+
+### Oracles
+
+- The factor-sum drift against the **integrated condition per factor** (two forms, two paths) and
+  transcribed pointwise besides (T12(b)), with each of three factors measured to matter so a
+  dropped term cannot hide.
+- The variance equal to a **single integral of the summed squares** — a different computation path —
+  and **order-independent** in the factors, which a spurious asymmetric cross term would break.
+- A mandatory three-factor companion measured **43%** away from `N = 1` (T39), with the premise that
+  no two factors are scalar multiples, or the fixture would be `N = 2` in disguise.
+
+### What the sweep caught: the T69 lesson applied to one of two guards
+
+One survivor — bypassing the variance's inverted-interval refusal. Cause: T69's per-factor function
+refuses the same interval with **the same wording**, so the guard here was bypassable without any
+test noticing. The drift escaped only because its message already differed. Both now name *this*
+operation, with T69's distinct message asserted alongside so the discrimination is real. A guard
+whose removal still raises is pinned only by what it says (the T44b shape).
+
+**Eight mutations applied, eight killed** after that fix.
+
+### Raised, not settled
+
+`MultiFactorHjmModel` is its own type rather than `GaussianHjmModel` generalised to a tuple. The two
+models' machinery is identical and this one's `N = 1` case *is* that one, which argues for a single
+type — and generalising T69 would cost exactly **one construction site and one field read** (its
+functions take a `ForwardVolatility`, not a model). This is the additive choice, which forecloses
+nothing: if the ruling is to generalise, the change is one line plus deleting a type. Raised as a
+finding with the count, which is where a §6 vocabulary call belongs.
+
 ## [0.71.0] - 2026-11-21
 
 ### Added — tranche 69, the Gaussian HJM framework
