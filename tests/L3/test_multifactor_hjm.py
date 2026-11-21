@@ -44,8 +44,8 @@ from pricebook.models.gaussian_hjm import (
     humped_volatility,
 )
 from pricebook.models.hull_white import HullWhiteParams, bond_option_variance
+from pricebook.models.gaussian_hjm import GaussianHjmModel
 from pricebook.models.multifactor_hjm import (
-    MultiFactorHjmModel,
     multifactor_bond_option_variance,
     multifactor_drift,
 )
@@ -210,25 +210,52 @@ class TestTheVarianceIsASUMWithNOCrossTerms:
 
 
 class TestTheModelAndItsGuards:
-    def test_the_model_carries_the_FACTORS_as_an_ordered_tuple(self) -> None:
+    def test_there_is_ONE_model_type_for_ANY_number_of_factors(self) -> None:
+        """**The tranche's §6 ruling, pinned so a second type cannot quietly return.**
+
+        A one-factor HJM does not *resemble* the `n`-factor one — it **is** the `n`-factor one at
+        `n = 1`. What would normally argue for two types is that each one's reduction to the other
+        is a self-verifying oracle, and here that reduction is **bit-identical by construction** (a
+        one-element sum is its summand), so it is a tautology rather than a cross-check: two types
+        would have been separated to preserve nothing.
+
+        So `GaussianHjmModel` holds the tuple at any `n`, and the same model carries one factor or
+        three."""
+        import pricebook.models.multifactor_hjm as module
+
+        assert not hasattr(module, "MultiFactorHjmModel")
+        market = self._market()
+        assert len(GaussianHjmModel(market=market, volatilities=(FIRST,)).volatilities) == 1
+        assert len(GaussianHjmModel(market=market, volatilities=FACTORS).volatilities) == 3
+
+    @staticmethod
+    def _market():
         from datetime import date
 
         from pricebook.foundation.day_count import DayCountConvention
         from pricebook.foundation.money import Currency
-        from pricebook.foundation.time_measure import TimeMeasure
         from pricebook.market.curve import DiscountCurve
         from pricebook.market.curve_set import CurveKey, CurveRole, CurveSet
         from pricebook.market.snapshot import MarketSnapshot
 
         valuation = date(2026, 1, 15)
         curve = DiscountCurve.flat(valuation, 0.03, DayCountConvention.ACT_365_FIXED)
-        market = MarketSnapshot(
+        return MarketSnapshot(
             valuation_date=valuation,
             curves=CurveSet({CurveKey(CurveRole.DISCOUNT, Currency("EUR")): curve}),
         )
-        model = MultiFactorHjmModel(market=market, volatilities=FACTORS)
+
+    def test_the_model_carries_the_FACTORS_as_an_ordered_tuple(self) -> None:
+        model = GaussianHjmModel(market=self._market(), volatilities=FACTORS)
         assert len(model.volatilities) == 3
         assert model.volatilities[0] is FIRST
+
+    def test_an_EMPTY_factor_set_is_refused_BY_THE_MODEL_too(self) -> None:
+        """Not only by the functions: a model carrying no factors is a deterministic forward curve,
+        and every quantity it produced would be `0.0` — a plausible wrong number rather than a
+        failure (§3.4)."""
+        with pytest.raises(ValueError, match="at least one factor"):
+            GaussianHjmModel(market=self._market(), volatilities=())
 
     def test_an_EMPTY_factor_set_is_refused(self) -> None:
         """A zero-factor HJM is a deterministic forward curve, not a model — and the drift and

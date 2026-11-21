@@ -206,7 +206,7 @@ class TestTheBondOptionReusesTheHeldPricer:
             valuation_date=VAL,
             curves=CurveSet({CurveKey(CurveRole.DISCOUNT, Currency("EUR")): CURVE}),
         )
-        model = GaussianHjmModel(market=market, volatility=HUMP)
+        model = GaussianHjmModel(market=market, volatilities=(HUMP,))
         expiry, maturity, strike = 1.0, 5.0, 0.86
         variance = hjm_bond_option_variance(HUMP, expiry, maturity)
         call = zero_bond_option(
@@ -221,7 +221,7 @@ class TestTheBondOptionReusesTheHeldPricer:
         assert call - put == pytest.approx(
             CURVE.df_at(maturity) - strike * CURVE.df_at(expiry), rel=1e-12
         )
-        assert model.volatility is HUMP
+        assert model.volatilities == (HUMP,)
 
     def test_a_HUMPED_vol_prices_DIFFERENTLY_from_the_hull_white_one(self) -> None:
         """The companion that makes the framework worth having: if the two vols priced the same, HJM

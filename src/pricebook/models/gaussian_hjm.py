@@ -56,7 +56,9 @@ Provenance:
           put-call parity on the bond option, which the variance cancels out of
   crosscheck: quantlib GaussianHJM / its Hull-White engine, which coincides on the reduction -
           deferred to the optional QuantLib tier
-  slice:  tranche 69 - the Gaussian HJM framework
+  slice:  tranche 69 - the Gaussian HJM framework; generalised to `n` factors at
+          tranche 70, where the one-factor model was shown to BE the `n`-factor one
+          at `n = 1` rather than to resemble it
 """
 
 from __future__ import annotations
@@ -124,7 +126,20 @@ def humped_volatility(level: float, slope: float, decay: float) -> ForwardVolati
 
 @dataclass(frozen=True)
 class GaussianHjmModel:
-    """A deterministic forward-rate volatility, carrying the snapshot it belongs to (§3).
+    """The `n` deterministic forward-rate volatilities, carrying the snapshot they belong to (§3).
+
+    **One type for any `n`, which is a ruling rather than a convenience** (tranche 70). A one-factor
+    HJM is not a different model that resembles the multi-factor one - it *is* the multi-factor model
+    at `n = 1`, as eq (4.11) makes plain by collapsing to eq (4.3). The argument that would normally
+    keep two types apart is that each one's reduction to the other is a self-verifying oracle; here
+    that reduction is **bit-identical by construction** (a one-element sum is its summand), so it is
+    an identity rather than an independent cross-check, and two types would have been separated to
+    preserve a tautology. *(Ruled by Cowork at the tranche-70 review, on Code's finding that the
+    reduction is an identity; the one-factor behaviour stays oracled because this tranche's own
+    transcription and Hull-White-reduction tests exercise the model at `n = 1`.)*
+
+    An **ordered** tuple: the quantities are symmetric in the factors (a tested property - a sum of
+    squares is order-independent where a cross term would not be), but a caller's bookkeeping is not.
 
     The initial forward curve is **not** a field: `f(0,T)` is `-d ln P(0,T)/dT`, so the snapshot's
     discount curve already carries it and a second copy could disagree with the first. That is the
@@ -132,7 +147,11 @@ class GaussianHjmModel:
     """
 
     market: MarketSnapshot
-    volatility: ForwardVolatility
+    volatilities: tuple[ForwardVolatility, ...]
+
+    def __post_init__(self) -> None:
+        if not self.volatilities:
+            raise ValueError("a Gaussian HJM model needs at least one factor")
 
 
 def hjm_drift(volatility: ForwardVolatility, t: float, maturity: float) -> float:

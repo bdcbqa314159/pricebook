@@ -34,13 +34,14 @@ strongest possible form - identity rather than agreement - and it is why there i
 transcription of the per-factor integrals here. Writing them again to "generalise" them would have
 created the one thing the reduction could not then detect.
 
-**Its own type rather than generalising `GaussianHjmModel` - raised, not settled.** The two models'
-machinery is identical and the `N = 1` case of this one *is* that one, which argues for one type
-holding a tuple; generalising tranche 69 would cost exactly **one construction site and one field
-read** (its functions take a `ForwardVolatility`, not a model, so they are untouched either way).
-This module is the additive choice, which forecloses nothing: if the ruling is to generalise, the
-change is one line plus deleting a type. Raised at the tranche-70 handoff as a finding with the
-count, which is where a §6 vocabulary call belongs (§10).
+**There is no `MultiFactorHjmModel`, and that was the tranche's §6 ruling.** This module holds the
+summing *functions*; the model is tranche 69's `GaussianHjmModel`, generalised to a tuple of vols.
+A one-factor HJM is not a model that resembles the `n`-factor one - it **is** the `n`-factor one at
+`n = 1`. What would normally argue for two types is that each one's reduction to the other is a
+self-verifying oracle, and here that reduction is **bit-identical by construction**, so it is a
+tautology rather than a cross-check: two types would have been separated to preserve nothing.
+*(Code raised it as a finding with the count - one construction site, one field read, functions
+untouched; Cowork ruled generalise.)*
 
 Provenance:
   stock:  none - the archived predecessor had no HJM
@@ -65,34 +66,12 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
 
-from pricebook.market.snapshot import MarketSnapshot
 from pricebook.models.gaussian_hjm import (
     ForwardVolatility,
     hjm_bond_option_variance,
     hjm_drift,
 )
-
-
-@dataclass(frozen=True)
-class MultiFactorHjmModel:
-    """The `n` deterministic forward-rate volatilities, carrying the snapshot (§3).
-
-    An **ordered** tuple: the factors are not interchangeable in a caller's bookkeeping even though
-    the model's own quantities are symmetric in them (which is itself a tested property - a sum of
-    squares is order-independent where a cross term would not be).
-
-    The initial forward curve is not a field, for tranche 69's reason: `f(0,T)` is already the
-    snapshot's discount curve, and a second copy could disagree with the first.
-    """
-
-    market: MarketSnapshot
-    volatilities: tuple[ForwardVolatility, ...]
-
-    def __post_init__(self) -> None:
-        if not self.volatilities:
-            raise ValueError("a multi-factor HJM model needs at least one factor")
 
 
 def _checked_factors(volatilities: Sequence[ForwardVolatility]) -> None:

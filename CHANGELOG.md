@@ -56,14 +56,21 @@ whose removal still raises is pinned only by what it says (the T44b shape).
 
 **Eight mutations applied, eight killed** after that fix.
 
-### Raised, not settled
+### Changed — ONE model type for any number of factors (the §6 ruling)
 
-`MultiFactorHjmModel` is its own type rather than `GaussianHjmModel` generalised to a tuple. The two
-models' machinery is identical and this one's `N = 1` case *is* that one, which argues for a single
-type — and generalising T69 would cost exactly **one construction site and one field read** (its
-functions take a `ForwardVolatility`, not a model). This is the additive choice, which forecloses
-nothing: if the ruling is to generalise, the change is one line plus deleting a type. Raised as a
-finding with the count, which is where a §6 vocabulary call belongs.
+`GaussianHjmModel` now holds a **tuple** of forward volatilities and there is no
+`MultiFactorHjmModel`. A one-factor HJM does not *resemble* the `n`-factor one — it **is** the
+`n`-factor one at `n = 1`, which eq (4.11) makes plain by collapsing to eq (4.3).
+
+The ruling turns on the finding above. What would normally keep two such types apart is that each
+one's reduction to the other is a **self-verifying oracle** — but here that reduction is
+**bit-identical by construction**, so it is a *tautology*, not an independent cross-check. Two types
+would have been separated to preserve nothing. The one-factor behaviour stays oracled because T69's
+own transcription and Hull-White-reduction tests exercise the generalised model at `n = 1`, and a
+test now pins the single-type decision so a second type cannot quietly return.
+
+*(Code raised it as a finding with the count — one construction site, one field read, functions
+untouched since they take a `ForwardVolatility` rather than a model; Cowork ruled generalise.)*
 
 ## [0.71.0] - 2026-11-21
 
