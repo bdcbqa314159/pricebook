@@ -6,6 +6,57 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.71.0] - 2026-11-21
+
+### Added — tranche 69, the Gaussian HJM framework
+
+`models/gaussian_hjm.py` (L3) — the framework the short-rate models are special cases of. HJM models
+the **instantaneous forward rate** directly, and chapter 4 turns on one equation.
+
+### Both anchoring forms in one tranche, which is why its oracle spine is short
+
+Cowork named the pair at T68: anchor by **reducing to what is already proved**, or by **an identity
+the answer must satisfy**. This tranche has both.
+
+**The drift condition is a requirement, not a source value.** `α(t,T) = σ(t,T)·∫ₜᵀσ(t,u)du` is forced
+by no-arbitrage, so it holds for *every* `σ(t,T)` and a transcription error cannot hide behind a
+matching printed number. And the source **derives** it rather than quoting it, printing both the
+integrated condition `∫α = ½(∫σ)²` and its `T`-derivative — so the two printed forms check each
+other (2e-16). It is asserted at a Hull-White vol *and* at a **humped** one, where nothing about the
+exponential structure can be doing the work, plus transcribed pointwise besides (T12(b): a
+requirement never replaces a transcription).
+
+**The bond-option variance reduces to already-verified code.** At `σ(t,T) = σ·e^{−κ(T−t)}`,
+`ν(0,S) = ∫₀ˢ(∫ₛᵀσ(s,u)du)²ds` **is** tranche 10's `bond_option_variance` — identical to **1.3e-15**
+— so the one new closed form is checked against code that has carried its own oracles for
+fifty-nine tranches. The T39 companion is a humped vol, measured 2%+ away so the general double
+integral is doing real work.
+
+The integrals are computed by **quadrature of the printed integrand**, deliberately: `σ(t,T)` is an
+arbitrary deterministic function — that generality *is* the framework — so there is no general closed
+form to transcribe, and writing one for the Hull-White case only would build the special case the
+tranche exists to generalise.
+
+### Two findings, both a claim of mine that the mathematics refused
+
+**The bond-option variance is NOT monotone in the option expiry.** "More time to accumulate"
+suggests it rises; it does not, because moving the expiry later lengthens the outer accumulation but
+**shortens the bond span**, which shrinks the inner integral. Measured at `T = 10`: 2.81e-3, 5.03e-3,
+7.92e-3, **9.08e-3**, 7.74e-3, 3.95e-3, 5.78e-4 across `S = 0.5…9` — a turnover near `S = 3`. The
+oracle asserts the **turnover**, which is stronger than either direction, and an earlier draft that
+sampled `S = 2` as the peak passed for Hull-White while failing for the humped vol — the
+fixture-chosen-by-assumption trap in miniature, so the sample now straddles the *measured* peak.
+
+**Two guards survived the sweep — the T44b reachability shape.** Bypassing `hjm_drift`'s and
+`hjm_bond_option_variance`'s inverted-interval refusals still *raises*, because the volatility
+callable refuses the interval itself once `quad` reaches it — so a test matching only `"before"`
+passed either way and pinned nothing. The guards are kept rather than deleted (not the §4
+third-survivor case of dead code: each refuses at the level the caller asked at, naming the
+operation, and before any integration is wasted), and are now pinned by their **messages**, with the
+volatility's own distinct message asserted so the discrimination is real.
+
+**Sixteen mutations applied, sixteen killed** after that addition.
+
 ## [0.70.0] - 2026-11-21
 
 ### Added — tranche 68, Bermudan swaptions in the Hull-White model
