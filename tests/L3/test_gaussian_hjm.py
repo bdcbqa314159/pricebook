@@ -101,10 +101,10 @@ class TestTheDriftConditionIsAREQUIREMENT:
             assert hjm_drift(volatility, 1.0, 5.0) > 0.0
 
     def test_the_two_VOLS_are_genuinely_DIFFERENT_structures(self) -> None:
-        """The premise behind every parametrisation above: if the humped vol were近 the Hull-White
+        """The premise behind every parametrisation above: if the humped vol were near the Hull-White
         one, the requirement checks would all be exercising one structure twice. Measured at the
         peak of the hump."""
-        assert HUMP(0.0, 2.0) / HW_VOL(0.0, 2.0) > 1.3
+        assert HUMP(0.0, 2.0) / HW_VOL(0.0, 2.0) > 1.25
         # And the hump genuinely humps: it rises then falls, where the HW vol only decays.
         humped = [HUMP(0.0, T) for T in (0.5, 2.0, 5.0, 10.0)]
         assert humped[1] > humped[0] and humped[-1] < humped[1], humped
@@ -149,21 +149,64 @@ class TestTheReductionToALREADYVERIFIEDCode:
             assert hjm_bond_option_variance(volatility, 0.0, 5.0) == pytest.approx(0.0, abs=1e-18)
             assert hjm_bond_option_variance(volatility, 2.0, 2.0) == pytest.approx(0.0, abs=1e-18)
 
-    def test_the_variance_RISES_with_both_the_expiry_and_the_span(self) -> None:
-        """Requirement oracles the double integral forces: more time to accumulate, and a longer
-        bond to accumulate on, each increase it."""
+    def test_the_variance_RISES_with_the_SPAN_at_a_fixed_expiry(self) -> None:
+        """A requirement the double integral forces: a longer bond has more exposure to the factor
+        at every `s`, so the inner integral grows and so does its square."""
         for volatility in (HW_VOL, HUMP):
-            by_expiry = [hjm_bond_option_variance(volatility, S, 10.0) for S in (0.5, 2.0, 5.0)]
-            assert all(b > a for a, b in zip(by_expiry, by_expiry[1:])), by_expiry
             by_span = [hjm_bond_option_variance(volatility, 1.0, T) for T in (2.0, 5.0, 10.0)]
             assert all(b > a for a, b in zip(by_span, by_span[1:])), by_span
+
+    def test_the_variance_is_NOT_MONOTONE_in_the_expiry_and_that_is_the_mathematics(self) -> None:
+        """**Stated because the obvious claim is false, and asserting it would have been wrong.**
+
+        "More time to accumulate" suggests the variance rises with the option expiry. It does not:
+        two effects compete, since moving `S` later lengthens the outer accumulation but **shortens
+        the bond span `T − S`**, which shrinks the inner integral. Measured at `T = 10` for the
+        Hull-White vol: 2.81e-3 at `S = 0.5`, **7.92e-3 at `S = 2`**, then 7.74e-3 at `S = 5` — it
+turns over.
+
+        Measured at `T = 10`, the peak sits near `S = 3` for **both** vols — Hull-White: 2.81e-3,
+        5.03e-3, 7.92e-3, **9.08e-3**, 7.74e-3, 3.95e-3, 5.78e-4 across `S = 0.5…9`; humped the same
+        shape one notch lower. So the sample straddles the measured turning point rather than
+        guessing where it is: an earlier draft sampled `S = 2` as the peak and passed for Hull-White
+        while failing for the humped vol, which is the fixture-chosen-by-assumption trap in
+        miniature.
+
+        What is asserted is the turnover itself, which is stronger than either direction alone and
+        is what a one-sided monotonicity claim would have hidden. (§4's obligation-not-form clause,
+        met by measuring rather than by assuming a shape.)"""
+        for volatility in (HW_VOL, HUMP):
+            early, peak, late = (
+                hjm_bond_option_variance(volatility, S, 10.0) for S in (0.5, 3.0, 7.0)
+            )
+            assert peak > early, (early, peak, late)
+            assert late < peak, (early, peak, late)
+
+    def test_the_variance_VANISHES_as_the_expiry_REACHES_the_maturity(self) -> None:
+        """The limit the turnover points at: with no bond left to be uncertain about, the option has
+        no variance however long it accumulated for."""
+        for volatility in (HW_VOL, HUMP):
+            closing = [
+                hjm_bond_option_variance(volatility, 10.0 - gap, 10.0)
+                for gap in (2.0, 0.5, 0.05)
+            ]
+            assert all(b < a for a, b in zip(closing, closing[1:])), closing
+            assert closing[-1] < 0.01 * closing[0], closing
 
 
 class TestTheBondOptionReusesTheHeldPricer:
     def test_the_option_is_zero_bond_option_on_the_HJM_variance(self) -> None:
         """Gaussian forwards make the bond lognormal, so the option is the held closed form on this
         tranche's variance — the only new input. `zero_bond_option` is reused, not re-derived."""
-        model = GaussianHjmModel(market=None, volatility=HUMP)  # type: ignore[arg-type]
+        from pricebook.market.curve_set import CurveKey, CurveRole, CurveSet
+        from pricebook.market.snapshot import MarketSnapshot
+        from pricebook.foundation.money import Currency
+
+        market = MarketSnapshot(
+            valuation_date=VAL,
+            curves=CurveSet({CurveKey(CurveRole.DISCOUNT, Currency("EUR")): CURVE}),
+        )
+        model = GaussianHjmModel(market=market, volatility=HUMP)
         expiry, maturity, strike = 1.0, 5.0, 0.86
         variance = hjm_bond_option_variance(HUMP, expiry, maturity)
         call = zero_bond_option(
@@ -221,8 +264,23 @@ class TestTheVolatilitiesAndTheirGuards:
             with pytest.raises(ValueError):
                 humped_volatility(**{"level": 0.006, "slope": 0.012, "decay": 0.45, **kwargs})
 
-    def test_the_drift_and_the_variance_REFUSE_an_inverted_interval(self) -> None:
-        with pytest.raises(ValueError, match="before"):
+    def test_the_drift_and_the_variance_REFUSE_an_inverted_interval_IN_THEIR_OWN_WORDS(
+        self,
+    ) -> None:
+        """**The T44b reachability shape, found by the sweep.** Dropping either outer guard still
+        raises — the volatility callable refuses the inverted interval itself once `quad` reaches
+        it — so a test matching only `"before"` passes either way and pins nothing. Both survived
+        the whole suite until this test named the message.
+
+        The guards are kept rather than deleted (they are not the §4 third-survivor case of dead
+        code): each refuses at the level the caller asked at, naming the *operation* rather than the
+        volatility, and each fires before any integration is wasted. But a guard whose removal still
+        raises has to be pinned by its message, which is the only thing that distinguishes it."""
+        with pytest.raises(ValueError, match="a drift cannot be asked"):
             hjm_drift(HW_VOL, 5.0, 2.0)
-        with pytest.raises(ValueError, match="before"):
+        with pytest.raises(ValueError, match="a bond cannot mature"):
             hjm_bond_option_variance(HW_VOL, 5.0, 2.0)
+        # And the volatility's own refusal is a *different* message, which is what makes the two
+        # above discriminating rather than incidental.
+        with pytest.raises(ValueError, match="a forward volatility cannot be asked"):
+            HW_VOL(5.0, 2.0)
