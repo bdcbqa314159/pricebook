@@ -6,6 +6,80 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.69.0] - 2026-11-20
+
+### Added — tranche 67, the two-factor Hull-White model (G2++)
+
+`models/g2pp.py` (L3) — two **correlated** Gaussian factors, the first model in this tree carrying a
+factor correlation in its own dynamics. So the T17/T43 correlation discipline from the spread arc
+returns, and §4's newest clause gets its first real use.
+
+Both affine coefficients **are** `hw_beta` — called once per factor, not rewritten. The
+term-structure fit is structural: eq (3.42) needs only the *integral* of `φ`, which the initial
+curve supplies, so the model reproduces today's curve by construction rather than carrying a fitted
+`φ` field.
+
+### Three oracle structures the source handed over
+
+**1. `V(t,T)` is printed TWO ways — as integrals (3.40) and integrated — which beats a dual
+rendering.** A dual rendering gives two typesettings of one expression; this gives two *different
+computations the source itself supplies*, so quadrature of the printed integrand is an independent
+check on the printed closed form. Agreement 2.8e-14, held across the whole correlation range. (T66
+had the mirror image: there the book *declined* the algebra and left Exercise 3.2, so quadrature
+checked the reader's working.)
+
+**2. `ν(0,S)` at `η = 0` is EXACTLY tranche 10's `bond_option_variance`** — the first term of (3.43)
+is eq 3.20 verbatim. So the one-factor reduction is a cross-check against **already-verified code**:
+not a second transcription, not a numerical limit, but the same expression evaluated by code that
+has had its own oracles since T10. Agreement 1e-14, with a T39 companion measuring the genuine
+two-factor case 26% away.
+
+**3. The correlation is pinned two ways, neither substituting.** `ρ` enters only through the product
+`ρση`, so the cross term's **value** is transcribed at four correlations (T43 — presence and sign
+are not magnitude; `ρ → ρ²` is the clean probe and dies), and the **realised correlation** of the
+simulated factors is pinned against `ρ` before any price band is credited (T17/T19), improving as
+`√N` over six seeds (T21).
+
+### §4's newest clause: first use, and the regime is narrower than T66's
+
+`V`'s single-factor terms divide by `α³` after a bracket that is itself `O(α³)` — a `0/0` three
+times over, where Vasicek's was once. Measured against quadrature: 3.3e-14 at `α = 0.1`, 2.6e-11 at
+`0.01`, 1.7e-8 at `1e-3`, **1.9e-6 at `3e-4`**. So the sound regime is roughly `α ≥ 0.01`, an order
+narrower than T66's — **a tranche that had reused T66's boundary would have been measuring
+arithmetic**, which is asserted as its own test. The limits are convergence **rates** inside the
+regime, with a degradation companion stating where it fails.
+
+The rate itself needed the right instrument: it approaches 1 **from below** (0.823, 0.899, 0.946,
+0.972), because the coarse end still carries a large second-order term. A flat band would reject a
+genuine O(α) approach, so what is asserted is that the measured order **rises monotonically toward
+1 and reaches it** — a stronger statement than any single ratio, and one that separates O(α) from
+O(α²) (ratios near 2) and from no convergence (near 0).
+
+### What the mutation sweep found, and the lesson is the catalogue's oldest
+
+The first sweep left **two survivors**: dropping `V(0,t)` from the fit, and dropping the `½` on the
+variance correction. Cause: **every bond oracle sat at `t = 0`**, and at inception the correction
+`½(V(0,t) − V(0,T) + V(t,T))` **cancels identically** — `V(0,0) = 0` and the other two terms are the
+same quantity. So the correction was invisible to the inception fit, to `B(T,T) = 1` (which returns
+early), and to the monotonicity companions. The §4 catalogue's oldest shape — a fixture whose key
+parameter sits where it cannot be seen, here the *observation time* — closed by a pointwise bond
+oracle at `t > 0` built from quadrature, plus a companion asserting the correction is material after
+inception and exactly zero at it.
+
+**Twenty-seven mutations applied, twenty-seven killed** after that addition.
+
+### Changed
+
+- `G2ppParams` is **one** object, not two `HullWhiteParams` plus a loose `ρ`: the correlation is
+  *between these two factors*, so a loose signature would let one model's factors pair with
+  another's correlation. Five cohesive fields at the §7 ceiling.
+- `G2ppState(x, y)` bundles the factor pair — `g2pp_bond` would otherwise take six arguments (§7),
+  and the pair is cohesive rather than co-located: the simulation produces them together.
+- **`α ≠ β` is refused, because the source assumes it.** §3.7 states it after eq (3.33), and the
+  structure needs it twice: (3.43)'s cross term divides by `α + β` while Exercise 3.10's
+  `y = u/(α − β)` divides by the difference. Producing a number there would invent a result the
+  source does not stand behind.
+
 ## [0.68.0] - 2026-11-20
 
 ### Added — tranche 66, the Vasicek short-rate model: the single-curve arc opens
