@@ -68,6 +68,7 @@ from pricebook.foundation import (
     PricingResult,
 )
 from pricebook.foundation.distributions import normal_positive_part
+from pricebook.foundation.noncentral_chisquare import noncentral_chisquare_cdf
 from pricebook.foundation.time_measure import TimeMeasure
 from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
 from pricebook.models.black import black_implied_vol, black_price
@@ -241,6 +242,70 @@ def test_the_closed_form_matches_an_INDEPENDENT_simulation_with_absorption(strik
     assert abs(mean - exact) < 4.0 * se + 0.005 * exact, (mean, se, exact)
 
 
+def _variant_dof_first(forward, strike, variance, beta):
+    """A plausible transcription slip: the first term's dof read as `2 + 2/(1-beta)`."""
+    dof = 1.0 / (1.0 - beta)
+    z, w = _z_ref(forward, variance, beta), _z_ref(strike, variance, beta)
+    return forward * scipy_stats.ncx2.sf(2 * w, 2 + 2 * dof, 2 * z) - strike * (
+        scipy_stats.ncx2.cdf(2 * z, dof, 2 * w)
+    )
+
+
+def _variant_dof_second(forward, strike, variance, beta):
+    """Another: the second term's dof read as `1/(1-beta) + 2`."""
+    dof = 1.0 / (1.0 - beta)
+    z, w = _z_ref(forward, variance, beta), _z_ref(strike, variance, beta)
+    return forward * scipy_stats.ncx2.sf(2 * w, 2 + dof, 2 * z) - strike * (
+        scipy_stats.ncx2.cdf(2 * z, dof + 2, 2 * w)
+    )
+
+
+def _variant_unsquared(forward, strike, variance, beta):
+    """And a third: `z` and `w` losing the square on `(1-beta)`."""
+    dof = 1.0 / (1.0 - beta)
+    scale = 2.0 * (1.0 - beta) * variance
+    z, w = forward ** (2 * (1 - beta)) / scale, strike ** (2 * (1 - beta)) / scale
+    return forward * scipy_stats.ncx2.sf(2 * w, 2 + dof, 2 * z) - strike * (
+        scipy_stats.ncx2.cdf(2 * z, dof, 2 * w)
+    )
+
+
+def _z_ref(level, variance, beta):
+    return level ** (2.0 * (1.0 - beta)) / (2.0 * (1.0 - beta) ** 2 * variance)
+
+
+INTERIOR_VARIANTS = (
+    ("the first term's dof doubled", _variant_dof_first),
+    ("the second term's dof shifted by 2", _variant_dof_second),
+    ("z and w unsquared in (1-beta)", _variant_unsquared),
+)
+
+
+@pytest.mark.parametrize("label,variant", INTERIOR_VARIANTS)
+def test_the_requirement_oracles_are_BLIND_to_these_variants_which_is_why_the_MC_is_needed(
+    label, variant
+):
+    # **The band's RESOLUTION, stated per DEFECT and not as a property of the band** (F-5.3), and
+    # the concrete demonstration of why a reconstructed formula needs the simulation at all.
+    #
+    # Each variant below is a plausible transcription slip that **satisfies all three requirement
+    # oracles** — `K -> 0` gives the forward, `K -> inf` gives zero — because those pin the
+    # STRUCTURE and are silent on the interior MAGNITUDE (the tranche-43 gap). So the requirements
+    # cannot distinguish them from the corrected form, and the Monte-Carlo anchor is what does.
+    forward, strike, variance, beta = 0.05, 0.05, 0.04, 0.5
+    assert variant(forward, 1e-12, variance, beta) == pytest.approx(forward, rel=1e-9), label
+    assert variant(forward, 100.0, variance, beta) == pytest.approx(0.0, abs=1e-12), label
+
+    exact = cev_call(forward, strike, variance, beta)
+    deviation = abs(variant(forward, strike, variance, beta) / exact - 1.0)
+    # Measured: 33.9%, 47.2% and 37.2%. The committed MC band below is 4*SE + 0.5% = ~2.7% at
+    # 120k paths, so each sits 12-17x outside it; the 600k run that originally ruled the form
+    # resolves ~1.5%. A green on that band is therefore evidence against any interior-magnitude
+    # defect above ~2.7%, which is what this test states and measures.
+    assert deviation > 0.30, (label, deviation)
+    assert deviation > 10.0 * (4.0 * 0.0054 + 0.005), (label, deviation)
+
+
 def test_the_simulation_ABSORBS_a_material_fraction_so_the_barrier_is_exercised():
     # The premise: a simulation in which nothing reaches zero would agree with a barrier-free
     # formula too, and the barrier is what distinguishes CEV from Bachelier at `beta = 0`.
@@ -259,6 +324,24 @@ def test_the_absorbed_fraction_reproduces_the_sources_two_PROSE_claims():
     assert low == pytest.approx(0.1353, abs=5e-4), low
     assert high < 0.001, f'"typically low" at F(0)=5%, got {high:.2%}'  # Figure 8.1
     assert high == pytest.approx(4.5e-5, rel=0.05), high
+
+
+def test_the_second_terms_ARGUMENT_and_DOF_are_pinned_by_the_absorption_probability():
+    # Confirmation that the corrected form is the KNOWN one rather than merely a form that passes
+    # our checks — the half of it that is available from the source's own derivation.
+    #
+    # Brockhaus derives the forward's law before printing the option formula: the squared-Bessel
+    # process is non-central chi-squared with the FORWARD's level entering as the noncentrality, so
+    # the first term — the probability of finishing above the strike — must be a survival evaluated
+    # at the STRIKE's `2w` with the FORWARD's `2z` as noncentrality, which is what this implements.
+    # The second term is pinned here: at `w -> 0` its chi-squared degenerates to the central one,
+    # and that central value is exactly `1 - P(absorbed)` — a quantity with its own independent
+    # validation (the source's prose claims, and the simulation's own absorbed fraction). A wrong
+    # argument or dof in the second term moves this identity.
+    forward, variance, beta = 0.05, 0.04, 0.5
+    dof = 1.0 / (1.0 - beta)
+    central = noncentral_chisquare_cdf(2.0 * _z_ref(forward, variance, beta), dof, 0.0)
+    assert central == 1.0 - cev_absorption_probability(forward, variance, beta)
 
 
 def test_the_absorption_probability_matches_a_CENTRAL_chi_squared_independently():
