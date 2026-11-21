@@ -191,12 +191,34 @@ class TestTheSwaptionPortfolio:
         higher = hw_european_swaption(HullWhiteParams(PARAMS.kappa, 0.02), _terms(), CURVE)
         assert higher > base
 
-    def test_a_DEEP_OUT_OF_THE_MONEY_swaption_tends_to_zero(self) -> None:
-        """The boundary the decomposition must respect: at a strike far below the forward swap
-        rate a payer swaption is worthless, and the portfolio must deliver that rather than a
-        small negative from mis-signed legs."""
-        cheap = hw_european_swaption(PARAMS, _terms(strike=0.0005), CURVE)
-        assert 0.0 <= cheap < hw_european_swaption(PARAMS, _terms(), CURVE)
+    def test_the_price_FALLS_MONOTONICALLY_with_the_strike_and_tends_to_zero(self) -> None:
+        """A payer swaption pays `(S − K)⁺` on the swap rate, so it is worth **more** at a lower
+        strike and tends to zero as the strike rises — the direction being the point, since this
+        file's first draft asserted the opposite and the portfolio was right.
+
+        Measured on this curve (forward swap rate 3.458%): 0.1217 at `K = 0.05%`, 0.0210 at the
+        3.1% fixture strike, 8.2e-4 at 5%, 1e-8 at 8%. Monotone decrease plus the vanishing tail is
+        a stronger statement than either end alone, and it is what a mis-signed leg in the
+        portfolio would break."""
+        strikes = (0.0005, 0.01, 0.02, 0.031, 0.05, 0.08)
+        prices = [hw_european_swaption(PARAMS, _terms(strike=k), CURVE) for k in strikes]
+        assert all(p >= 0.0 for p in prices), prices
+        assert all(b < a for a, b in zip(prices, prices[1:])), prices
+        assert prices[-1] < 1e-6, prices[-1]
+        assert prices[0] > 5.0 * prices[3], prices
+
+    def test_the_fixture_strike_is_NEAR_but_not_AT_the_forward_swap_rate(self) -> None:
+        """The premise behind the sweep above and the intrinsic check below: at `K` exactly equal
+        to the forward swap rate the zero-vol intrinsic is exactly zero, which would make that
+        reduction vacuous. 3.1% against a 3.458% forward — close enough to be a realistic
+        at-the-money-ish fixture, far enough that the intrinsic is non-zero."""
+        annuity = sum(
+            accrual * CURVE.df_at(pay)
+            for accrual, pay in zip(_terms().accruals, SETTLEMENTS)
+        )
+        forward_rate = (CURVE.df_at(EXPIRY) - CURVE.df_at(SETTLEMENTS[-1])) / annuity
+        assert abs(STRIKE - forward_rate) > 0.002, (STRIKE, forward_rate)
+        assert abs(STRIKE / forward_rate - 1.0) < 0.2
 
     def test_a_ZERO_VOLATILITY_swaption_is_the_INTRINSIC_value(self) -> None:
         """The exact degenerate case: with no volatility the swap is deterministic, so the swaption

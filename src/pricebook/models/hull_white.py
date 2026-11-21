@@ -38,6 +38,7 @@ import math
 from dataclasses import dataclass
 
 from pricebook.foundation.inflation import CapFloorKind
+from pricebook.market.curve import CurveHandle
 from pricebook.market.snapshot import MarketSnapshot
 from pricebook.models.black import black_price
 
@@ -90,6 +91,68 @@ class CapletPeriod:
             )
         if self.accrual <= 0.0:
             raise ValueError(f"a caplet period needs a positive accrual, got {self.accrual}")
+
+
+def hw_state_variance(params: HullWhiteParams, t: float, maturity: float) -> float:
+    """`V(t,T)` for the one-factor model - the variance of the integrated state.
+
+    This is tranche 67's `g2pp_bond_variance` with the second factor switched off, which is how it
+    is oracled: it inherits that tranche's quadrature check against the source's own printed
+    integral rather than needing a second transcription of its own. Written here rather than
+    imported from `g2pp` because L3 modules do not depend on one another and the one-factor model
+    predates the two-factor one by fifty-seven tranches - the agreement is the oracle, not the
+    implementation.
+
+    Divides by `kappa**3` after a bracket that is itself `O(kappa^3)`, so precision falls away as
+    the mean reversion tends to zero; §4's rate-in-a-stated-regime clause applies, and the regime is
+    measured per model (tranche 67's boundary, not tranche 66's).
+    """
+    if maturity < t:
+        raise ValueError(f"a variance cannot end ({maturity}) before it starts ({t})")
+    tau = maturity - t
+    if tau == 0.0:
+        return 0.0
+    kappa, sigma = params.kappa, params.sigma
+    return (
+        sigma * sigma / (2.0 * kappa**3)
+        * (-3.0 - math.exp(-2.0 * kappa * tau) + 4.0 * math.exp(-kappa * tau) + 2.0 * kappa * tau)
+    )
+
+
+def hw_bond(
+    params: HullWhiteParams,
+    state: float,
+    t: float,
+    maturity: float,
+    discount: CurveHandle,
+) -> float:
+    """`B(t,T) = F(t, r(t); T)` - the term-structure-fitted zero-coupon bond, eq (3.10).
+
+    `state` is `x(t) = r(t) - f(0,t)`, the mean-reverting deviation from today's instantaneous
+    forward - the same coordinate tranche 67's G2++ carries as `x`, which is why the two agree
+    exactly at zero second volatility.
+
+    **Decreasing in the state, and that is load-bearing rather than incidental:** Jamshidian's trick
+    (§3.5) rests on exactly this monotonicity to argue that a unique critical rate exists, so the
+    oracle asserts it rather than noting it.
+
+    The curve ratio carries the fit, so at `t = 0` with `x = 0` this *is* today's curve - a
+    short-rate model reproducing the term structure rather than approximating it.
+    """
+    if maturity < t:
+        raise ValueError(f"a bond cannot mature ({maturity}) before it is observed ({t})")
+    if maturity == t:
+        return 1.0
+    exponent = (
+        -state * hw_beta(params.kappa, t, maturity)
+        + 0.5
+        * (
+            hw_state_variance(params, 0.0, t)
+            - hw_state_variance(params, 0.0, maturity)
+            + hw_state_variance(params, t, maturity)
+        )
+    )
+    return discount.df_at(maturity) / discount.df_at(t) * math.exp(exponent)
 
 
 def bond_option_variance(
