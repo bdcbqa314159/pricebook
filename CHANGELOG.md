@@ -6,6 +6,83 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.70.0] - 2026-11-21
+
+### Added — tranche 68, Bermudan swaptions in the Hull-White model
+
+Two pieces the step-1 grep found were **not** already in the tree: the Hull-White **European
+swaption** by Jamshidian's trick (`engine/hw_swaption.py`), and the **Bermudan** by exact backward
+induction (`engine/hw_bermudan.py`). Plus `hw_bond`/`hw_state_variance` at L3, which Hull-White had
+never carried as functions of the state.
+
+### The design ruling: a lattice, and the counts changed the question
+
+Cowork framed it as "generalise the Longstaff–Schwartz regression, or build a lattice". One grep
+showed the first **was not available as work**: `models/exercise_boundary.py` imports only `math`
+and `dataclass`, and its single "LMM" mention is the provenance line — the regression is already
+model-agnostic, and the coupling lives one level up in the engine. What is LMM-specific is
+`BoundaryState`'s coordinates, constructed at **one site in `src/`**.
+
+That reframing made the lattice decisive for a stronger reason than "exact beats regression":
+**Longstaff–Schwartz exists to approximate a continuation value over a high-dimensional state; under
+Hull-White it is an exact deterministic function of one Markov coordinate.** Regressing would invert
+§4's `closed form > cross-check` ordering and pay a regression error *plus* the
+foresight/suboptimality bracket for a quantity needing neither.
+
+### The same ordering, applied twice more
+
+**The measure change is pinned, not transcribed.** The source prints the forward-measure *SDE*
+(3.28), not the integrated drift adjustment — so writing a closed form from memory is what §5
+forbids. It is integrated from the printed integrand and pinned by an identity that admits no other
+answer: a bond must **reprice** through the transition, `B(t,T)·E^{P_T}[B(T,Tⱼ)|x] = B(t,Tⱼ)`.
+Measured at **0 to 2.2e-16**.
+
+**The last roll is analytic.** Gauss-Hermite converges only as about `n⁻²` on the kinked payoff
+(3.9e-3 at 48 nodes, 1.1e-3 at 96, 1.1e-4 at 192; `quadrature.py` correctly refuses >370). But the
+step into the last exercise date **is a European swaption**, which piece 1 has a closed form for — so
+it is computed analytically at every grid point. Using quadrature there would have been the same
+error the lattice was chosen to avoid, one level down. It also makes the one-exercise reduction
+**exact** (0.00e+00, bit-identical) rather than grid-limited.
+
+### The honest negative: the remaining error is measured, not claimed away
+
+The **earlier** rolls integrate `max(exercise, continuation)`, which has no closed form, so the kink
+remains: the price moves about **2e-3 relative** across 48/96/144 nodes rather than settling. That is
+stated in the module, asserted by an oracle as a *bounded spread* rather than a convergence claim,
+and the fix is named — **split the integral at the exercise boundary** so each piece is smooth —
+rather than left vague. A test asserting `1e-6` convergence here would have asserted something false.
+
+**And the grid is deliberately not the finest that fits.** 401 points carry 1.2e-4 against 1201 —
+an order and a half *below* the 2e-3 that dominates — so refining it spends three times the work to
+sharpen the negligible term. §4's resolution thinking applied to cost; the oracle asserts that
+tripling the grid moves the price by less than the quadrature spread, which is the claim that
+justifies the choice.
+
+### Oracles
+
+- `hw_bond` cross-checked against **tranche 67's `g2pp_bond` at zero second volatility** — identical
+  to 1e-15 for any second speed, so new code is checked against code that carried its own anchors
+  one tranche ago rather than against a second transcription.
+- Jamshidian's **premise** asserted, not assumed: the bond is decreasing in the state, which is what
+  makes the critical rate exist and the decomposition valid; plus the critical state's **defining
+  identity** (the coupon bond is worth exactly 1 there) and the per-bond strike ordering that splits
+  the payoff.
+- Zero volatility reduces the swaption **exactly** to the forward swap's intrinsic, and the Bermudan
+  to the best intrinsic across exercise dates.
+- The Bermudan dominates **each** co-terminal European, not merely the earliest; more rights never
+  hurt, with increments measured to diminish.
+
+**Twenty-two mutations applied, twenty-two killed.**
+
+### Not delivered, and why
+
+**The cross-model oracle (HW Bermudan vs the T18 LMM Bermudan on a matched calibration) is not in
+this tranche.** It needs a calibration bridge — solving for HW parameters that reproduce an LMM
+European swaption — and the LMM swaption is a **Monte-Carlo** price, so the match would inherit
+sampling noise into the premise the whole comparison rests on (the T19 lesson about centring on an
+approximation). That is its own unit of work with its own oracle question, and is raised rather than
+improvised.
+
 ## [0.69.0] - 2026-11-20
 
 ### Added — tranche 67, the two-factor Hull-White model (G2++)
