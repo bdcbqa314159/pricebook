@@ -368,3 +368,23 @@ demand), which is why this is a route and not a tranche.
 - **Seasonality / deseasonalised forward curves** (ch 5.2.1). A seasonal deterministic shift on the forward
   — oracle-able as a deterministic overlay, but the market-specific seasonal *estimation* (ch 3–9) is
   quotes-and-plots, closer to `out_of_method`. Recorded; unpulled.
+
+## Stochastic rates (project nine, `MCINERNEY-ZASTAWNIAK`)
+
+- **Cross-model Bermudan validation — the HW lattice Bermudan vs the T18 LMM-MC Bermudan.** Was T68's
+  oracle 3 (specced as the headline), **not delivered and correctly so**: matching the two needs HW
+  parameters that reproduce an LMM European swaption, but the LMM swaption is a **Monte-Carlo price** (or a
+  Rebonato *approximation*), so the calibration would inherit sampling noise — or an approximation's bias —
+  into the **premise** the whole comparison rests on. That is **T19's rule** (an approximation must not be
+  the thing you centre on) applied to a *calibration* rather than a control variate — a sharp catch by Code.
+  It is a real unit of work with its own oracle question: *quantify the match's own error, and show the
+  structural foresight+suboptimality bracket swallows it* before the Bermudan comparison means anything.
+  T68 is **sound without it** (the one-exercise reduction is exact/bit-identical — the last exercise step
+  *is* the European closed form — plus Bermudan≥European and the backward-induction steps oracled pointwise),
+  so this is a confirming cross-check, unpulled. *(Surfaced T68, 2026-11-21.)*
+- **Sharper Bermudan quadrature — split the roll integral at the exercise boundary.** The backward-induction
+  rolls integrate a kinked `max(exercise, continuation)`, and Gauss–Hermite loses its convergence *rate* at a
+  kink (~2e-3 spread across 48/96/144 nodes — T68 honestly asserts a *bounded spread*, not convergence). The
+  fix is to split each integral at the exercise boundary so each piece is smooth; oracle-able (the pieces
+  recover the Gauss–Hermite rate), unpulled — T68's grid is chosen (401 points, 1.2e-4) so this term is an
+  order and a half below the dominant one, so it is not load-bearing yet. *(Surfaced T68, 2026-11-21.)*
