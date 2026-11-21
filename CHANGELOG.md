@@ -6,6 +6,149 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.74.0] - 2026-11-21
+
+### Added — tranche 72, the CEV smile model (the single-curve short-rate arc capstone)
+
+The arc's last spine tranche, and the one chapter-8 smile model that is **not** a reparameterisation
+of Black. Its caplet needs a non-central chi-squared, which is the tranche's real new infrastructure.
+
+- **`foundation/noncentral_chisquare.py` (L0)** — `noncentral_chisquare_cdf` and
+  `noncentral_chisquare_sf`, the Poisson-weighted mixture of central chi-squareds summed **outward
+  from the Poisson mode** (from `j = 0` the leading weights underflow at a noncentrality of 1500).
+  The regularised incomplete gamma is private: one consumer, so §6's rule of two has not fired.
+- **`models/cev.py` (L3)** — `CevModel(market, vol, beta)`, `0 <= beta < 1`.
+- **`engine/cev_caplet.py` (L4)** — Cox's closed form, `cev_caplet`, `cev_absorption_probability`,
+  and the strip pricer over the **existing** `NominalCap`. `NominalCap` now carries four pricers.
+
+#### Finding 1 — the arc's own source prints no CEV closed form, so the capability was RE-SOURCED
+
+`MCINERNEY-ZASTAWNIAK` §8.3 gives the SDE (8.5), the absorbing-boundary discussion, two **simulated
+histograms** (Figures 8.1/8.2) and then pivots to the displaced-diffusion approximation as the
+practical answer. No Schroder/Cox formula, no chi-squared argument triple, no worked example — and
+the whole book's only other mention of the non-central chi-squared is a one-line taxonomy remark
+about Cox–Ingersoll–Ross in ch 3. §4 forbids fitting a number to a figure, so every held PDF was
+searched; **`BROCKHAUS-2016` §6.1 pp.79–80 prints Cox's (1996) formula** and is already
+`worked-from`. Both register entries now record this so it is not re-attempted.
+
+What `MCINERNEY-ZASTAWNIAK` *does* still anchor is structural rather than pictorial: it states the
+absorbed fraction **in prose** — "over 10%" at `F(0) = 1%` and "typically low" at 5% (both
+`beta = 0.5`, `sigma = 0.1`, `t = 1`). The closed form's `1 - chi2(2z; 1/(1-beta))` gives **13.53%**
+and **0.0045%**. That is §4's "reproduce its structure, not its pixels", satisfied with the figures'
+own stated numbers.
+
+#### Finding 2 — the printed formula is WRONG, and both renderings print it identically
+
+As printed: `C = S0 Q(2w; 2 + 1/(1-rho), 2z) - K [1 - Q(2w; 2 - 1/(1-rho), 2z)]`. Two defects — both
+chi-squared terms share one argument/noncentrality pair where Schroder's result **swaps** them, and
+the first term is missing its complement. `-raw` and `-layout` agree, so transcription independence
+is powerless: this is the source's own misprint, the case §4 says only a requirement oracle can
+catch. Three requirements catch it, and each is asserted **failing** on the printed form:
+
+| requirement | correct | as printed |
+|---|---|---|
+| `K → 0` must give the forward (a martingale) | `F` | ≈ `−K` |
+| `K → ∞` must give zero | `0` | `F` |
+| defined at `beta = 0.5` (the source's own "market practice") | yes | **undefined** — `2 − 1/(1−0.5)` is *zero* degrees of freedom |
+
+The third is the sharpest: the printed form is undefined on the entire upper half of the range it is
+stated for. The corrected form was then **ruled by Monte Carlo, not by recall** — a 600k-path Euler
+scheme with absorption agrees to **under 1 SE at three strikes**.
+
+#### Finding 3 — the two reductions are ASYMMETRIC, and neither is what the spec predicted
+
+- **`beta → 1` (Black) is unreachable**, so it earns an **O(1−beta) convergence rate over a measured
+  regime** (§4's T66 clause). Errors 34.7% → 9.37% → 3.03% as `1−beta` falls 1e-1 → 3e-2 → 1e-2,
+  first order over 1.5 decades. **And the regime is a property of our IMPLEMENTATION, not of the
+  formula** — T67's tightening, biting harder here than there: `scipy` reaches `1−beta = 1e-4`, our
+  mixture cannot, because the noncentrality grows as `1/(1-beta)²` and the sum costs
+  O(√noncentrality) terms (0.003s at 1e-1, 0.34s at 1e-2, 3.6s at 3e-3, refused at 1e-3). Inheriting
+  scipy's regime would have asserted a convergence we cannot compute.
+- **`beta = 0` (Bachelier) is reachable exactly but is NOT an identity** — CEV absorbs at zero and
+  Bachelier does not, so they agree only where the absorbed mass is negligible. Measured in
+  `F/sigma_N`: 3e-10 at 5.9, **0.50% at 1.25**, **12.7% at 0.62**. Asserted as equality *in a stated
+  regime* plus a companion asserting the divergence outside it, so the regime is measured.
+
+#### The measured skew (§4 obligation-not-form — measured, then reported)
+
+Implied Black vol at `F = 5%`, `T = 1`, with `sigma` re-scaled per `beta` (a CEV vol carries units
+of rate^(1−beta), so a fixed `sigma` would confound the skew with a vol change):
+
+| `beta` | K=4% | K=5% | K=6% | span |
+|---|---|---|---|---|
+| 0.2 | 24.06% | 22.03% | 20.46% | 3.60% |
+| 0.5 | 23.26% | 22.01% | 21.02% | 2.24% |
+| 0.9 | 22.25% | 22.00% | 21.80% | 0.45% |
+
+Downward at every exponent — the only thing the finance forces — and flattening toward Black's flat
+smile as `beta → 1`, which is the cross-model continuity the two tranche-71 models bracket.
+
+### Notes
+
+- **A native survival function, because `1 - cdf` is destroyed exactly where the CEV call needs it.**
+  Cox's first term is an upper tail. Measured: `1 - cdf` carries **1.2% relative error at `x = 100`**
+  and returns **exactly 0.0 beyond `x ≈ 200`**, where the truth is 8.7e-32 — OI-3's `norm_cdf` defect
+  reproduced one model over, and a deep out-of-the-money caplet is precisely where a CEV pricer is
+  asked for a number. `noncentral_chisquare_sf` sums the **upper** incomplete gammas directly and
+  holds **relative** accuracy to 1.1e-14 down to 3e-148. The oracle asserts both halves — that `sf`
+  is accurate there and that `1 - cdf` is not — so the two-function design is proved necessary (T15).
+- **A guard I wrote was wrong in the dangerous direction, and the rate oracle caught it.** The first
+  draft returned the intrinsic whenever `z` was large, reasoning that a large `z` means a negligible
+  variance. **False:** `z` also diverges as `beta → 1` at a *fixed* variance, so an at-the-money
+  caplet worth 0.00398 came back as **0.0** — a plausible wrong number of exactly the kind §3's
+  failure-is-a-value rule exists to prevent. Replaced by a **moneyness** test (deterministic only when
+  `|F−K|` exceeds 40 dispersions) plus a **refusal** above an affordable noncentrality, which the
+  engine turns into a `PricingFailure`.
+- **§4's tenth degenerate shape bit a FOURTH time — with its premise test already written.** The
+  fixture straddled the valuation date, and the premise test asserted the historical period's leak
+  was material — but computed it with `abs(year_fraction)`, i.e. a positive variance and a diffused
+  price. The engine with the filter dropped sees a **negative** year fraction, collapses the
+  dispersion to zero and returns the **intrinsic** — and the fixture's historical forward (2.6167%)
+  sat *below* its 3% strike, so that intrinsic was 0, the same answer PV-0 gives. The premise measured
+  a quantity the mutation never produces. This is the charter's own "an option bypass additionally
+  needs the expired option IN THE MONEY" sub-trap, verbatim, one clause below where I was reading.
+  Fixed by measuring the actual fall-through value and by a 2% strike; a **floorlet** at the 3% strike
+  kills it a second way, since a cap's and a floor's intrinsics vanish on opposite sides of the forward.
+- **Mutation sweep: applied 16/16, killed 15, survived 1, no single-killer oracles.** The survivor is
+  a **proved** equivalent mutant — relaxing the CDF's `x <= 0` guard to `x < 0` is bit-identical over
+  25 `(dof, noncentrality)` pairs, because every term of the mixture at `x = 0` is `_gamma_p(a, 0.0)`
+  = 0.0; the guard is a cost guard, not a correctness one. Two first-pass survivors and two
+  single-killers were closed: the invariant-6 filter went 1 → 2 killers and the fixing-date horizon
+  1 → 4.
+- **Convention C16's trigger has FIRED**, both halves: the CEV caplet is the fourth caplet pricer and
+  the third consumer of a *forward* variance, and the three smile engines now share an almost
+  identical strip walk differing only in the per-period valuation — duplicated knowledge (§6), and
+  the helper it wants is the structural guard C16 has been missing. **Not extracted here**: the shape
+  is a design question and this is the arc's last tranche, with the checkpoint and re-audit #8 next.
+  Recorded in the register and raised for Cowork, not silently deferred.
+- **The MC anchor's resolution, stated per DEFECT** (Cowork's ruling, 0385). Three plausible
+  transcription slips — the first term's dof doubled, the second's shifted by 2, `z`/`w` unsquared in
+  `(1−beta)` — **all satisfy every requirement oracle**, because those pin the structure and are
+  silent on the interior magnitude (the T43 gap). They deviate **33.9%, 47.2% and 37.2%**, against a
+  committed band of `4·SE + 0.5% ≈ 2.7%` at 120k paths (the 600k ruling run resolves ~1.5%) — so each
+  sits 12–17× outside it, and the simulation is demonstrably what distinguishes the corrected form.
+  Asserted in the suite, not only measured here.
+- **The corrected form confirmed as the KNOWN one, not merely one that passes our checks.** The
+  first term's shape follows from the section's own derivation of the forward's law (the
+  squared-Bessel process is non-central chi-squared with the *forward's* level as noncentrality, so
+  the exceedance probability is a survival at the *strike's* argument) — §4's earlier-step check. The
+  second term is pinned at `w → 0`, where its chi-squared degenerates to the central one and equals
+  `1 − P(absorbed)` **bit-identically**, a quantity independently validated against the source's
+  prose claims and the simulation's own absorbed fraction. The attribution chain (`COX-1996`,
+  `DELBAEN-SHIRAKAWA-2002`) is now in `references.md`, transcribed from Brockhaus's reference list;
+  `SCHRODER-1989` is listed separately and flagged as an attribution from recollection, since no held
+  source names it and nothing rests on it.
+- **The Brockhaus misprint recorded in `references.md`'s source-defect log**, beside `BERHAN-2012`
+  §5.1's and `JAECKEL-2002` §12.8's — the project's **first source correction** rather than a choice
+  between two renderings. A **second** defect in the same section is recorded with it and deliberately
+  *not* pinned: eq (6.10)'s drifted-case substitution carries a spurious `/T` against the space-time
+  change printed on the same page, which the derivation step settles — but a caplet's forward is
+  already a martingale, so eq (6.10) never arises here. Recorded in case a drifted CEV is ever pulled.
+- **`verify.py` test floor 2974 → 3069.**
+- **A repeat of §9's timing-gate clause, for the record:** `slow` read 16.5s for a T60 file and
+  **900.4s** for `test_mutation_sweep.py` when chained behind a full suite run; alone it is `ok`. A
+  gate's reading is only valid measured in isolation, and 900s is the artefact shape T19 named.
+
 ## [0.73.0] - 2026-11-21
 
 ### Added — tranche 71, the volatility-smile caplets (Normal/Bachelier + displaced-diffusion)
