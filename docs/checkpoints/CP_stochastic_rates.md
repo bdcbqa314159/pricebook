@@ -22,7 +22,9 @@ smile split along its real seam).
 - **T71 — Normal/Bachelier + displaced-diffusion** smile caplets (reparameterisations of Black); the
   Bachelier positive part promoted to **L0** so the L4 caplet and the L5 CVA EPE share one production formula.
   `v0.73.0`.
-- **T72 — CEV**, the capstone — Schroder/Cox's non-central chi-squared caplet, a new L0 ncx2 primitive.
+- **T72 — CEV**, the capstone — Cox's (1996) non-central chi-squared caplet (via `BROCKHAUS-2016` §6.1; the
+  `SCHRODER-1989` arrangement is quarantined in `references.md` as recollection, no held source names it), a
+  new L0 ncx2 primitive.
   `v0.74.0`.
 
 ## What the arc reused — the single-curve machinery as its backbone

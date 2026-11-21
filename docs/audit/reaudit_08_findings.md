@@ -425,3 +425,46 @@ variance; and the extraction *creates* the shared value C16 has been missing, wh
 
 Re-audit #8's passes are **complete**; the arc boundary is settled once the survivors are ruled and the
 remediation lands.
+
+---
+
+## Cowork rulings (2026-11-21) — sweep 68/63/5; one real blind oracle; T73 remediation specced
+
+Sweep: **68 applied / 63 killed / 5 survived** (invariant-6 32/32 clean; reduction/HJM/MM-I 10/10 + 1 errored;
+CEV 13/14; full tree 12/12). Remediation → **one tranche T73** (the T59 precedent: test/tooling + the small
+src changes together — one version bump, one floor bump), spec at `docs/tranches/73_reaudit8_remediation.md`.
+
+- **F-8.6 — the real blind oracle, and it earned the arc's one re-audit clause.** `pytest.approx(rel=…)`
+  floors at `1e-12` absolute, so the T20a/OI-3 `norm_cdf` defect was re-introducible in the tail and survived
+  all 3069 tests. Fix: `abs=0.0` on the survival site (0→7 killers) and audit the **blind subset** (tails +
+  differences-of-equals among the 357 `approx(rel=)` sites). Charter clause added (§4, the T20a bullet).
+  Not statically gateable → sweep + the note.
+- **F-8.3 — five previously-shipped holes (F-4.1…F-4.5) on single killers.** §9's "a previously-shipped hole
+  wants a second independent killer" (the F-1.2/T37 rule) was never applied, and the killers are
+  **fixture-dependent** (an ITM-expired fixture), so a later edit can neutralise them without deleting
+  anything. T73 adds a second independent killer for each and records all five in the standing table.
+  **Highest-value item.**
+- **F-8.4 — delete `VasicekParams.long_run_mean`,** dead surface (zero consumers, §4's third survivor kind,
+  the arc's oldest tranche).
+- **F-8.2 — the instrument's restore is not SIGTERM-safe** (it stranded a mutation twice, once corrupting
+  `sobol.py`'s Gray code in the working tree). Harden it (signal-handled restore + a post-sweep git-clean
+  assertion). The "never `git add -A`" rule being the only safety net is too thin.
+- **F-8.1 — my register miss + a §1 bin ruling.** My pass (3) and the checkpoint claimed `to_go_deeper` held
+  the T71/T72 routes; it held none (I punted "confirm or lift" to Code and the checkpoint over-claimed — the
+  re-derive-don't-ratify rule on my own pass). And **ch-8.5 stochastic-vol smile is in the wrong bin:** no
+  closed form → fails the §4 oracle gate → **`out_of_method` candidate, not `to_go_deeper`** (§1). T73 moves
+  it and transcribes the routes.
+- **F-8.5 non-probe, F-8.7 proved-equivalent, F-8.8 full tree clean** (the T71 L0 promotion *strengthened*
+  T25 — 59/52 killers) — no action; the three thin-but-not-single spots (Sobol Gray code, CVA LGD, bivariate
+  ρ=−1) recorded.
+- **C16 strip-walk extraction (pass 2), ruled: the THREE `NominalCap`-family engines, not all eight.** HW
+  shares the walk and not the variance (C16 predicted it); `capfloor`/`yoy` take different payoffs (§6
+  leg-vs-YoY-leg). Extract a per-period-valuation callable the three share, **preserving the exception sets
+  explicitly** (cev's `ArithmeticError` is what a careless merge loses). The extraction *creates* C16's
+  missing structural guard → C16 flips `per-module → guarded`. Rides T73 (the T59 `curves_for_era` precedent:
+  a src refactor in the remediation tranche).
+- **F-8.9 — the slow margin, raised to Bernardo.** Fifth file to touch the `slow` ceiling, first with **no
+  test change of its own** (runner variance on `test_cev_caplet`, cleared losslessly). Not the exemption
+  trigger, but the **margin** now looks thin, not any one file — a §9 question for Bernardo.
+- **`SCHRODER-1989` attribution** corrected in the checkpoint (Cox via Brockhaus; Schroder is quarantined
+  recollection, §7).
