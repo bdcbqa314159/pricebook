@@ -121,7 +121,30 @@ smile as `beta → 1`, which is the cross-model continuity the two tranche-71 mo
   the helper it wants is the structural guard C16 has been missing. **Not extracted here**: the shape
   is a design question and this is the arc's last tranche, with the checkpoint and re-audit #8 next.
   Recorded in the register and raised for Cowork, not silently deferred.
-- **`verify.py` test floor 2974 → 3065.**
+- **The MC anchor's resolution, stated per DEFECT** (Cowork's ruling, 0385). Three plausible
+  transcription slips — the first term's dof doubled, the second's shifted by 2, `z`/`w` unsquared in
+  `(1−beta)` — **all satisfy every requirement oracle**, because those pin the structure and are
+  silent on the interior magnitude (the T43 gap). They deviate **33.9%, 47.2% and 37.2%**, against a
+  committed band of `4·SE + 0.5% ≈ 2.7%` at 120k paths (the 600k ruling run resolves ~1.5%) — so each
+  sits 12–17× outside it, and the simulation is demonstrably what distinguishes the corrected form.
+  Asserted in the suite, not only measured here.
+- **The corrected form confirmed as the KNOWN one, not merely one that passes our checks.** The
+  first term's shape follows from the section's own derivation of the forward's law (the
+  squared-Bessel process is non-central chi-squared with the *forward's* level as noncentrality, so
+  the exceedance probability is a survival at the *strike's* argument) — §4's earlier-step check. The
+  second term is pinned at `w → 0`, where its chi-squared degenerates to the central one and equals
+  `1 − P(absorbed)` **bit-identically**, a quantity independently validated against the source's
+  prose claims and the simulation's own absorbed fraction. The attribution chain (`COX-1996`,
+  `DELBAEN-SHIRAKAWA-2002`) is now in `references.md`, transcribed from Brockhaus's reference list;
+  `SCHRODER-1989` is listed separately and flagged as an attribution from recollection, since no held
+  source names it and nothing rests on it.
+- **The Brockhaus misprint recorded in `references.md`'s source-defect log**, beside `BERHAN-2012`
+  §5.1's and `JAECKEL-2002` §12.8's — the project's **first source correction** rather than a choice
+  between two renderings. A **second** defect in the same section is recorded with it and deliberately
+  *not* pinned: eq (6.10)'s drifted-case substitution carries a spurious `/T` against the space-time
+  change printed on the same page, which the derivation step settles — but a caplet's forward is
+  already a martingale, so eq (6.10) never arises here. Recorded in case a drifted CEV is ever pulled.
+- **`verify.py` test floor 2974 → 3069.**
 - **A repeat of §9's timing-gate clause, for the record:** `slow` read 16.5s for a T60 file and
   **900.4s** for `test_mutation_sweep.py` when chained behind a full suite run; alone it is `ok`. A
   gate's reading is only valid measured in isolation, and 900s is the artefact shape T19 named.
