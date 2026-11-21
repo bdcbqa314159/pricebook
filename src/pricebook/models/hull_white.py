@@ -92,6 +92,17 @@ class CapletPeriod:
         if self.accrual <= 0.0:
             raise ValueError(f"a caplet period needs a positive accrual, got {self.accrual}")
 
+    def forward_rate(self) -> float:
+        """The simple forward `F = (B(t,T_i-1)/B(t,T_i) - 1) / tau` the period implies.
+
+        **A method and not a free function, because it is what this bundle already means.** The
+        docstring above says these three fields are "exactly what the curve says about the period",
+        and the simple forward is precisely that — a derived reading, not a new field, so §7's limit
+        is untouched. It arrives at tranche 71 with two consumers at once (the Bachelier caplet and
+        the displaced-diffusion caplet, both of which need `F` explicitly where eq 3.21 never forms
+        it), which is §6's rule of two firing rather than a convenience."""
+        return (self.df_start / self.df_pay - 1.0) / self.accrual
+
 
 def hw_state_variance(params: HullWhiteParams, t: float, maturity: float) -> float:
     """`V(t,T)` for the one-factor model - the variance of the integrated state.

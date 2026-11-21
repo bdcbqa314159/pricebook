@@ -240,9 +240,9 @@ class TestExactBeatsProtocol:
 
 
 class TestTheRefactorDisturbsNothing:
-    def test_every_PRODUCTION_pricer_is_still_registered_exactly_once(self) -> None:
-        """The eight registrations the tree had before this tranche, each still present and each
-        now carrying its model type."""
+    def test_every_PRODUCT_registers_each_model_at_most_once(self) -> None:
+        """The eight registrations the tree had before the dispatch refactor, each still present,
+        and no product registering the same model type twice."""
 
         products = [key[0].__name__ for key in registered_pricers()]
         expected = {
@@ -256,17 +256,27 @@ class TestTheRefactorDisturbsNothing:
             "ZeroCouponInflationSwap",
         }
         assert expected <= set(products), f"missing: {expected - set(products)}"
-        # Every product keeps exactly one pricer **except the equity vanilla**, which carries one per
-        # model — the capability this tranche exists to add. Asserted as "more than one, each under a
-        # distinct model" rather than a hard count: the count is expected to grow with the arc (Black
-        # at T30, Heston at T33, Hull-White at T34, and further hybrids after), and a test that has
-        # to be edited on every addition is a test that will eventually be edited without thought.
-        for name in expected - {"EuropeanEquityOption"}:
-            assert products.count(name) == 1, f"{name} is registered {products.count(name)} times"
-        equity_models = [key[1] for key in registered_pricers() if key[0].__name__ == "EuropeanEquityOption"]
+        # **The invariant is "distinct models per product", NOT "one pricer per product".** It was
+        # first written as the latter with `EuropeanEquityOption` exempted by name, because that was
+        # the only multi-model product when this test was written. Tranche 71 made `NominalCap` the
+        # second (Hull-White, Bachelier, displaced-diffusion), so the exemption list would have had
+        # to grow -- which is exactly what the original comment warned against: "a test that has to
+        # be edited on every addition is a test that will eventually be edited without thought."
+        #
+        # The hard-coded `expected` set had also quietly stopped covering the tree: `CommodityOption`
+        # carries two pricers and is not in the set, so nothing checked it either way. A fixed list
+        # of names that silently skips whatever is not on it is tranche 26b's floor-discovery defect
+        # one level down -- the oracle's domain excluding the thing that could be wrong. So this now
+        # walks EVERY registered product rather than a named eight.
+        for name in sorted(set(products)):
+            models = [key[1] for key in registered_pricers() if key[0].__name__ == name]
+            assert len(set(models)) == len(models), f"{name} has duplicate model keys: {models}"
+        equity_models = [
+            key[1] for key in registered_pricers() if key[0].__name__ == "EuropeanEquityOption"
+        ]
         assert len(equity_models) > 1, "several models must coexist on the equity vanilla"
-        assert len(set(equity_models)) == len(equity_models), f"duplicate model keys: {equity_models}"
-
+        cap_models = [key[1] for key in registered_pricers() if key[0].__name__ == "NominalCap"]
+        assert len(cap_models) > 1, "several models must coexist on the nominal cap"
     def test_the_equity_vanilla_resolves_to_a_DIFFERENT_pricer_per_model(self) -> None:
         """The production instance of coexistence, not a synthetic one."""
         from pricebook.engine.registry import _resolve
@@ -280,6 +290,21 @@ class TestTheRefactorDisturbsNothing:
         assert black is not heston
         assert black.__name__ == "price_european_equity_option"
         assert heston.__name__ == "price_european_equity_option_heston"
+
+    def test_the_nominal_cap_resolves_to_a_DIFFERENT_pricer_per_model(self) -> None:
+        """The second production instance of coexistence, added at tranche 71 — the smile models
+        price the SAME contract under a different measure, which is the capability the registry's
+        `(product, model)` key exists for."""
+        from pricebook.models.hull_white import HullWhiteModel
+        from pricebook.models.smile import BachelierModel, DisplacedDiffusionModel
+        from pricebook.products.nominal_cap import NominalCap
+
+        table = registered_pricers()
+        pricers = [
+            table[(NominalCap, model)]
+            for model in (HullWhiteModel, BachelierModel, DisplacedDiffusionModel)
+        ]
+        assert len({p.__name__ for p in pricers}) == 3, [p.__name__ for p in pricers]
 
     def test_every_key_is_a_PRODUCT_MODEL_pair(self) -> None:
 
