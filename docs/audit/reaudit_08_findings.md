@@ -300,6 +300,34 @@ swept at re-audits #3/#4, some thirty-five tranches ago — plus the one T25 for
 marginal value was low against this sitting's cost. That is a bounded pass, not a full enumeration, and
 naming the bound is the point.
 
+### F-8.9 — `test_cev_caplet.py` is the FIFTH file to touch the Windows `slow` ceiling; cleared losslessly
+
+Found by this PR's own CI, not by a sweep: the file read **13.4s on the Windows runner against the
+10.0s ceiling** while reading **3.1s locally** — §9's *"for a numerically-heavy file a LOCAL re-time is
+not the measurement, CI is"*, and the first time it has bitten on a **docs-only** branch (T72's own PR
+passed both runners at the same commit content, so this is runner variance across a 4% margin, the
+`test_hw_bermudan` shape again).
+
+**Cleared losslessly**, which matters because of where the slow budget stands. The Monte-Carlo anchor ran
+a **full simulation per strike** — three times over — when the terminal distribution does not depend on
+`K` at all. One module-scoped simulation now serves all three: identical scheme, identical seed,
+identical paths, each strike still compared against its own closed form. Sharing the draws only
+correlates the three tests' sampling errors, and no assertion depends on their independence. Local
+**3.1s → 1.87s**, with the MC now 0.80s of setup instead of three separate runs.
+
+**What was declined, and why.** Cutting the path count would have been faster still and is **not**
+lossless — it widens the SE and shrinks the band's measured resolution, which is §9's *"trimming the
+oracle's own domain to beat the clock is the timing gate shrinking an oracle's power"*. Dropping the
+`1−β = 1e-2` point from the convergence-rate test (0.39s, the single most expensive call) would leave
+two points, and two points cannot establish a first-order rate. Both declined. If CI still reports over
+the ceiling, the next lossless move is a **real subject seam** — the source-correction oracles (the
+printed form's three requirement failures, the MC anchor, the interior variants) are a different subject
+from the engine's composition oracles (parity, intrinsic, skew, strip, invariant-6) — and an honest
+`slow-test-exempt` with a ledgered removal trigger after that, never a trimmed oracle.
+
+Per Cowork's 0381 note this is **still not the exemption trigger** (it cleared losslessly) — but it is
+the **fifth** file to touch the ceiling, and the first to do so without any test change of its own.
+
 ## (2) Duplication — REPORTED (Code), coupling and site counts measured
 
 **Measured, not estimated.** Four candidates, at different stages of the rule of two:
