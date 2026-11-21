@@ -72,6 +72,19 @@ test now pins the single-type decision so a second type cannot quietly return.
 *(Code raised it as a finding with the count — one construction site, one field read, functions
 untouched since they take a `ForwardVolatility` rather than a model; Cowork ruled generalise.)*
 
+### Also — a tranche-68 file tipped the `slow` ceiling on this PR
+
+`tests/L4/test_hw_bermudan.py` ran **10.4s against §9's 10.0s** on the Windows runner while reading
+2.94s locally — a file from two tranches ago, tipped over by runner variance across a 4% margin.
+That is §9's "headroom is not bankable" and its "CI is the measurement" in one event: nothing about
+this tranche touched that file.
+
+Fixed by a **lossless** reduction in §9's prescribed order: three requirement oracles each
+recomputed the *same* four-point Bermudan price ladder (one, two, three and four exercise rights),
+which is now a module-scoped fixture — the T50/T53 memoisation pattern, with every assertion reading
+the numbers it would have computed for itself. 2.94s → **2.18s**, no test deleted and no oracle
+narrowed, so no exemption was needed.
+
 ## [0.71.0] - 2026-11-21
 
 ### Added — tranche 69, the Gaussian HJM framework
