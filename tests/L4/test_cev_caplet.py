@@ -90,6 +90,10 @@ DATES = tuple(VAL + timedelta(days=180 * k) for k in range(-1, 5))
 CURVE = DiscountCurve(MEASURE, (0.0, 1.0, 2.0, 4.0), (0.026, 0.030, 0.034, 0.038))
 BETA = 0.5
 CEV_VOL = 0.1          # units of rate^(1-beta) — not comparable to a Black vol
+# Below the historical period's own forward of 2.6167%, so a settled caplet that fell through the
+# invariant-6 filter would return a NON-ZERO intrinsic. At the 3% default strike it returns zero —
+# the same answer PV-0 gives — and the dropped filter is invisible. See the straddle premise below.
+IN_THE_MONEY_STRIKE = 0.02
 
 
 def _snapshot(vd: date = VAL, curve: DiscountCurve = CURVE) -> MarketSnapshot:
@@ -165,10 +169,19 @@ def test_a_ZERO_strike_call_is_the_FORWARD_because_the_forward_is_a_martingale()
         assert cev_call(forward, 1e-12, variance, beta) == pytest.approx(forward, rel=1e-9)
 
 
-def test_the_PRINTED_form_fails_the_zero_strike_requirement():
+@pytest.mark.parametrize("beta", (0.3, 0.4, 0.49))
+def test_the_PRINTED_form_fails_the_zero_strike_requirement(beta):
     # The companion that proves the requirement discriminates (tranche 15): asserted here so the
     # ruling is in the suite, not only in the log.
-    assert _as_printed(0.05, 1e-12, 0.01, 0.5) == pytest.approx(0.0, abs=1e-15)
+    #
+    # **Shown at beta < 0.5, because that is where the printed form is even DEFINED.** Its second
+    # term asks for `2 - 1/(1-beta)` degrees of freedom, which is positive only below 0.5, zero at
+    # exactly 0.5 and negative above — so the printed formula is undefined on the whole upper half
+    # of the source's own range, including its stated market practice. Where it is defined it is
+    # wrong, and it fails this requirement by returning roughly MINUS the strike.
+    assert 2.0 - 1.0 / (1.0 - beta) > 0.0, beta
+    assert _as_printed(0.05, 1e-12, 0.01, beta) < 0.0
+    assert abs(_as_printed(0.05, 1e-12, 0.01, beta) - 0.05) > 0.049
 
 
 def test_a_far_out_of_the_money_call_goes_to_ZERO_not_to_the_forward():
@@ -176,8 +189,12 @@ def test_a_far_out_of_the_money_call_goes_to_ZERO_not_to_the_forward():
         assert cev_call(forward, 100.0, variance, beta) == pytest.approx(0.0, abs=1e-12)
 
 
-def test_the_PRINTED_form_fails_the_deep_out_of_the_money_requirement():
-    assert _as_printed(0.05, 100.0, 0.01, 0.5) == pytest.approx(0.05, rel=1e-6)
+@pytest.mark.parametrize("beta", (0.3, 0.4, 0.49))
+def test_the_PRINTED_form_fails_the_deep_out_of_the_money_requirement(beta):
+    # It returns the FORWARD where the answer is zero — the two requirements fail in opposite
+    # directions, which is the signature of the swapped argument/noncentrality pairs rather than of
+    # a scale error.
+    assert _as_printed(0.05, 100.0, 0.01, beta) == pytest.approx(0.05, rel=1e-9)
 
 
 def test_the_PRINTED_form_is_UNDEFINED_at_the_sources_own_market_practice_beta():
@@ -258,21 +275,46 @@ def test_the_absorption_probability_matches_a_CENTRAL_chi_squared_independently(
 # ============================================================================================
 
 def test_the_BLACK_limit_is_unreachable_so_it_is_a_RATE_over_a_measured_regime():
-    # §4's tranche-66 clause. The regime is measured for THIS model (tranche 67): sound to
-    # `1 - beta = 1e-4`, `nan` by 1e-5.
+    # §4's tranche-66 clause: a reduction that is exact in the reals but numerically unreachable
+    # earns a convergence RATE over a stated regime, never a band.
+    #
+    # **And the regime is measured for THIS IMPLEMENTATION, not for the formula** — tranche 67's
+    # tightening, which bites harder here than it did there. `scipy` evaluates these chi-squareds to
+    # `1 - beta = 1e-4`; our Poisson-mixture primitive cannot, because the noncentrality grows as
+    # `1/(1-beta)^2` and the mixture costs O(sqrt(noncentrality)) terms: 0.003s at `1 - beta = 1e-1`,
+    # 0.34s at 1e-2, 3.6s at 3e-3, refused at 1e-3. Inheriting scipy's regime would have asserted a
+    # convergence we cannot compute. The rate is measured over the regime we can afford.
     forward, strike, variance = 0.05, 0.05, 0.04
     target = black_price(forward, strike, variance, CapFloorKind.CAP)
-    errors = []
-    for gap in (1e-1, 1e-2, 1e-3, 1e-4):
-        errors.append(abs(cev_call(forward, strike, variance, 1.0 - gap) / target - 1.0))
+    gaps = (1e-1, 3e-2, 1e-2)
+    errors = [
+        abs(cev_call(forward, strike, variance, 1.0 - gap) / target - 1.0) for gap in gaps
+    ]
     assert errors == sorted(errors, reverse=True), errors
-    for coarse, fine in zip(errors, errors[1:]):
-        assert 5.0 < coarse / fine < 20.0, errors        # first order in (1 - beta), decade by decade
-    assert errors[-1] < 1e-3, errors
+    # FIRST ORDER: the error falls by the same factor the gap does (3.33x, then 3x).
+    for (coarse, fine), ratio in zip(zip(errors, errors[1:]), (10 / 3, 3.0)):
+        assert 0.8 * ratio < coarse / fine < 1.3 * ratio, errors
+    assert errors[-1] < 0.04, errors
 
 
-def test_OUTSIDE_that_regime_the_closed_form_DEGRADES_so_the_regime_is_stated_not_assumed():
-    assert math.isnan(cev_call(0.05, 0.05, 0.04, 1.0 - 1e-5))
+def test_OUTSIDE_that_regime_the_price_is_REFUSED_and_not_quietly_the_intrinsic():
+    # The regime is stated by being enforced, which is the stronger form of "stated". And the
+    # direction of the refusal is the point: the first draft of the engine guarded on `z` being
+    # large and returned the INTRINSIC there, on the reasoning that a large `z` means a negligible
+    # variance. That premise is false — `z` also diverges as `beta -> 1` at a FIXED variance — so an
+    # at-the-money caplet worth 0.00398 came back as 0.0, a plausible wrong number of exactly the
+    # kind §3 forbids. Caught by the rate oracle above, which was written first.
+    with pytest.raises(ArithmeticError, match="noncentrality"):
+        cev_call(0.05, 0.05, 0.04, 1.0 - 1e-3)
+
+
+def test_the_engine_turns_that_refusal_into_a_PRICING_FAILURE_not_an_exception():
+    # §3's failure-is-a-value contract: the helper raises, the registered pricer returns a value.
+    from pricebook.foundation import PricingFailure
+
+    out = price(_cap(), CevModel(_snapshot(), CEV_VOL, 1.0 - 1e-4))
+    assert isinstance(out, PricingFailure), out
+    assert "noncentrality" in out.reason
 
 
 def test_the_BACHELIER_limit_holds_only_where_ABSORPTION_is_negligible():
@@ -377,17 +419,111 @@ def test_the_STRIP_is_the_SUM_of_its_live_caplets():
     assert _pv(cap, model) == pytest.approx(expected, rel=1e-13)
 
 
-def test_the_STRADDLE_premise_the_historical_period_is_worth_a_DIFFERENT_amount_excluded():
+def test_the_STRADDLE_premise_measures_the_value_the_dropped_GUARD_would_actually_LEAK():
+    # §4's tenth degenerate shape, and this is its FOURTH bite — caught by the sweep after a premise
+    # test was already written for it, which is the sharpest version of the lesson yet. Two halves
+    # the charter names explicitly, and the first draft of this test got the second one wrong:
+    #
+    #   (a) the schedule straddles — necessary, and it did;
+    #   (b) the excluded flow is worth a DIFFERENT amount excluded than the dropped guard would make
+    #       it worth. The first draft asserted (b) using `abs(year_fraction(start))`, i.e. a
+    #       positive variance and a diffused price. That is not what the engine computes: with the
+    #       filter dropped the year fraction is NEGATIVE, the dispersion collapses to zero and
+    #       `cev_call` returns the INTRINSIC. So the premise measured a quantity the mutation never
+    #       produces, and the fixture's historical forward (2.6167%) was BELOW its 3% strike, making
+    #       that intrinsic exactly 0 — the same answer PV-0 gives. The guard stayed invisible though
+    #       the fixture straddled, which is the charter's own "option bypass additionally needs the
+    #       expired option IN THE MONEY" sub-trap, verbatim.
     periods = list(_cap().schedule.periods())
     historical = [p for p in periods if p[1] <= VAL]
     assert len(historical) == 1 and len(periods) == 5, periods
     start, pay, accrual = historical[0]
-    assert MEASURE.year_fraction(start) < 0.0 and accrual != pytest.approx(1.0)
-    leaked = N * cev_caplet(
-        CapletPeriod(CURVE.df(start), CURVE.df(pay), accrual),
-        0.03, CEV_VOL**2 * abs(MEASURE.year_fraction(start)), BETA, CapFloorKind.CAP,
+    years = MEASURE.year_fraction(start)
+    assert years < 0.0 and accrual != pytest.approx(1.0)                        # (a)
+
+    unit = CapletPeriod(CURVE.df(start), CURVE.df(pay), accrual)
+    forward = unit.forward_rate()
+    # The value the engine WOULD produce for this period with the filter dropped, computed the way
+    # the engine computes it — negative variance and all.
+    leaked = N * cev_caplet(unit, IN_THE_MONEY_STRIKE, CEV_VOL**2 * years, BETA, CapFloorKind.CAP)
+    assert forward > IN_THE_MONEY_STRIKE, (forward, IN_THE_MONEY_STRIKE)        # (b), the ITM half
+    assert abs(leaked) > 1e-3 * N, leaked
+
+
+def test_an_IN_THE_MONEY_historical_period_is_still_excluded_from_the_mark():
+    # The test that actually kills the dropped filter, which the strike-3% fixture could not: here
+    # the already-settled period is in the money, so letting it fall through adds a real number.
+    cap = _cap(IN_THE_MONEY_STRIKE)
+    model = CevModel(_snapshot(), CEV_VOL, BETA)
+    live = 0.0
+    for start, pay, accrual in cap.schedule.periods():
+        if pay <= VAL:
+            continue
+        unit = CapletPeriod(CURVE.df(start), CURVE.df(pay), accrual)
+        live += N * cev_caplet(
+            unit, cap.strike, CEV_VOL**2 * MEASURE.year_fraction(start), BETA, CapFloorKind.CAP
+        )
+    assert _pv(cap, model) == pytest.approx(live, rel=1e-13)
+
+
+def test_a_historical_FLOORLET_is_excluded_too_which_the_cap_fixture_cannot_show():
+    # The second killer for the invariant-6 filter, and it falls out of the same asymmetry that
+    # made the first one necessary. The fall-through value is an INTRINSIC, and a cap's and a
+    # floor's intrinsics vanish on opposite sides of the forward: at the 3% default strike the
+    # historical period's 2.6167% forward makes the CAPLET's intrinsic zero (invisible) and the
+    # FLOORLET's 0.383% (visible). So the floor leg kills the dropped filter at the very strike the
+    # cap leg cannot — a different arithmetic path (`cev_caplet`'s parity branch), not a second
+    # reading of the same one.
+    cap = _cap(0.03, CapFloorKind.FLOOR)
+    model = CevModel(_snapshot(), CEV_VOL, BETA)
+    start, pay, accrual = next(p for p in cap.schedule.periods() if p[1] <= VAL)
+    settled = CapletPeriod(CURVE.df(start), CURVE.df(pay), accrual)
+    leak = cev_caplet(
+        settled, 0.03, CEV_VOL**2 * MEASURE.year_fraction(start), BETA, CapFloorKind.FLOOR
     )
-    assert abs(leaked) > 1e-4 * N, leaked
+    assert abs(leak) > 1e-3, leak                      # the premise: this one is NOT zero
+
+    live = 0.0
+    for s_, p_, a_ in cap.schedule.periods():
+        if p_ <= VAL:
+            continue
+        live += N * cev_caplet(
+            CapletPeriod(CURVE.df(s_), CURVE.df(p_), a_), 0.03,
+            CEV_VOL**2 * MEASURE.year_fraction(s_), BETA, CapFloorKind.FLOOR,
+        )
+    assert _pv(cap, model) == pytest.approx(live, rel=1e-13)
+
+
+def test_the_variance_horizon_is_the_FIXING_date_pinned_a_SECOND_way():
+    # The sweep flagged the payment-vs-fixing horizon as a single-killer oracle (§9) — it died only
+    # to the strip-sum test, so deleting that one test would silently reopen it. This is a second
+    # killer on a different code path: ONE period, no loop, and the horizon written out explicitly
+    # rather than reconstructed alongside the strip walk.
+    #
+    # It is a second killer for the HORIZON, not a second independent price oracle — it shares
+    # `cev_caplet` with the engine by design, because what is in question is which date the engine
+    # reads, not what the formula computes. The pointwise and Monte-Carlo oracles above carry the
+    # formula. (The first attempt here tried to avoid sharing anything, by asserting that two caps
+    # with a common fixing date have values in the ratio of their `accrual * df_pay`. That premise
+    # is false: a longer period has a different FORWARD too, so the ratio carries the forward's
+    # effect as well — measured 2.441 against the weights' 1.965.)
+    fixing, pay = DATES[2], DATES[3]
+    schedule = CouponSchedule((fixing, pay), DC)
+    _, _, accrual = next(iter(schedule.periods()))
+    model = CevModel(_snapshot(), CEV_VOL, BETA)
+    unit = CapletPeriod(CURVE.df(fixing), CURVE.df(pay), accrual)
+
+    # The premise that gives this power: the two candidate horizons are far enough apart that
+    # reading the wrong one moves the price.
+    fixing_years, pay_years = MEASURE.year_fraction(fixing), MEASURE.year_fraction(pay)
+    assert math.sqrt(pay_years / fixing_years) > 1.3, (fixing_years, pay_years)
+
+    want = N * cev_caplet(unit, 0.03, CEV_VOL**2 * fixing_years, BETA, CapFloorKind.CAP)
+    got = _pv(NominalCap(schedule, 0.03, Money(N, EUR), CapFloorKind.CAP), model)
+    assert got == pytest.approx(want, rel=1e-13)
+    # and the wrong horizon really would differ, so a green here is a measurement
+    wrong = N * cev_caplet(unit, 0.03, CEV_VOL**2 * pay_years, BETA, CapFloorKind.CAP)
+    assert abs(wrong / want - 1.0) > 0.05, (want, wrong)
 
 
 def test_a_fully_SETTLED_strip_is_PV_ZERO_and_not_a_failure():

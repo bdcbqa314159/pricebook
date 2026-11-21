@@ -5,6 +5,7 @@ from pricebook.models.black_mc import MonteCarloConfig, black_mc_price
 from pricebook.models.market_model_ii import MarketModelII, MMIICorrelations, MMIIParams
 from pricebook.models.market_model_i import MarketModelI, MMICorrelations, MMIParams
 from pricebook.models.black import black_implied_vol, black_price
+from pricebook.models.cev import CevModel
 from pricebook.models.smile import (
     BachelierModel,
     DisplacedDiffusionModel,
@@ -28,7 +29,7 @@ __all__ = [
     "MarketModelII", "MMIICorrelations", "MMIIParams",
     "MarketModelI", "MMICorrelations", "MMIParams",
     "black_implied_vol", "black_price",
-    "BachelierModel", "DisplacedDiffusionModel", "atm_matched_displaced_vol",
+    "BachelierModel", "DisplacedDiffusionModel", "atm_matched_displaced_vol", "CevModel",
     "DiscountingModel", "HullWhiteParams", "JYCorrelations", "JYParams", "JarrowYildirim", "hw_beta",
     "yoy_convexity", "yoy_variance",
 ]
