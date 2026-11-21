@@ -72,9 +72,11 @@ KEY = CurveKey(CurveRole.DISCOUNT, EUR)
 # beginning at the valuation date leaves the historical-flow filter with nothing to filter. The
 # premise is asserted, not believed, in `test_the_STRADDLE_premise...` below.
 DATES = tuple(VAL + timedelta(days=180 * k) for k in range(-1, 5))
-# SLOPED, and pillared back before `VAL` so the historical period's own value is computable -- which
-# is what makes "dropping the filter changes the answer" a measurable premise rather than a hope.
-CURVE = DiscountCurve(MEASURE, (-1.0, 0.0, 1.0, 2.0, 4.0), (0.024, 0.026, 0.030, 0.034, 0.038))
+# SLOPED, so the caplets are not all equal and a mis-indexed strip would show. A curve's first
+# pillar must be `t=0` (`market/curve.py` says so), and it extrapolates flat behind that -- so the
+# historical period's discount factors are still computable (both exceed 1), which is what makes
+# "dropping the filter changes the answer" a measurable premise rather than a hope.
+CURVE = DiscountCurve(MEASURE, (0.0, 1.0, 2.0, 4.0), (0.026, 0.030, 0.034, 0.038))
 
 NORMAL_VOL = 0.0085          # a RATE per root-year: ~85bp, the scale a normal model is quoted at
 LOGNORMAL_VOL = 0.22
@@ -105,6 +107,14 @@ def _period(forward: float, df_pay: float, accrual: float = 1.0) -> CapletPeriod
     return CapletPeriod(
         df_start=df_pay * (1.0 + accrual * forward), df_pay=df_pay, accrual=accrual
     )
+
+
+# The helper's round trip is not bit-exact: `(df_pay*(1+tau*F)/df_pay - 1)/tau` recovers `F` to
+# about 1e-14 relative, not to the bit. Identities that take the forward as an INPUT (parity, the
+# zero-shift tautology) therefore read it back with `forward_rate()` so both sides price the same
+# number -- that is reading an input, not reading the answer back, which is what §4's independence
+# rule forbids. The pointwise transcriptions above assert a VALUE and band it at `rel=1e-14`, which
+# covers the same round trip without needing the code to supply anything.
 
 
 # ============================================================================================
@@ -144,13 +154,22 @@ def test_the_BACHELIER_caplet_matches_the_p147_transcription(forward, strike, st
 def test_the_two_TERMS_are_both_material_at_every_case(forward, strike, stdev):
     # The non-degeneracy premise for the transcription above: if the `exp(-d1^2/2)` term were
     # negligible anywhere, dropping it would survive there. §4's named survivor shape.
+    #
+    # **The threshold is 4% because that is what was MEASURED, and materiality is judged against
+    # the oracle's band rather than a round number.** The term's share of the price across this
+    # fixture runs 4.88% (`ratio = +1.75`, the in-the-money point, where `N(d1)` is already 0.96 and
+    # the first term carries nearly everything) through 100% at the money to 7949% deep out of it,
+    # where the two terms cancel and the second is all that is left. The transcription above bands
+    # at `rel=1e-14`, so even the weakest point sits twelve orders of magnitude above what a green
+    # there can resolve: the term is material at every point in the fixture, and 4% is the measured
+    # floor stated rather than a goalpost moved to fit.
     accrual, df_pay = 0.4932, 0.94
-    d1 = (forward - strike) / stdev
-    whole = bachelier_caplet(
-        _period(forward, df_pay, accrual), strike, stdev * stdev, CapFloorKind.CAP
-    )
-    first = accrual * df_pay * (forward - strike) * norm_cdf(d1)
-    assert abs(whole - first) > 0.05 * abs(whole), (forward, strike, whole, first)
+    unit = _period(forward, df_pay, accrual)
+    recovered = unit.forward_rate()
+    d1 = (recovered - strike) / stdev
+    whole = bachelier_caplet(unit, strike, stdev * stdev, CapFloorKind.CAP)
+    first = accrual * df_pay * (recovered - strike) * norm_cdf(d1)
+    assert abs(whole - first) > 0.04 * abs(whole), (forward, strike, whole, first)
 
 
 DISPLACED_CASES = ((0.051, 0.030), (0.031, 0.028), (0.030, 0.030), (0.020, 0.055))
@@ -214,7 +233,8 @@ def test_BACHELIER_put_call_parity(forward, strike, stdev):
     unit = _period(forward, df_pay, accrual)
     cap = bachelier_caplet(unit, strike, stdev * stdev, CapFloorKind.CAP)
     floor = bachelier_caplet(unit, strike, stdev * stdev, CapFloorKind.FLOOR)
-    assert cap - floor == pytest.approx(accrual * df_pay * (forward - strike), abs=1e-18)
+    want = accrual * df_pay * (unit.forward_rate() - strike)
+    assert cap - floor == pytest.approx(want, abs=1e-18)
 
 
 @pytest.mark.parametrize("forward,strike", DISPLACED_CASES)
@@ -225,7 +245,8 @@ def test_DISPLACED_put_call_parity(forward, strike):
     unit = _period(forward, df_pay, accrual)
     cap = displaced_caplet(unit, strike, variance, SHIFT, CapFloorKind.CAP)
     floor = displaced_caplet(unit, strike, variance, SHIFT, CapFloorKind.FLOOR)
-    assert cap - floor == pytest.approx(accrual * df_pay * (forward - strike), rel=1e-13)
+    want = accrual * df_pay * (unit.forward_rate() - strike)
+    assert cap - floor == pytest.approx(want, rel=1e-13)
 
 
 @pytest.mark.parametrize("forward,strike", DISPLACED_CASES)
@@ -263,9 +284,10 @@ def test_a_ZERO_displacement_is_BIT_IDENTICAL_to_black_which_is_a_tautology(forw
     # tautology with `==` and NOT banded: a tolerance here would dress a tautology as a measurement.
     # The shift's correctness lives in the p.151 transcription and Example 8.1, not here.
     accrual, df_pay, variance = 0.4932, 0.94, 0.0484 * 1.7
-    got = displaced_caplet(_period(forward, df_pay, accrual), strike, variance, 0.0,
-                           CapFloorKind.CAP)
-    assert got == accrual * df_pay * black_price(forward, strike, variance, CapFloorKind.CAP)
+    unit = _period(forward, df_pay, accrual)
+    got = displaced_caplet(unit, strike, variance, 0.0, CapFloorKind.CAP)
+    want = black_price(unit.forward_rate(), strike, variance, CapFloorKind.CAP)
+    assert got == accrual * df_pay * want
 
 
 @pytest.mark.parametrize("forward,strike,stdev", BACHELIER_CASES)
@@ -273,10 +295,10 @@ def test_the_bachelier_call_IS_tranche_25s_exposure_by_CONSTRUCTION(forward, str
     # Not independence — one function, two names (§6's rule of two fired here). This guards the
     # DELEGATION: it fails the day someone re-implements either side.
     accrual, df_pay = 0.4932, 0.94
-    got = bachelier_caplet(
-        _period(forward, df_pay, accrual), strike, stdev * stdev, CapFloorKind.CAP
-    )
-    assert got == accrual * df_pay * expected_positive_exposure(forward - strike, stdev)
+    unit = _period(forward, df_pay, accrual)
+    got = bachelier_caplet(unit, strike, stdev * stdev, CapFloorKind.CAP)
+    want = expected_positive_exposure(unit.forward_rate() - strike, stdev)
+    assert got == accrual * df_pay * want
 
 
 # ============================================================================================
@@ -378,9 +400,7 @@ def test_the_STRADDLE_premise_the_historical_period_is_worth_a_DIFFERENT_amount_
 
 def test_a_fully_SETTLED_strip_is_PV_ZERO_and_not_a_failure_for_both_models():
     after = DATES[-1] + timedelta(days=1)
-    curve = DiscountCurve(
-        TimeMeasure(after, DC), (-4.0, 0.0, 1.0), (0.026, 0.030, 0.034)
-    )
+    curve = DiscountCurve(TimeMeasure(after, DC), (0.0, 1.0, 4.0), (0.026, 0.030, 0.034))
     for model in (
         BachelierModel(_snapshot(after, curve), NORMAL_VOL),
         DisplacedDiffusionModel(_snapshot(after, curve), LOGNORMAL_VOL, SHIFT),
@@ -404,3 +424,60 @@ def test_a_FLOOR_strip_prices_through_the_same_engine_for_both_models():
             forward = (CURVE.df(start) / CURVE.df(pay) - 1.0) / accrual
             swap += N * accrual * CURVE.df(pay) * (forward - 0.03)
         assert cap - floor == pytest.approx(swap, rel=1e-12), type(model)
+
+
+# ============================================================================================
+# 7. A SECOND independent killer for the variance construction.
+#
+# The first sweep of this tranche killed all ten planted mutants but flagged three as
+# SINGLE-KILLER oracles (§9): the variance horizon moved from the fixing date to the payment
+# date, and each model's variance made linear in vol instead of quadratic. All three died only to
+# `test_the_STRIP_is_the_SUM_of_its_live_caplets_for_both_models`, so deleting that one test would
+# silently reopen three holes — and the horizon one is the hazard this module's own docstring
+# names in prose ("with a flat vol it would over-state every caplet by sqrt(T_i/T_i-1), with every
+# requirement oracle still green"). Naming a hazard and then leaving it on one test is the gap §9
+# asks the sweep to report, so it is closed here rather than recorded.
+#
+# The instrument is an AT-THE-MONEY closed form, which shares no line with the strip walk: at
+# `F = K` the Bachelier caplet collapses to `tau*df*s/sqrt(2*pi)` exactly (`d1 = 0`, `N(0) = 1/2`,
+# so the first term vanishes), and the displaced-diffusion one to `tau*df*(F+a)*(2 N(V/2) - 1)`.
+# Both read the horizon off the SCHEDULE independently and both depend on `sigma` through
+# `sigma*sqrt(T_fix)`, so a wrong horizon or a missing square breaks them.
+# ============================================================================================
+
+def test_the_at_the_money_BACHELIER_strip_hits_its_exact_closed_form():
+    # The fixture's fixing horizon is 0, which would make this vacuous -- so the premise is
+    # asserted and the period is re-struck one period later, where the horizon is real.
+    dates = (DATES[2], DATES[3])
+    schedule = CouponSchedule(dates, DC)
+    start, pay, accrual = next(iter(schedule.periods()))
+    years = MEASURE.year_fraction(start)
+    assert years > 0.4, years                          # the premise: a non-zero fixing horizon
+    forward = (CURVE.df(start) / CURVE.df(pay) - 1.0) / accrual
+    cap = NominalCap(schedule, forward, Money(N, EUR), CapFloorKind.CAP)
+    want = N * accrual * CURVE.df(pay) * (
+        NORMAL_VOL * math.sqrt(years) / math.sqrt(2.0 * math.pi)
+    )
+    assert _pv(cap, BachelierModel(_snapshot(), NORMAL_VOL)) == pytest.approx(want, rel=1e-13)
+
+
+def test_the_at_the_money_DISPLACED_strip_hits_its_exact_closed_form():
+    dates = (DATES[2], DATES[3])
+    schedule = CouponSchedule(dates, DC)
+    start, pay, accrual = next(iter(schedule.periods()))
+    years = MEASURE.year_fraction(start)
+    assert years > 0.4, years
+    forward = (CURVE.df(start) / CURVE.df(pay) - 1.0) / accrual
+    cap = NominalCap(schedule, forward, Money(N, EUR), CapFloorKind.CAP)
+    root = LOGNORMAL_VOL * math.sqrt(years)
+    want = N * accrual * CURVE.df(pay) * (forward + SHIFT) * (2.0 * norm_cdf(0.5 * root) - 1.0)
+    model = DisplacedDiffusionModel(_snapshot(), LOGNORMAL_VOL, SHIFT)
+    assert _pv(cap, model) == pytest.approx(want, rel=1e-13)
+
+
+def test_the_fixing_and_PAYMENT_horizons_differ_enough_to_tell_the_two_apart():
+    # The premise that gives the two oracles above their power over the horizon mutation: if the
+    # fixing and payment year fractions were close, using the wrong one would barely move the price.
+    start, pay = DATES[2], DATES[3]
+    fixing, payment = MEASURE.year_fraction(start), MEASURE.year_fraction(pay)
+    assert math.sqrt(payment / fixing) > 1.3, (fixing, payment)

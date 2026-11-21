@@ -43,41 +43,41 @@ Provenance:
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
+from pricebook.foundation.distributions import normal_positive_part
 from pricebook.foundation.time_grid import checked_ascending_times
 from pricebook.market.curve import CurveHandle
 from pricebook.market.survival_curve import SurvivalCurve
-
-_INV_SQRT_TWO_PI = 1.0 / math.sqrt(2.0 * math.pi)
-
-
-def _standard_normal_pdf(x: float) -> float:
-    return _INV_SQRT_TWO_PI * math.exp(-0.5 * x * x)
-
-
-def _standard_normal_cdf(x: float) -> float:
-    # `erfc` rather than `(1+erf)/2`: tranche 20c measured the latter losing all relative accuracy
-    # in the lower tail (exactly 0.0 below x ~ -8.3), and a deep-out-of-the-money exposure is
-    # exactly where this is called.
-    return 0.5 * math.erfc(-x / math.sqrt(2.0))
 
 
 def expected_positive_exposure(mean: float, stdev: float) -> float:
     """`E[(mean + stdev*Z)+]` for a standard normal `Z` — the Bachelier positive part.
 
-    `= mean*Phi(mean/stdev) + stdev*phi(mean/stdev)`. The two terms are the two ways a positive
-    payoff arises: the forward itself, weighted by the probability of ending positive, plus the
-    value of the optionality around it. At `stdev = 0` the exposure is deterministic and the
-    formula is the plain positive part, which is also its limit.
+    **The body moved to L0 at tranche 71** (`foundation.distributions.normal_positive_part`), when the
+    Bachelier caplet became its second consumer. §6's rule of two fires on a shared SHAPE, and here
+    the shape is shared exactly rather than by coincidence: an expected positive exposure and a
+    Bachelier call are the *same closed form*. The caplet is an L4 engine and this is L5, so §2 made
+    the choice for us — the import cannot run the other way, and the alternative was a third copy.
+
+    What stays here is the NAME, because the name is the finance: a CVA desk asks for an exposure,
+    not for a partial expectation. The two local copies of `Phi` and `phi` this module carried went
+    with the body — they had been a fourth and a second copy of the L0 adapters since tranche 46
+    promoted `norm_pdf`, and nothing but this function called them.
+
+    **The purity proof is the algebraic identity plus a measured ULP bound, not bit-identity** (§4's
+    op-order clause). The local `Phi` was `erfc(-x/sqrt2)/2`, byte-for-byte L0's, and is
+    bit-identical. The local `phi` was `(1/sqrt(2 pi)) * exp(...)` where L0 divides —
+    `exp(...)/sqrt(2 pi)` — the same quantity in exact arithmetic, one reordered operation, and the
+    division is the MORE accurate side because it rounds once instead of twice. Measured over 48
+    `(mean, stdev)` points: the density moves by at most **1 ULP** and the composed exposure by 1 ULP
+    at 47 of them. The 48th is `mean = -0.04, stdev = 0.012`, where `mean*Phi` and `stdev*phi` cancel
+    26.5-fold and amplify that single bit to **16 ULP — still 2.55e-15 relative**. Demanding
+    bit-identity would have forbidden the promotion outright, which is the clause's whole point. The
+    measurement is in-process and deliberately NOT committed as a test (tranche 49): this module's
+    own 261 L5 oracles, green at their own tolerances, are the committed guard.
     """
-    if stdev < 0.0:
-        raise ValueError("an exposure standard deviation may not be negative")
-    if stdev == 0.0:
-        return max(mean, 0.0)
-    ratio = mean / stdev
-    return mean * _standard_normal_cdf(ratio) + stdev * _standard_normal_pdf(ratio)
+    return normal_positive_part(mean, stdev)
 
 
 @dataclass(frozen=True)

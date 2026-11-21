@@ -241,3 +241,30 @@ def inverse_norm_cdf(p: float) -> float:
     u = error * math.sqrt(2.0 * _PI) * math.exp(x * x / 2.0)
     refined = x - u / (1.0 + x * u / 2.0)
     return -refined if upper else refined
+
+
+def normal_positive_part(mean: float, stdev: float) -> float:
+    """`E[(mean + stdev*Z)+]` for a standard normal `Z` — `mean*Phi(r) + stdev*phi(r)`, `r = mean/stdev`.
+
+    The **normal partial expectation**: the expected positive part of a normal variable. Finance-free
+    (§2) — it is a statement about a distribution, and the two names its callers give it are the
+    finance.
+
+    **Promoted here at its second consumer, which is the rule firing and not a tidy-up.** Tranche 25
+    wrote this body inside `risk/credit_valuation_adjustment.expected_positive_exposure`, where one
+    consumer was right. Tranche 71's Bachelier caplet is the second, and the shape is shared exactly
+    rather than by coincidence: an expected positive exposure and a Bachelier call option are the
+    *same closed form*. §6's rule of two triggers on a shared shape, and the alternative was not a
+    judgement call — the caplet is an L4 engine and the exposure is L5, so §2 forbids the import and
+    the only other option was a third copy of the formula.
+
+    The two terms are the two ways a positive value arises: the mean itself, weighted by the
+    probability of ending positive, plus the value of the dispersion around it. At `stdev = 0` the
+    variable is deterministic and this is the plain positive part, which is also its limit.
+    """
+    if stdev < 0.0:
+        raise ValueError(f"a standard deviation may not be negative, got {stdev}")
+    if stdev == 0.0:
+        return max(mean, 0.0)
+    ratio = mean / stdev
+    return mean * norm_cdf(ratio) + stdev * norm_pdf(ratio)
