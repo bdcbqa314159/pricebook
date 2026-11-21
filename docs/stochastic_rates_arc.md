@@ -80,9 +80,11 @@ exercised from the other side.
 
 ## Status (updated 2026-11-21)
 - **Built & merged:** T66 Vasicek (v0.68.0) · T67 G2++ (v0.69.0) · T68 Bermudan-in-HW (v0.70.0).
-- **Building now:** T69 Gaussian HJM (specced, `docs/tranches/69_gaussian_hjm.md`).
-- **Specced, queued:** (T70 multi-factor HJM, T71 ch-8 smile models — specs written one-ahead as the arc
-  proceeds).
+- **Built & merged (cont.):** T69 Gaussian HJM (v0.71.0) · T70 multi-factor HJM (v0.72.0, generalised into one
+  `GaussianHjmModel`).
+- **Specced, queued:** T71 Normal/Bachelier + displaced-diffusion smile models; **T72 CEV** (split out — it
+  needs a non-central chi-squared primitive, so it is its own unit rather than riding the Black-reparameterise
+  pair; the arc plan always flagged the ch-8 split). The queue is now **T71 → T72 → checkpoint → re-audit #8**.
 - `MCINERNEY-ZASTAWNIAK` `worked-from`; the arc note + chapter map are in `docs/references.md`.
 - **Method advances so far:** §4's reduction-verification third sibling (exact-but-numerically-unreachable →
   rate-in-a-regime, T66) + its regime-measured-per-model tightening (T67). Two `to_go_deeper` routes from T68

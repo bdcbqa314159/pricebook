@@ -6,6 +6,85 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.72.0] - 2026-11-21
+
+### Added — tranche 70, multi-factor HJM
+
+`models/multifactor_hjm.py` (L3) — tranche 69 with `n` driving factors.
+
+### Two things the source settled, and the second REMOVED an oracle
+
+The spec wrote per-factor drifts `αₖ` and an explicit factor correlation `ρₖⱼ`. §4.4 has neither:
+there is **one** drift (the forward rate has a single drift and `n` diffusion terms, per eq 4.10),
+and the Brownian motions are **independent** — the section opens with exactly that word.
+
+The second matters beyond notation. The spec expected the **T17/T43 correlation discipline** to
+return here as it did at G2++, and it does not: **there is no correlation parameter to pin.**
+Correlation between forward rates of *different maturities* is an **output** of the volatility
+vector, not an input to it — which is the framework's actual content. Where G2++ had a `ρ` needing
+two independent instruments, this model has a structure that can be checked exactly.
+
+### Which makes the reduction an identity rather than an agreement
+
+With independent factors every quantity is a plain **sum** of T69's — `α = Σᵢ(T69's drift)`,
+`ν = Σᵢ(T69's variance)`, no cross terms — so the module **calls T69's functions and sums them**.
+The `N = 1` reduction is therefore **bit-identical by construction**: a one-element sum *is* its
+summand. That is the arc's reduce-to-already-verified-code anchor in its strongest form, and it is
+why there is no second transcription of the per-factor integrals here — rewriting them to
+"generalise" them would have created the one defect the reduction could not then detect.
+
+The chain is asserted end to end: multi-factor at `N = 1` is T69, and T69 at the Hull-White vol is
+tranche 10's `bond_option_variance`. Three tranches, one number.
+
+### Oracles
+
+- The factor-sum drift against the **integrated condition per factor** (two forms, two paths) and
+  transcribed pointwise besides (T12(b)), with each of three factors measured to matter so a
+  dropped term cannot hide.
+- The variance equal to a **single integral of the summed squares** — a different computation path —
+  and **order-independent** in the factors, which a spurious asymmetric cross term would break.
+- A mandatory three-factor companion measured **43%** away from `N = 1` (T39), with the premise that
+  no two factors are scalar multiples, or the fixture would be `N = 2` in disguise.
+
+### What the sweep caught: the T69 lesson applied to one of two guards
+
+One survivor — bypassing the variance's inverted-interval refusal. Cause: T69's per-factor function
+refuses the same interval with **the same wording**, so the guard here was bypassable without any
+test noticing. The drift escaped only because its message already differed. Both now name *this*
+operation, with T69's distinct message asserted alongside so the discrimination is real. A guard
+whose removal still raises is pinned only by what it says (the T44b shape).
+
+**Eight mutations applied, eight killed** after that fix.
+
+### Changed — ONE model type for any number of factors (the §6 ruling)
+
+`GaussianHjmModel` now holds a **tuple** of forward volatilities and there is no
+`MultiFactorHjmModel`. A one-factor HJM does not *resemble* the `n`-factor one — it **is** the
+`n`-factor one at `n = 1`, which eq (4.11) makes plain by collapsing to eq (4.3).
+
+The ruling turns on the finding above. What would normally keep two such types apart is that each
+one's reduction to the other is a **self-verifying oracle** — but here that reduction is
+**bit-identical by construction**, so it is a *tautology*, not an independent cross-check. Two types
+would have been separated to preserve nothing. The one-factor behaviour stays oracled because T69's
+own transcription and Hull-White-reduction tests exercise the generalised model at `n = 1`, and a
+test now pins the single-type decision so a second type cannot quietly return.
+
+*(Code raised it as a finding with the count — one construction site, one field read, functions
+untouched since they take a `ForwardVolatility` rather than a model; Cowork ruled generalise.)*
+
+### Also — a tranche-68 file tipped the `slow` ceiling on this PR
+
+`tests/L4/test_hw_bermudan.py` ran **10.4s against §9's 10.0s** on the Windows runner while reading
+2.94s locally — a file from two tranches ago, tipped over by runner variance across a 4% margin.
+That is §9's "headroom is not bankable" and its "CI is the measurement" in one event: nothing about
+this tranche touched that file.
+
+Fixed by a **lossless** reduction in §9's prescribed order: three requirement oracles each
+recomputed the *same* four-point Bermudan price ladder (one, two, three and four exercise rights),
+which is now a module-scoped fixture — the T50/T53 memoisation pattern, with every assertion reading
+the numbers it would have computed for itself. 2.94s → **2.18s**, no test deleted and no oracle
+narrowed, so no exemption was needed.
+
 ## [0.71.0] - 2026-11-21
 
 ### Added — tranche 69, the Gaussian HJM framework

@@ -105,43 +105,55 @@ class TestTheOneExerciseReduction:
         )
         assert bermudan == european
 
-    def test_the_COMPANION_is_non_degenerate_in_the_EXERCISE_COUNT(self) -> None:
+    def test_the_COMPANION_is_non_degenerate_in_the_EXERCISE_COUNT(
+        self, ladder: tuple[float, ...]
+    ) -> None:
         """**T39.** The one-exercise reduction is exact *because* it removes the exercise policy —
         which is the whole content of a Bermudan — so it is blind to the induction entirely. The
         companion runs four exercise dates and measures how far it moves: **+23%** over the
         European, with diminishing increments (15.3%, 5.0%, 1.6%) as rights are added."""
-        european = price_hw_bermudan(PARAMS, _bermudan((1.0,)), CURVE)
-        full = price_hw_bermudan(PARAMS, _bermudan((1.0, 2.0, 3.0, 4.0)), CURVE)
-        assert full / european - 1.0 > 0.2, (european, full)
+        assert ladder[-1] / ladder[0] - 1.0 > 0.2, ladder
+
+
+@pytest.fixture(scope="module")
+def ladder() -> tuple[float, ...]:
+    """The Bermudan priced at one, two, three and four exercise rights — **once** for the module.
+
+    A lossless reduction (the T50/T53 pattern): three of the requirement oracles below read the same
+    four prices and each recomputed them, which on a Windows runner took the file to **10.4s against
+    §9's 10.0s ceiling** — a *tranche-68* file tipped over on a later PR by runner variance across a
+    4% margin, which is §9's "headroom is not bankable" exactly. Nothing is given up: the assertions
+    read the same numbers they would each have computed for themselves.
+    """
+    return tuple(
+        price_hw_bermudan(PARAMS, _bermudan(ex), CURVE)
+        for ex in ((1.0,), (1.0, 2.0), (1.0, 2.0, 3.0), (1.0, 2.0, 3.0, 4.0))
+    )
 
 
 class TestTheRequirementOracles:
-    def test_MORE_exercise_rights_never_hurt(self) -> None:
+    def test_MORE_exercise_rights_never_hurt(self, ladder: tuple[float, ...]) -> None:
         """A requirement the finance forces — a superset of exercise opportunities is worth at least
         as much — so it survives a transcription error the source-value checks would share. Strict
         here because each added date is genuinely in the money somewhere."""
-        prices = [
-            price_hw_bermudan(PARAMS, _bermudan(ex), CURVE)
-            for ex in ((1.0,), (1.0, 2.0), (1.0, 2.0, 3.0), (1.0, 2.0, 3.0, 4.0))
-        ]
-        assert all(b > a for a, b in zip(prices, prices[1:])), prices
+        assert all(b > a for a, b in zip(ladder, ladder[1:])), ladder
 
-    def test_the_increments_DIMINISH_as_rights_are_added(self) -> None:
+    def test_the_increments_DIMINISH_as_rights_are_added(
+        self, ladder: tuple[float, ...]
+    ) -> None:
         """Reported from measurement rather than asserted as a law (§4's obligation-not-form
         clause): the marginal value of an extra exercise date falls, which is what a sane exercise
         policy produces and what a broken induction would not."""
-        prices = [
-            price_hw_bermudan(PARAMS, _bermudan(ex), CURVE)
-            for ex in ((1.0,), (1.0, 2.0), (1.0, 2.0, 3.0), (1.0, 2.0, 3.0, 4.0))
-        ]
-        increments = [b - a for a, b in zip(prices, prices[1:])]
+        increments = [b - a for a, b in zip(ladder, ladder[1:])]
         assert all(b < a for a, b in zip(increments, increments[1:])), increments
 
-    def test_the_bermudan_is_BOUNDED_BELOW_by_every_constituent_european(self) -> None:
+    def test_the_bermudan_is_BOUNDED_BELOW_by_every_constituent_european(
+        self, ladder: tuple[float, ...]
+    ) -> None:
         """A sharper requirement than "≥ the first European": the holder may always wait and
         exercise at *any* single date, so the Bermudan dominates **each** of the co-terminal
         Europeans, not merely the earliest."""
-        full = price_hw_bermudan(PARAMS, _bermudan((1.0, 2.0, 3.0, 4.0)), CURVE)
+        full = ladder[-1]
         for expiry in (1.0, 2.0, 3.0, 4.0):
             single = hw_european_swaption(
                 PARAMS,
