@@ -78,7 +78,13 @@ era" half of the design invariant Bernardo asked for: the same library prices a 
 parallel project can show the two side by side. No new invariant — the existing one (project seven),
 exercised from the other side.
 
-## Status
-- **T66 specced** (`docs/tranches/66_vasicek.md`); queue T66→T67→T68→T69→T70→T71.
-- `MCINERNEY-ZASTAWNIAK` already `worked-from` (the arc note + chapter map added to `docs/references.md`).
-- **Next: build T66.** After T71, the checkpoint (`CP_stochastic_rates.md`) + re-audit #8.
+## Status (updated 2026-11-21)
+- **Built & merged:** T66 Vasicek (v0.68.0) · T67 G2++ (v0.69.0) · T68 Bermudan-in-HW (v0.70.0).
+- **Building now:** T69 Gaussian HJM (specced, `docs/tranches/69_gaussian_hjm.md`).
+- **Specced, queued:** (T70 multi-factor HJM, T71 ch-8 smile models — specs written one-ahead as the arc
+  proceeds).
+- `MCINERNEY-ZASTAWNIAK` `worked-from`; the arc note + chapter map are in `docs/references.md`.
+- **Method advances so far:** §4's reduction-verification third sibling (exact-but-numerically-unreachable →
+  rate-in-a-regime, T66) + its regime-measured-per-model tightening (T67). Two `to_go_deeper` routes from T68
+  (cross-model Bermudan validation; boundary-split quadrature).
+- After T71: the checkpoint (`CP_stochastic_rates.md`) + re-audit #8.
