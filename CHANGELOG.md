@@ -6,6 +6,106 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.73.0] - 2026-11-21
+
+### Added — tranche 71, the volatility-smile caplets (Normal/Bachelier + displaced-diffusion)
+
+The sixth tranche of the single-curve short-rate arc, and the two of chapter 8's three smile models
+that are a **reparameterisation of Black** rather than a new primitive. CEV (§8.3) is T72: it needs a
+non-central chi-squared the tree does not have.
+
+- **`models/smile.py` (L3)** — `BachelierModel` (a normal forward, `dF = σ_N dW`, eq 8.3) and
+  `DisplacedDiffusionModel` (a shifted-lognormal forward, `d(F+α) = σ_D(F+α) dW`, eq 8.7). Two frozen
+  types, no base class: they share the word "volatility" and not its units — Bachelier's is a *rate*
+  per root-year, the displaced-diffusion's is dimensionless — so §6's rule of two does not fire.
+  Plus eq (8.9), the at-the-money matching rule `σ_D = σ·F/(F+α)`.
+- **`engine/smile_caplet.py` (L4)** — both pricers, over the **existing** `NominalCap` product: a
+  smile model is a different measure on the same contract, so nothing lands at L2. `NominalCap` is
+  now the second product carrying one pricer per model (three: Hull-White, Bachelier, displaced).
+- **`foundation/distributions.normal_positive_part` (L0)** — the normal partial expectation
+  `E[(m+sZ)⁺] = m·Φ(m/s) + s·φ(m/s)`, **promoted from tranche 25's
+  `risk/credit_valuation_adjustment.expected_positive_exposure` at its second consumer.** A Bachelier
+  call and an expected positive exposure are the *same closed form*; the caplet is L4 and the exposure
+  L5, so §2 forbade the import and the only alternative was a third copy.
+- **`CapletPeriod.forward_rate()`** — the simple forward the period implies, a derived reading of
+  fields the bundle already holds, arriving with two consumers at once.
+
+#### Oracles
+
+- **Two pointwise transcriptions**, each read in `-raw` and `-layout` and reconciled: the Bachelier
+  caplet from p.147 (written in the source's own `(s/√(2π))e^{−d₁²/2}` shape, *not* as `s·φ(d₁)`, so
+  it does not restate `norm_pdf`) and the displaced-diffusion `d±` from pp.151–152.
+- **The chapter's own printed pair, Example 8.1** — Black 0.003789 and the displaced-diffusion
+  0.003793 at `α = 0.05` with eq (8.9)'s matched `σ_D = 0.1`. Reproduced to 4.6e-07 and 2.8e-07,
+  both rounding to the printed six decimals. This is the displaced-diffusion piece's only external
+  anchor, and the reason it matters is below.
+- **The measured smiles** (§4 obligation-not-form — measured, then reported, never pre-asserted as a
+  slope). Implied Black vol at `F = 5%`, `T = 1`:
+
+  | strike | displaced-diffusion | Bachelier |
+  |---|---|---|
+  | 2% | 25.75% | 26.03% |
+  | 5% | 20.03% | 17.02% |
+  | 8% | 17.93% | 13.33% |
+
+  Both monotonically decreasing, which is what the source claims for the displaced-diffusion curve
+  (p.152) and what a strike-independent *absolute* vol forces for Bachelier. The Bachelier skew is the
+  steeper of the two.
+- **Requirements**: put–call parity per model (the oracle that catches shifting `F` and forgetting
+  `K`, the classic displaced-diffusion bug — it breaks parity by exactly the shift), the
+  vanishing-variance intrinsic limit, and monotonicity in each model's own vol.
+
+#### Two ties recorded as TAUTOLOGIES, not oracles (§4, tranche 70's lesson)
+
+- The displaced-diffusion reduction at `α = 0` is **bit-identical** to `black_price` — `F + 0.0 == F`
+  exactly, so the composition never passes through a `log`/`exp` and there is no tranche-61 ULP to
+  band. The spec expected one and said "band it"; banding would have been *worse* than useless, because
+  a tolerance makes a tautology look like a measurement. Asserted with `==` and labelled.
+- The Bachelier caplet and `expected_positive_exposure` are now **one function**, so their agreement is
+  true by construction. Kept as a guard on the delegation, labelled as not independent.
+
+### Changed
+
+- **`expected_positive_exposure` delegates to L0** and its two private copies of `Φ` and `φ` are gone —
+  a second and a fourth copy of the L0 adapters, unused by anything else since tranche 46 promoted
+  `norm_pdf`. The purity proof is §4's algebraic identity plus a **measured ULP bound**, not
+  bit-identity: the local `Φ` was byte-for-byte L0's, but the local `φ` multiplied by a rounded
+  reciprocal where L0 divides — the same quantity in ℝ, one reordered operation, and the division
+  rounds once instead of twice. Over 48 points the density moves ≤ **1 ULP** and the exposure 1 ULP at
+  47 of them; the 48th cancels 26.5-fold and amplifies that bit to **16 ULP — 2.55e-15 relative**.
+  Demanding bit-identity would have forbidden the promotion. All 261 L5 oracles green.
+- **`verify.py` test floor 2897 → 2974.**
+- **`tests/tooling/test_engine_registry.py`** — the "one pricer per product" invariant generalised to
+  the one it meant: *every product registers each model at most once*. It had exempted
+  `EuropeanEquityOption` **by name**, and `NominalCap` became the second multi-model product — exactly
+  what its own comment warned against ("a test that has to be edited on every addition is a test that
+  will eventually be edited without thought"). The hard-coded name list had also quietly stopped
+  covering the tree: `CommodityOption` carries two pricers and was not on it, so nothing checked it at
+  all — tranche 26b's floor-discovery defect one level down. It now walks every registered product.
+
+### Notes
+
+- **`math.sqrt(variance)`, not `variance ** 0.5`**, in the Bachelier caplet. A negative total variance
+  means the horizon ran backwards (a period that has already fixed), and `(-x) ** 0.5` returns a
+  *complex number* silently; `math.sqrt` refuses. That makes the invariant-6 filter self-enforcing —
+  drop it and the engine raises rather than returning a plausible wrong number.
+- **Convention C16 added** (`docs/conventions_register.md`): a caplet's volatility accumulates to the
+  **fixing** date, never the payment date. Recorded **per-module** across the three caplet pricers,
+  with the honest reason no structural guard exists — Hull-White's quantity is a bond-option variance
+  over two dates, the smile models' is the forward's variance over one, so there is no shared value to
+  compare. The trigger is a second consumer of a *forward* variance.
+- **Mutation sweep: applied 10/10, killed 10, survived 0**, via the committed instrument. The first run
+  was clean but flagged **three single-killer oracles** (§9) — the variance horizon moved to the payment
+  date, and each model's variance made linear in vol — all dying only to the strip-sum test. The horizon
+  one is the hazard this module's own docstring names in prose, so leaving it on one test was the gap §9
+  asks the sweep to report. Closed with an **at-the-money closed form** that shares no line with the
+  strip walk (`F = K` collapses Bachelier to `τ·df·s/√(2π)` exactly); the three now die 3, 2 and 2 times
+  and the sweep reports no single-killer oracles.
+- **The shift is named `displacement`, not `β`.** The source calls it `α` and reserves `β` for the CEV
+  exponent it derives from (`α = (1−β)F(0)/β`); the spec called the shift `β`, which would have
+  hard-wired a collision into the tree one tranche before CEV arrives. Tranche 66's `MertonParams.drift`
+  is the precedent.
+
 ## [0.72.0] - 2026-11-21
 
 ### Added — tranche 70, multi-factor HJM
