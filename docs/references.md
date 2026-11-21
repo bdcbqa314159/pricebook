@@ -106,6 +106,16 @@ spec says "transcribe it."
 
 ### `MCINERNEY-ZASTAWNIAK` — `worked-from`
 
+**Known gap, recorded so it is not re-attempted (tranche 72):** **§8.3 prints no CEV closed form.**
+The section gives the SDE (8.5), the absorbing-boundary discussion, two *simulated histograms*
+(Figures 8.1/8.2) and then pivots to the displaced-diffusion approximation as the practical answer.
+There is no Schroder/Cox formula, no chi-squared argument triple and no worked example anywhere in
+the book; its only other mention of the non-central chi-squared is a one-line taxonomy remark about
+Cox-Ingersoll-Ross in ch 3. §4 forbids fitting a number to a figure, so the CEV caplet was sourced
+from `BROCKHAUS-2016` §6.1 instead. What this text *does* still anchor is the absorbed fraction,
+which it states in prose ("over 10%" at `F(0)=1%`, "typically low" at 5%) — reproduced structurally
+by `cev_absorption_probability`.
+
 McInerney, D. and Zastawniak, T., *Stochastic Interest Rates*. Mastering Mathematical Finance,
 Cambridge University Press. 170 pp. Held locally at
 `_stock/NewDocuments/Stochastic Interest Rates (Daragh McInerney, Tomasz Zastawniak).pdf`
@@ -291,7 +301,13 @@ affine/Fourier characteristic-function vanilla (ch 16) — each an oracle anchor
 cliquets/asians/autocallables ch 3, implied-vol dynamics ch 7, correlation/copulas ch 8–9, FX ch 15) is
 `to_go_deeper`, pulled by interest.
 
-**Used for:** the equity-and-hybrids arc (`docs/equity_hybrids_arc.md`). **Status `worked-from`**
+**Used for:** the equity-and-hybrids arc (`docs/equity_hybrids_arc.md`), and — from tranche 72 —
+**§6.1's CEV closed form (Cox 1996)**, which is the only printed CEV option formula in any held
+source. Note that the printed formula carries a **misprint** in both `-raw` and `-layout`: its two
+chi-squared terms share one argument/noncentrality pair where Schroder's result swaps them, and the
+first term is missing its complement. The corrected form is transcribed in `engine/cev_caplet.py`
+and the three requirement oracles that condemn the printed one are in its test. **Status
+`worked-from`**
 since T30 (v0.36.0): ch 5.1-5.3's dividend forward is built and oracled in `market/equity.py`, and
 the European equity option off that forward in `engine/equity_vanilla.py`. *(The status was flipped
 by the `references` gate catching it mid-tranche — cited by four modules while still `in-hand` —
