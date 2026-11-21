@@ -302,11 +302,7 @@ cliquets/asians/autocallables ch 3, implied-vol dynamics ch 7, correlation/copul
 `to_go_deeper`, pulled by interest.
 
 **Used for:** the equity-and-hybrids arc (`docs/equity_hybrids_arc.md`), and — from tranche 72 —
-**§6.1's CEV closed form (Cox 1996)**, which is the only printed CEV option formula in any held
-source. Note that the printed formula carries a **misprint** in both `-raw` and `-layout`: its two
-chi-squared terms share one argument/noncentrality pair where Schroder's result swaps them, and the
-first term is missing its complement. The corrected form is transcribed in `engine/cev_caplet.py`
-and the three requirement oracles that condemn the printed one are in its test. **Status
+**§6.1's CEV closed form**, which is the only printed CEV option formula in any held source. **Status
 `worked-from`**
 since T30 (v0.36.0): ch 5.1-5.3's dividend forward is built and oracled in `market/equity.py`, and
 the European equity option off that forward in `engine/equity_vanilla.py`. *(The status was flipped
@@ -315,6 +311,37 @@ which is the gate built at T26b doing its job on its first real opportunity, in 
 created the drift rather than five tranches later.)*
 
 ---
+
+**Source defects found (recorded, as `BERHAN-2012` §5.1's and `JAECKEL-2002` §12.8's are):**
+- **§6.1 p.79 — the printed Cox (1996) CEV call formula is wrong in two places, identically in
+  `-raw` and `-layout`.** As printed:
+
+      C(K,T) = S0 Q(2w; 2 + 1/(1-rho), 2z) - K [1 - Q(2w; 2 - 1/(1-rho), 2z)]
+
+  (a) Both chi-squared terms take `2w` as the argument and `2z` as the noncentrality; the two must
+  **swap** them — the second term is `Q(2z; 1/(1-rho), 2w)`. (b) The first term is missing its
+  complement: it is the **survival**, `1 - Q(2w; ...)` in the printed notation. Because both
+  renderings are faithful to the same wrong print, transcription independence is powerless (§4);
+  what condemns it is three **requirement** oracles, each asserted failing on the printed form in
+  `tests/L4/test_cev_caplet.py`: `K -> 0` must give the forward and gives roughly minus the strike;
+  `K -> inf` must give zero and gives the forward; and at **`rho = 0.5`** — the value
+  `MCINERNEY-ZASTAWNIAK` p.148 calls market practice — the printed second term asks for **zero
+  degrees of freedom** and is simply undefined, so the formula as printed cannot be evaluated on the
+  whole upper half of the range it is stated for. The corrected form was **ruled by Monte Carlo**
+  (600k paths, Euler with absorption, under 1 SE at three strikes), confirmed against the section's
+  own derivation of the forward's law, and is the standard Cox/Schroder arrangement — see
+  `COX-1996` and `SCHRODER-1989` below. **The project's first source *correction* rather than a
+  choice between two renderings**; the three oracles are what make it a correction and not a guess.
+- **§6.1 eq (6.10) — a dimensional inconsistency against the derivation two steps above it.** The
+  printed drifted-case substitution carries a spurious `/T`: `C(K,T) = e^(-qt) Ctilde(K/e^((r-q)t),
+  sigma^2 (e^(2(...)T) - 1)/(2(...)T))`, whose second argument is the accumulated variance divided
+  by `T`, while the space-time change printed on the same page gives
+  `tau_T = int_0^T sigma^2 e^(2(...)s) ds` with no `/T`. The derivation step wins (§4: an earlier
+  step is an independent check on the final one) and the dimensions agree only without it.
+  **Not load-bearing here and so not pinned by an oracle:** a caplet's forward is already a
+  martingale under its own forward measure, so eq (6.10) never arises — tranche 72 uses the
+  driftless eq (6.9) form directly, with the total variance as its clock. Recorded in case a
+  *drifted* CEV (an equity or FX CEV option) is ever pulled.
 
 ### `OKANE-2008` — `worked-from`
 
@@ -498,5 +525,25 @@ load-bearing — JY and the market models become so at tranches 4–5.
   with stochastic volatility*, 2005. (Author listed "Damiano M." — i.e. Damiano Brigo.)
 - `BRIGO-MERCURIO-2009-SABR` — `referenced-by: BERHAN-2012 [7]`. *Inflation modelling with SABR
   dynamics*, 2009, Risk June, 106–111. (Author listed "Damiano M." — i.e. Damiano Brigo.)
+
+Transcribed verbatim from `BROCKHAUS-2016`'s reference list (tranche 72), so these too are grounded
+in a held source. They are the **attribution chain for the CEV closed form**: tranche 72 cites
+`BROCKHAUS-2016` as its `source:` because that is the held text that prints the formula, and these
+name where the formula comes from. Obtaining either would turn the corrected arrangement from
+"restored, and confirmed by requirement oracles, the section's own derivation and a simulation" into
+a direct transcription — which is the only reason to obtain them.
+
+- `COX-1996` — `referenced-by: BROCKHAUS-2016` (p.79, "due to Cox (1996)"). Cox, J. C.,
+  *The constant elasticity of variance option pricing model*, 1996, The Journal of Portfolio
+  Management, pp. 15–17. Origin of the CEV option formula tranche 72 implements.
+- `DELBAEN-SHIRAKAWA-2002` — `referenced-by: BROCKHAUS-2016` (p.79, for the squared-Bessel
+  process's non-central chi-squared law). Delbaen, F. and Shirakawa, H., *A note of option pricing
+  for constant elasticity of variance model*, 2002, Asia-Pacific Financial Markets 9, pp. 85–99.
+- `SCHRODER-1989` — **not named by any held source**; recorded here only because the corrected
+  argument/noncentrality arrangement is standardly attributed to Schroder, and naming it is honest
+  about where the correction's shape comes from. **Flagged as an attribution from recollection, not
+  from a held reference list** — the distinction `BERHAN-2012`'s "Damiano M." entry draws, and the
+  reason this one is listed last and separately. It is not citable, and nothing rests on it: the
+  corrected form is pinned by the three requirement oracles, the derivation and the simulation.
 - `KENYON-2008` — `referenced-by: BERHAN-2012 [8]`. Kenyon, C., *Inflation is normal*, 2008,
   Risk 21(7).
