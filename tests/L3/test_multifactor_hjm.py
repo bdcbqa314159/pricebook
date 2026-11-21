@@ -244,5 +244,13 @@ class TestTheModelAndItsGuards:
         rediscovered by the sweep."""
         with pytest.raises(ValueError, match="a multi-factor drift cannot be asked"):
             multifactor_drift(FACTORS, 5.0, 2.0)
-        with pytest.raises(ValueError, match="a bond cannot mature"):
+        with pytest.raises(ValueError, match="a multi-factor bond variance cannot be asked"):
             multifactor_bond_option_variance(FACTORS, 5.0, 2.0)
+        # And tranche 69's per-factor function refuses with a DIFFERENT message, which is what makes
+        # the two above discriminating. The sweep found this: the multi-factor variance originally
+        # reused T69's wording verbatim, so bypassing its guard still raised the same text and no
+        # test could tell. The drift escaped only because its message already differed.
+        from pricebook.models.gaussian_hjm import hjm_bond_option_variance as per_factor
+
+        with pytest.raises(ValueError, match="a bond cannot mature"):
+            per_factor(FIRST, 5.0, 2.0)
