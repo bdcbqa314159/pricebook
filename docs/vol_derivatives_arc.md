@@ -34,11 +34,19 @@ stochastic-vol model (3/2) and the time-changed-Lévy framework with the discret
   corridor → vanilla variance swap** at `[0,∞)` (exact — the restricted strip becomes the full strip), with a
   finite-corridor companion (T39); `corridor ≤ vanilla` and the gamma/vanilla relation as requirement
   oracles; an MC companion (realized gamma/corridor variance from simulated paths). The lightest, first.
-- **T75 — options on discrete realized variance under Heston** (ch 4.2.1, 5). The fair variance under Heston
+- **T75 — options on *continuous* realized variance under Heston** (ch 4.2.1, 5). *(Built & merged
+  v0.77.0, PR #96; ruled **continuous** at 0401 — the spec's "discrete" target contradicted its own
+  out-of-scope and §5.2; the discrete correction is T78's, below.)* The fair variance under Heston
   (closed form off `integrated_variance_transform`, **reuse T48**), and **options on realized variance** by
-  the **normal/moment approximation** (ch 5.2) with the MC companion measuring the error (the T62 pattern).
-  **Oracles:** the Heston fair-variance pointwise (cross-check vs T48's transform); the moment approximation
-  banded `k·SE + measured error`, resolution stated; `σ√T`-swept honest-negative; put–call parity.
+  the **normal/moment approximation** (ch 5.2) with the MC companion measuring the error (the T62 pattern —
+  ~8% near the money, the honest cost of the normal assumption and the argument for §5.3). **The cross-method
+  anchor T74 lacked landed**: Heston fair variance in closed form == T74's `fair_variance` strip fed Heston's
+  implied vols (convergence-from-below asserted, not two cancelling errors). The Heston smile was presented to
+  T31's strip by **subclassing `ImpliedVolSkew` and overriding `volatility`** — acceptable for one consumer;
+  **T76 extracts the `SmileLike` protocol** (see the arc note below). **Oracles:** the Heston fair-variance
+  pointwise (cross-check vs T48's transform, and the second moment derived-as-theorem per T19 since the
+  printed one was jump-extended + reflow-mangled); the moment approximation banded `k·SE + measured error`,
+  resolution stated; `σ√T`-swept honest-negative; put–call parity.
 - **T76 — VIX derivatives** (ch 3). **VIX² is the forward variance-swap rate** (the model-free / Heston
   relation, ch 3.1.1 under jumps); VIX futures and options price off the variance-swap rate + the Heston
   transform. L2 product + L4 engine. **Oracles:** the VIX²/variance-swap-rate identity transcribed (a
@@ -49,12 +57,16 @@ stochastic-vol model (3/2) and the time-changed-Lévy framework with the discret
   closed form transcribed; the **reduction to a known limit** (the 3/2 model's relation to Heston/CIR under
   a parameter map — ruled at build whether exact); an MC companion; the `α→0`-type numerics watch (the T66
   rate-in-a-regime clause, if a removable singularity appears).
-- **T78 — time-changed Lévy variance swaps + discrete-vs-continuous convergence** (ch 4.4, 1.5, 4.3.3). The
+- **T78 — time-changed Lévy variance swaps + the discrete-monitoring correction (a PRICING tranche)**
+  (ch 4.4, 1.5, 4.3.3). *(Scope set at 0401: T75 priced the continuous case, so T78 **carries the
+  discrete-monitoring adjustment as a priced deliverable** — it prices a discretely-monitored realized-variance
+  claim as "the continuous counterpart **plus** the §5.2 adjustment", not only a convergence study.)* The
   variance swap under a time-changed Lévy process (a general framework), and the **discrete-monitoring
   correction** — the discretely-sampled realized variance converges to the continuous one at a measurable
-  **rate** (the T25 rate-detector, measured not plotted). L3. **Oracles:** the Lévy variance-swap transcribed;
-  the discrete→continuous convergence **rate** (O(1/n)); the reduction to the continuous variance swap (T31)
-  as `n→∞`.
+  **rate** (the T25 rate-detector, measured not plotted), which is how the adjustment is *oracled*. L3.
+  **Oracles:** the Lévy variance-swap transcribed; the discrete price = continuous + adjustment transcribed
+  pointwise; the discrete→continuous convergence **rate** (O(1/n)) as the adjustment's own check; the
+  reduction to the continuous variance swap (T31) as `n→∞`.
 - **T79 — timer options** (ch 6), the capstone. A perpetual timer call exercises when accumulated variance
   hits a budget — a **first-passage-on-variance** exotic. L4 engine off the Heston transform. **Oracles:** the
   perpetual timer closed form transcribed (ch 6.2); the **reduction** to a vanilla as the variance budget →
@@ -74,6 +86,17 @@ code too, in the regime where it is used" clause specialised to quadrature trunc
 Keep the corridor's contract bounds `[L,U]` **separate** from the grid's truncation bounds (T74): conflating
 them would make a wider grid change the payoff.
 
+## Arc note — the `SmileLike` protocol is extracted at T76 (§6 rule-of-two, ruled 0401)
+T75 fed Heston's smile to T31's replication strip by **subclassing `ImpliedVolSkew`** and overriding
+`volatility(strike, forward, years)` — correct for one consumer, but subclassing a log-linear closed form only
+to discard its log-linearity is a mild smell. T76 (VIX) is the genuine **second** consumer of "present a
+model's smile to the strip", so **rule-of-two fires at T76**: extract a minimal `@runtime_checkable SmileLike`
+protocol — the single real member `volatility(strike, forward, years)` (memberful, per T33b — an empty
+protocol is satisfied by everything and could not discriminate) — that `fair_variance` /
+`generalized_fair_variance` consume, with `ImpliedVolSkew` and the model-smile presenters both implementing
+it, collapsing T75's Heston subclass into a presenter in the same change (the C16 raise-at-review pattern).
+Not built speculatively before T76; decided now so T76's spec carries it.
+
 ## Deferred at the pull gate (to `to_go_deeper`, ruled per-tranche)
 - **Finite-maturity (non-perpetual) timer options** — the perpetual case (T79) is the closed form; the
   finite-maturity timer is PDE/numerical, a `to_go_deeper` route.
@@ -83,6 +106,7 @@ them would make a wider grid change the payoff.
   than the normal one; a `to_go_deeper` refinement on T75 if the normal approximation's error is too wide.
 
 ## Status
-- **T74 specced** (`docs/tranches/74_generalized_variance_swaps.md`); queue T74→T79.
-- `KWOK-ZHENG` is project ten's authority (`docs/references.md`), flips to `worked-from` at T74.
+- **T74 merged** (v0.76.0); **T75 merged** (v0.77.0, PR #96 — ruled continuous at 0401).
+- **T76 specced** (`docs/tranches/76_vix_derivatives.md`); queue T76→T79.
+- `KWOK-ZHENG` is `worked-from` (flipped at T74).
 - After T79: the checkpoint (`CP_vol_derivatives.md`) + re-audit #9.

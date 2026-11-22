@@ -421,3 +421,10 @@ rulings, which is where §1 says a deferred-but-oracle-able route lives. See fin
 - **The ch-7 exotic interest-rate products** — CMS, range accruals, ratchet floaters, trigger swaps. The
   chapter the arc did not touch; each is a product-pull away and all are oracle-able against the single-curve
   spine the arc built. *(Recorded at the arc close.)*
+- **The gamma/corridor variance-swap MGF cross-checks** (`KWOK-ZHENG` §4.3.1/§4.3.2). T75 built the MGF
+  route as a *second, independent method* for the Heston fair variance and used it to give T74's vanilla
+  variance swap the cross-method anchor it lacked. The same MGF forms exist for the **gamma** and **corridor**
+  swaps and would be a bonus independent anchor for T74's other two products — available now that the
+  machinery exists, but **not load-bearing** (T74's gamma/corridor are already anchored by transcription,
+  reduction and requirement). Pull only if a later tranche wants the §4.3.1/§4.3.2 MGF forms for their own
+  sake. *(Ruled `to_go_deeper` by Cowork, 0401, closing T75 Ask 3.)*
