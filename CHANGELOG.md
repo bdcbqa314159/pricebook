@@ -6,6 +6,86 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.76.0] - 2026-11-22
+
+### Added — tranche 74, generalized variance swaps (the gamma swap and the corridor variance swap)
+
+First tranche of the vol-derivatives arc (project ten, `KWOK-ZHENG`), and the lightest by design:
+both products are the T31 variance swap's static replication re-weighted, so the engine reuses the
+strip and the oracle spine is the reduction back to the vanilla swap.
+
+- **`products/generalized_variance_swap.py` (L2)** — `GammaSwap` and `CorridorVarianceSwap`, frozen
+  data, siblings of `VarianceSwap` and **not** subclasses: they share the words "variance swap" and
+  not the accrual (§6's real-leg / year-on-year-leg line).
+- **`models/variance_replication_model.VarianceStrip` (L3)** — the grid, the weighted term and the
+  strike range as one frozen value object, built through three named constructors. Vocabulary, not
+  abstraction (§6), and it is what keeps the walk inside §7's five arguments.
+- **`engine/variance_replication.generalized_fair_variance` (L4)** — one strip walk for all three
+  products, with `fair_variance` now a named case of it. Two registered pricers.
+
+#### The source is §1.4, not ch 4.3 — finding one
+
+The spec cited "ch 4.3 (the generalized variance swaps)" for the static replication. **Ch 4.3 is
+*Moment generating function methods*** — a model-based route (the Heston MGF) that T75/T76 will want,
+not a replication. The replication of both products is **Proposition 1.2 and eq (1.26) in §1.4**; the
+*payoffs* are §1.3. Transcribed from §1.4 in `-raw` and `-layout` and reconciled, and recorded in
+`references.md` so the next reader is not sent to ch 4.3.
+
+#### The spec understated the gamma strip — finding two
+
+It says "a `1/K`-weighted strip". Eq (1.24) is
+`K_g = (2e^{rT}/(T·F_0))·[∫_0^{F_0} p(K)/K dK + ∫_{F_0}^∞ c(K)/K dK]` — a `1/K` weight **and a
+`1/F_0` normalisation**. Building from the spec's words would have been wrong by a factor of the
+forward. The `1/F_0` is folded into the weighted term rather than the prefactor, so all three
+products share one `2/T` factor, the walk has exactly one varying part, and T31's vanilla path stays
+**bit-identical** (one division either way, no reordering — T12(a)).
+
+#### The gamma strip needs a WIDER grid than the vanilla one — finding three
+
+Under a flat surface the gamma swap *is* the vanilla variance swap (`F_t` is a martingale, so
+`E[∫(F_t/F_0)σ²dt]/T = σ²`). The identity is exact in the continuum and held only to **2.98e-05** on
+T31's grid — and the gap is **invariant in the node count** (2.98e-05 at 1601 nodes and at 6401), so
+it is **truncation, not discretisation**: the `1/K` weight decays one power of `K` more slowly, so
+truncating at `5·F` costs it far more. Widening collapses it (8.8e-09 on `[0.02,10]`, 1.0e-10 on
+`[0.01,20]`). Both halves are asserted, which turns "use a wider grid" into a **stated validity
+regime** (§4's "a reference is code too, in the regime where it is used"): the grid T31 measured as
+adequate for the vanilla strip is **not** adequate for the gamma strip at the same tolerance.
+
+#### A §3.4 violation in the first draft, found by chasing a second killer
+
+`VarianceStrip.restricted` refuses a corridor that does not contain the forward (§1.4 states the
+assumption, and the strip splits *at* the forward, so a one-sided corridor integrates an empty half).
+`_price_generalized` originally caught only `KeyError`, so that refusal propagated as a `ValueError`
+**out of a registered pricer** — failure is a value, never raise-and-hope. Found not by review but by
+asking what a second independent killer for the guard would look like; the answer was "reach it
+through the engine", and reaching it raised.
+
+#### Oracles
+
+Pointwise transcriptions of both strips against an independently-formed quadrature; the corridor's
+**full-range reduction** to `fair_variance`, asserted bit-identically **and labelled a tautology**
+(T70) so the finite-corridor companion carries the correctness; the flat-skew identity on an
+untruncated grid; requirement orderings (restricting the range only lowers accrued variance; a wider
+corridor accrues more than a nested narrower one; the gamma strike sits below the vanilla under a
+falling skew — a sign, not a magnitude); and the two premises this file's power rests on, asserted
+rather than assumed: **a non-flat skew** (under flat vol the two strips are identical, so a
+`1/K`↔`1/K²` mutation would survive — measured 9.66% apart when skewed) and a corridor that
+**excludes real mass**.
+
+**Mutation sweep: applied 9/9, killed 9, survived 0, no single-killers.** One survivor and two
+single-killers were closed first: the corridor's **half-openness** `(L,U]` survived because no
+fixture put a strike *on* a bound — closed by a pointwise transcription with bounds taken from the
+grid's own nodes, after a first attempt that asserted the value moves when the bounds move, which
+does not discriminate (both conventions move). The gamma pricer went 1 → 2 with a cross-product check
+that never computes the gamma strip, and the forward guard 1 → 2 through the engine path.
+
+### Notes
+
+- `KWOK-ZHENG` flips **`in-hand` → `worked-from`**; `verify.py references` holds.
+- **`verify.py` test floor 3090 → 3124.**
+- The corridor is a **contract term** and deliberately not the grid's truncation bounds: conflating
+  them would make a wider quadrature grid change the payoff.
+
 ## [0.75.0] - 2026-11-22
 
 ### Added / Changed — tranche 73, re-audit #8 remediation
