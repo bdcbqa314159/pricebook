@@ -507,4 +507,4 @@ def test_T20_the_FAR_TAILS_are_computed_rather_than_overflowing():
     for p in (1e-20, 1e-50, 1e-200, 1e-300):
         x = inverse_norm_cdf(p)
         assert math.isfinite(x) and x < 0.0
-        assert norm_cdf(x) == pytest.approx(p, rel=1e-9)
+        assert norm_cdf(x) == pytest.approx(p, rel=1e-9, abs=0.0)

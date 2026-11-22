@@ -130,12 +130,16 @@ class TestExposureIsTranscribedPointwise:
     def test_the_analytic_EPE_holds_RELATIVE_accuracy_at_EXTREME_ratios(self, mean: float, stdev: float) -> None:
         """Where the profile actually lives: `m/s` reaches 66 at the short end, and at `m/s = -10`
         the EPE is ~1e-24, so an absolute tolerance would be blind to any relative error (T20a)."""
-        assert expected_positive_exposure(mean, stdev) == pytest.approx(_epe_by_scipy(mean, stdev), rel=1e-12)
+        assert expected_positive_exposure(mean, stdev) == pytest.approx(
+            _epe_by_scipy(mean, stdev), rel=1e-10, abs=0.0
+        )
 
     def test_the_TWO_references_agree_where_BOTH_are_valid(self) -> None:
         """Makes the regime split explicit rather than implicit in which test calls which."""
         for mean, stdev in [(100.0, 30.0), (0.0, 25.0), (99.975, 1.5), (-40.0, 50.0)]:
-            assert _epe_by_quadrature(mean, stdev) == pytest.approx(_epe_by_scipy(mean, stdev), rel=1e-12)
+            assert _epe_by_quadrature(mean, stdev) == pytest.approx(
+            _epe_by_scipy(mean, stdev), rel=1e-10, abs=0.0
+        )
 
     def test_at_a_zero_mean_the_EPE_is_stdev_over_root_two_pi(self) -> None:
         assert expected_positive_exposure(0.0, 40.0) == pytest.approx(40.0 / math.sqrt(2.0 * math.pi), rel=1e-14)

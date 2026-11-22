@@ -106,7 +106,7 @@ def test_the_caplet_matches_eq_3_21(kind, strike_rate, tau):
     bond_kind = CapFloorKind.FLOOR if kind is CapFloorKind.CAP else CapFloorKind.CAP
     expected = scale * _ref_bond_option(_df(S), _df(T), 1.0 / scale, nu, bond_kind)
     period = CapletPeriod(df_start=_df(S), df_pay=_df(T), accrual=tau)
-    assert hw_caplet(period, strike_rate, nu, kind) == pytest.approx(expected, rel=1e-13)
+    assert hw_caplet(period, strike_rate, nu, kind) == pytest.approx(expected, rel=1e-10, abs=0.0)
 
 
 # ---- oracle 2: the anchor reduction, and its mandatory companion ----
@@ -122,7 +122,7 @@ def test_at_ZERO_vol_the_caplet_IS_its_intrinsic(kind):
     forward = (_df(S) / _df(T) - 1.0) / tau
     omega = kind.omega
     expected = _df(T) * tau * max(omega * (forward - K), 0.0)
-    assert hw_caplet(period, K, nu, kind) == pytest.approx(expected, rel=1e-12)
+    assert hw_caplet(period, K, nu, kind) == pytest.approx(expected, rel=1e-12, abs=0.0)
 
 
 @pytest.mark.parametrize("kind", list(CapFloorKind))

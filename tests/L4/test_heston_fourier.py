@@ -101,7 +101,7 @@ class TestTheModelFreeRequirements:
             call = _call(strike)
             p1, p2 = heston_probabilities(PARAMS, UNDERLYING, strike, EXPIRY, (CURVE, GRID))
             put = DF * (FORWARD * (p1 - 1.0) - strike * (p2 - 1.0))
-            assert call - put == pytest.approx(DF * (FORWARD - strike), rel=1e-9)
+            assert call - put == pytest.approx(DF * (FORWARD - strike), rel=1e-9, abs=0.0)
 
     @pytest.mark.parametrize("moneyness", [0.6, 1.0, 1.6])
     def test_the_call_respects_the_NO_ARBITRAGE_bounds(self, moneyness: float) -> None:

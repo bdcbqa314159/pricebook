@@ -55,9 +55,19 @@ def _reference_black(forward, strike, variance, kind):
 @pytest.mark.parametrize("kind", list(CapFloorKind))
 @pytest.mark.parametrize("variance", [1e-8, 1e-4, 0.0025, 0.04, 1.0])
 def test_the_forward_matches_an_independent_transcription(kind, variance):
-    assert black_price(F, K, variance, kind) == pytest.approx(
-        _reference_black(F, K, variance, kind), rel=1e-14
-    )
+    # **Two measured regimes, because one band would lose the tight claim** (F-8.6). With
+    # `pytest.approx`'s 1e-12 absolute floor removed by `abs=0.0`, the two orderings of Black's
+    # bracket disagree by up to **1.35e-11 relative** — but only where the price itself is ~1e-29
+    # (the deep out-of-the-money floor at `variance = 1e-4`), where `F*Phi - K*Phi` cancels away
+    # every significant digit. Away from that the agreement is a few ULP: **1.6e-14** at worst, and
+    # bit-exact at most cases. So the outer band is measured at the cancelling case and the inner
+    # one asserts the tight agreement still holds wherever the price is representable — the band's
+    # resolution stated per regime rather than one number hiding both.
+    got = black_price(F, K, variance, kind)
+    want = _reference_black(F, K, variance, kind)
+    assert got == pytest.approx(want, rel=1e-10, abs=0.0)
+    if __import__("builtins").abs(want) > 1e-6:
+        assert got == pytest.approx(want, rel=1e-13, abs=0.0)
 
 
 @pytest.mark.parametrize("kind", list(CapFloorKind))
