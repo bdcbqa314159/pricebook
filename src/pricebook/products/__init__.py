@@ -4,6 +4,7 @@ from pricebook.products.cash import FixedCashflow
 from pricebook.products.interest_rate_swap import InterestRateSwap, SwapDirection
 from pricebook.products.equity_option import EquityOptionKind, EuropeanEquityOption
 from pricebook.products.generalized_variance_swap import CorridorVarianceSwap, GammaSwap
+from pricebook.products.realized_variance_option import RealizedVarianceOption
 from pricebook.products.variance_swap import VarianceSwap
 from pricebook.products.volatility_swap import VolatilitySwap
 from pricebook.products.nominal_cap import NominalCap
@@ -15,7 +16,7 @@ from pricebook.products.inflation import (
 )
 
 __all__ = [
-    "VarianceSwap", "GammaSwap", "CorridorVarianceSwap",
+    "VarianceSwap", "GammaSwap", "CorridorVarianceSwap", "RealizedVarianceOption",
     "VolatilitySwap",
     "EquityOptionKind",
     "EuropeanEquityOption",

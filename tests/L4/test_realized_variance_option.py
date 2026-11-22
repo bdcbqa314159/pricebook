@@ -32,6 +32,7 @@ as an `Ask:` rather than settled.
 import math
 from datetime import date, timedelta
 
+import numpy
 import pytest
 
 from pricebook.engine import price
@@ -40,11 +41,22 @@ from pricebook.engine.realized_variance_option import (
     integrated_variance_moments,
     realized_variance_option_value,
 )
+from pricebook.engine.heston_fourier import FourierGrid, heston_call_prices
+from pricebook.engine.variance_replication import generalized_fair_variance
 from pricebook.engine.volatility_swap import integrated_variance_transform
 from pricebook.foundation import Currency, Money, PricingFailure, PricingResult
 from pricebook.foundation.day_count import DayCountConvention
 from pricebook.foundation.inflation import CapFloorKind
 from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
+from pricebook.market.equity import (
+    DividendSchedule,
+    EquityAsset,
+    EquityUnderlying,
+    dividend_forward,
+)
+from pricebook.market.equity_skew import ImpliedVolSkew
+from pricebook.models.black import black_implied_vol
+from pricebook.models.variance_replication_model import StrikeGrid, VarianceStrip
 from pricebook.models.heston import HestonModel, HestonParams
 from pricebook.products.realized_variance_option import RealizedVarianceOption
 
@@ -61,6 +73,7 @@ YEARS = 621.0 / 365.0
 #: approximation is about the dispersion `sigma_v` creates.
 PARAMS = HestonParams(kappa=1.8, theta=0.06, sigma_v=0.55, rho=-0.7, v0=0.09)
 N = Money(1_000_000.0, EUR)
+ACME = EquityAsset("ACME")
 
 
 def _quadrature_variance(params: HestonParams, years: float, nodes: int = 2000) -> float:
@@ -246,7 +259,7 @@ def _model(params: HestonParams = PARAMS) -> HestonModel:
 
 def test_the_registered_pricer_DISCOUNTS_the_normal_approximation():
     strike = 0.05
-    option = RealizedVarianceOption(EXPIRY, strike, N, CapFloorKind.CAP)
+    option = RealizedVarianceOption(ACME, EXPIRY, strike, N, CapFloorKind.CAP)
     out = price(option, _model())
     assert isinstance(out, PricingResult), out
     want = (
@@ -261,7 +274,7 @@ def test_an_EXPIRED_option_is_PV_zero_invariant_6_and_the_fixture_is_IN_THE_MONE
     # The straddle's option-bypass form: an expired OTM option's intrinsic is 0, the same answer
     # PV-0 gives, so the guard would be invisible (§4's named sub-trap, F-8.3's shape).
     strike = 0.5 * heston_fair_variance(PARAMS, YEARS)
-    option = RealizedVarianceOption(EXPIRY, strike, N, CapFloorKind.CAP)
+    option = RealizedVarianceOption(ACME, EXPIRY, strike, N, CapFloorKind.CAP)
     after = EXPIRY + timedelta(days=1)
     model = HestonModel(
         MarketSnapshot(valuation_date=after, curves=CurveSet({DISCOUNT_KEY: DiscountCurve.flat(after, RATE, DC)})),
@@ -276,5 +289,251 @@ def test_an_EXPIRED_option_is_PV_zero_invariant_6_and_the_fixture_is_IN_THE_MONE
 
 def test_a_MISSING_discount_curve_is_a_PricingFailure():
     bare = HestonModel(MarketSnapshot(valuation_date=VAL, curves=CurveSet({})), PARAMS)
-    out = price(RealizedVarianceOption(EXPIRY, 0.05, N, CapFloorKind.CAP), bare)
+    out = price(RealizedVarianceOption(ACME, EXPIRY, 0.05, N, CapFloorKind.CAP), bare)
     assert isinstance(out, PricingFailure), out
+
+
+# ============================================================================================
+# 5. ORACLE 1 — the cross-METHOD anchor, and the independent route tranche 74 never had.
+# ============================================================================================
+
+class _HestonSkew(ImpliedVolSkew):
+    """Heston's own implied-volatility skew, presented through tranche 31's skew interface.
+
+    **A subclass rather than a duck-typed stand-in, so this stays type-safe** — `fair_variance` is
+    typed against `ImpliedVolSkew`, which is a *log-linear closed form* and cannot represent
+    Heston's smile. Overriding `volatility` is what lets T74's strip be reused **literally** instead
+    of re-implemented in the test: the strip then forms Black prices at Heston's implied vols, which
+    by the definition of implied vol **are** Heston's prices. So the chain is the spec's — Heston
+    options → implied vols → T74's strip — with no fitted intermediary to blur the comparison. (A
+    log-linear *fit* to Heston's smile was the alternative, and it would have made the oracle a
+    measure of the fit's quality rather than of the two methods' agreement.)
+
+    **The vols are precomputed in ONE vectorised inversion, and that is a timing fix, not a
+    shortcut.** Called per strike, this file ran **11.43s** against the `slow` gate's 10.0s ceiling
+    — ~1800 separate Fourier inversions, one per strike per grid. `heston_call_prices` prices a
+    whole strike vector in a single pass (the same `φ(u)` evaluated once rather than per strike —
+    tranche 53's optimisation), so the numbers are identical and the cost collapses. Lossless: same
+    quadrature, same grid, same strikes, same prices.
+    """
+
+    def __init__(self, params: HestonParams, underlying, expiry: date, discount, strikes) -> None:
+        super().__init__(atm_volatility=0.2, slope=0.0)
+        forward = dividend_forward(underlying, expiry, discount)
+        horizon = discount.time_measure.year_fraction(expiry)
+        wanted = tuple(sorted(set(strikes)))
+        calls = heston_call_prices(
+            params, underlying, wanted, expiry,
+            (discount, FourierGrid(upper=200.0, count=4001)),
+        )
+        vols = {}
+        for strike, call in zip(wanted, calls):
+            undiscounted = call / discount.df(expiry)
+            if strike < forward:                       # OTM on each side, by parity
+                undiscounted -= forward - strike
+                kind = CapFloorKind.FLOOR
+            else:
+                kind = CapFloorKind.CAP
+            vols[strike] = black_implied_vol(
+                max(undiscounted, 1e-300), forward, strike, horizon, kind
+            )
+        object.__setattr__(self, "_vols", vols)
+
+    def volatility(self, strike: float, forward: float, years: float = 0.0) -> float:
+        return self._vols[strike]
+
+
+def test_the_HESTON_fair_variance_equals_TRANCHE_74s_STATIC_REPLICATION():
+    """**The cross-method anchor, and the point of putting piece 1 in this tranche.**
+
+    Tranche 74 (and 31) produce the fair variance by *replicating* a skew with a `1/K²` strip of
+    vanillas; this tranche produces it as a *moment of the variance process* in closed form. Those
+    are different mathematics with different code, so their agreement is the one thing neither
+    tranche could establish alone — T74's oracles were all transcription, reduction and requirement.
+
+    **The grid is measured here, not inherited** (the T74 lens): Heston's integrand is not the
+    log-linear skew T31 measured its grid against, so the width and count are swept below and the
+    band is set from where the replication has converged, not from T31's or T74's choice.
+    """
+    underlying = EquityUnderlying(100.0, 0.0, DividendSchedule())
+    forward = dividend_forward(underlying, EXPIRY, CURVE)
+    grid = StrikeGrid(0.15, 4.0, 601)
+    skew = _HestonSkew(PARAMS, underlying, EXPIRY, CURVE, grid.strikes(forward))
+
+    replicated = generalized_fair_variance(
+        underlying, EXPIRY, CURVE, skew, VarianceStrip.vanilla(grid)
+    )
+    closed_form = heston_fair_variance(PARAMS, YEARS)
+    # Measured: the replication converges to the closed form from below (truncation omits tail
+    # value), reaching ~0.5% on this grid. The band is that measurement, not a hope.
+    assert replicated == pytest.approx(closed_form, rel=0.01, abs=0.0)
+    assert replicated < closed_form, (replicated, closed_form)
+
+
+def test_the_replication_CONVERGES_to_the_closed_form_as_the_grid_widens():
+    """The band above is only meaningful with the convergence beside it (§4/T25): a single band on a
+    truncated quadrature could be agreement or could be two errors cancelling. Widening the grid
+    must move the replication monotonically **toward** the closed form, from below."""
+    underlying = EquityUnderlying(100.0, 0.0, DividendSchedule())
+    forward = dividend_forward(underlying, EXPIRY, CURVE)
+    closed_form = heston_fair_variance(PARAMS, YEARS)
+    grids = [StrikeGrid(lo, up, 401) for lo, up in ((0.40, 1.8), (0.25, 2.6), (0.15, 4.0))]
+    every_strike = [k for grid in grids for k in grid.strikes(forward)]
+    skew = _HestonSkew(PARAMS, underlying, EXPIRY, CURVE, every_strike)
+    errors = [
+        abs(
+            generalized_fair_variance(
+                underlying, EXPIRY, CURVE, skew, VarianceStrip.vanilla(grid)
+            )
+            / closed_form
+            - 1.0
+        )
+        for grid in grids
+    ]
+    assert errors == sorted(errors, reverse=True), errors
+    assert errors[-1] < 0.25 * errors[0]
+
+
+# ============================================================================================
+# 6. ORACLE 3 — the MC companion MEASURES the normal approximation's error.
+# ============================================================================================
+
+def _simulate_realized_variance(
+    params: HestonParams, years: float, paths: int = 200_000, steps: int = 400
+) -> "numpy.ndarray":
+    """Annualised realized variance `(1/T)∫₀^T V dt` by full-truncation Euler on the CIR variance.
+
+    **The variance process alone, which is the independent thing** — under Heston the continuous
+    realized variance *is* `∫V dt`, so the spot path contributes nothing and simulating it would add
+    cost and noise without adding evidence. (`simulate_heston_spots` returns terminal spots only, so
+    there was nothing to reuse here; extending it to carry the variance path would be scope creep
+    into tranche 33's module for one caller.)
+
+    Full truncation (`max(V,0)` in the diffusion) rather than reflection, matching the tree's own
+    Heston simulator: it is the scheme whose bias is measured below, and mixing schemes would make
+    the measured bias belong to neither.
+    """
+    rng = numpy.random.default_rng(20261122)
+    step = years / steps
+    root = math.sqrt(step)
+    variance = numpy.full(paths, params.v0)
+    total = numpy.zeros(paths)
+    for _ in range(steps):
+        total += variance * step
+        floored = numpy.maximum(variance, 0.0)
+        variance = (
+            variance
+            + params.kappa * (params.theta - variance) * step
+            + params.sigma_v * numpy.sqrt(floored) * rng.standard_normal(paths) * root
+        )
+    return total / years
+
+
+@pytest.fixture(scope="module")
+def realized_variance():
+    """One simulation, shared by every test that reads it.
+
+    Run per test this file took 4.56s locally — and §9 is explicit that a local reading is not the
+    measurement, since the CI runners are several times slower and the `slow` ceiling is 10.0s. The
+    draws do not depend on the strike, so sharing them is **lossless**: identical scheme, seed and
+    paths, and each strike is still compared against its own closed form. Sharing only correlates
+    the tests' sampling errors, which no assertion depends on being independent. (T74's twin fix,
+    applied before CI had to find it — F-8.9's fifth file was found by CI, not by foresight.)
+    """
+    return _simulate_realized_variance(PARAMS, YEARS)
+
+
+def test_the_SIMULATION_reproduces_the_closed_form_MOMENTS_before_it_is_trusted(
+    realized_variance,
+):
+    """The simulation is a reference, and a reference is code too (§4) — so its own accuracy is
+    established against the closed-form moments *before* it is used to judge the approximation.
+
+    Measured: the mean agrees to well inside its standard error, and the standard deviation to about
+    1%, which is the Euler scheme's discretisation bias at 400 steps and is what the band below
+    carries as its second error source."""
+    realized = realized_variance
+    mean, variance = integrated_variance_moments(PARAMS, YEARS)
+    standard_error = float(realized.std(ddof=1)) / math.sqrt(realized.size)
+    assert abs(float(realized.mean()) - mean / YEARS) < 4.0 * standard_error
+    assert float(realized.std(ddof=1)) == pytest.approx(
+        math.sqrt(variance) / YEARS, rel=0.03, abs=0.0
+    )
+
+
+@pytest.mark.parametrize("strike", [0.03, 0.05, 0.08])
+def test_the_normal_approximations_ERROR_is_MEASURED_against_the_simulation(
+    strike: float, realized_variance
+):
+    """§4's two-error-source rule: the band is `4·SE + the approximation's own measured error`,
+    never one flat percentage standing in for both.
+
+    **The approximation error is the deliverable, not the agreement.** The normal match is the only
+    approximation (the moments are exact), so the gap between this simulation and the closed form is
+    precisely the cost of assuming realized variance is normal. Measured across these strikes it
+    runs to about **8%** of the option value at the money and more in the wings, which is a real
+    limitation of §5.2's scheme and the reason §5.3's partially-exact-and-bounded approximation
+    exists (recorded in the arc plan as the refinement if this proves too wide).
+
+    **Resolution:** at 200k paths the SE is ~0.5% of the at-the-money value, so a green here rules
+    out an implementation defect larger than roughly 2% *on top of* the approximation's own error —
+    which is why the pointwise and parity oracles above carry the precision and this one carries the
+    independence.
+    """
+    payoff = numpy.maximum(realized_variance - strike, 0.0)
+    simulated = float(payoff.mean())
+    standard_error = float(payoff.std(ddof=1)) / math.sqrt(payoff.size)
+    approximated = realized_variance_option_value(PARAMS, YEARS, strike, CapFloorKind.CAP)
+
+    band = 4.0 * standard_error + 0.20 * simulated
+    assert abs(approximated - simulated) < band, (approximated, simulated, standard_error)
+    # and the premise that this is a MEASUREMENT: the approximation error is resolvable above the SE
+    assert abs(approximated - simulated) > standard_error, (
+        "the normal approximation's error is below the sampling noise here, so this strike asserts "
+        "only that both numbers are noisy — widen the path count or pick a strike where it bites"
+    )
+
+
+def test_a_PUT_on_realized_variance_prices_through_its_OWN_transcription():
+    """The `omega` factor's second independent killer.
+
+    Parity (above) was its only one, and parity is a *relation* between the two arms — delete it and
+    nothing checks that the put arm is the put. This transcribes the put directly: the normal
+    positive part of `K − RV` rather than of `RV − K`. Independent by construction, not by
+    parameter, which is F-8.3's distinction: a parameter twin shares the other test's deletion fate.
+    """
+    from pricebook.foundation.distributions import normal_positive_part
+
+    mean, variance = integrated_variance_moments(PARAMS, YEARS)
+    for strike in (0.03, 0.09):
+        want = normal_positive_part(strike - mean / YEARS, math.sqrt(variance) / YEARS)
+        got = realized_variance_option_value(PARAMS, YEARS, strike, CapFloorKind.FLOOR)
+        assert got == pytest.approx(want, rel=1e-15, abs=0.0)
+    # and the premise: at these strikes the two arms are materially different numbers
+    low = realized_variance_option_value(PARAMS, YEARS, 0.03, CapFloorKind.CAP)
+    assert low > 5.0 * realized_variance_option_value(PARAMS, YEARS, 0.03, CapFloorKind.FLOOR)
+
+
+def test_an_EXPIRED_in_the_money_PUT_is_PV_zero_too_invariant_6():
+    """The invariant-6 guard's second independent killer, by the opposite arm.
+
+    Its sibling uses an expired in-the-money **call** (strike below the fair variance). A put is in
+    the money on the other side, so this fixture is non-degenerate exactly where the call's would be
+    zero — the construction T73 used to harden F-4.1…F-4.5, applied here in-tranche rather than
+    waiting for a re-audit to find the thin oracle.
+    """
+    strike = 2.0 * heston_fair_variance(PARAMS, YEARS)
+    option = RealizedVarianceOption(ACME, EXPIRY, strike, N, CapFloorKind.FLOOR)
+    after = EXPIRY + timedelta(days=1)
+    model = HestonModel(
+        MarketSnapshot(
+            valuation_date=after,
+            curves=CurveSet({DISCOUNT_KEY: DiscountCurve.flat(after, RATE, DC)}),
+        ),
+        PARAMS,
+    )
+    out = price(option, model)
+    assert isinstance(out, PricingResult), out
+    assert out.pv.amount == 0.0
+    # the premise: the fall-through would be a real number, not a coincidental zero
+    assert strike - heston_fair_variance(PARAMS, YEARS) > 0.01

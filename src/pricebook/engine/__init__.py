@@ -58,6 +58,12 @@ from pricebook.engine.inflation import price_inflation_linked_bond, price_zc_inf
 from pricebook.engine import interest_rate_swap as _interest_rate_swap
 
 assert _interest_rate_swap is not None
+from pricebook.engine.realized_variance_option import (
+    heston_fair_variance,
+    integrated_variance_moments,
+    price_realized_variance_option,
+    realized_variance_option_value,
+)
 from pricebook.engine.registry import dispatch as price
 from pricebook.engine.yoy import price_yoy_inflation_swap
 from pricebook.engine.mc_path_engine import PathGrid, mc_caplet_price, simulate_terminal_forwards
@@ -76,6 +82,8 @@ __all__ = [
     "heston_probabilities",
     "simulate_heston_spots",
     "fair_variance", "generalized_fair_variance",
+    "heston_fair_variance", "integrated_variance_moments",
+    "realized_variance_option_value", "price_realized_variance_option",
     "price_gamma_swap", "price_corridor_variance_swap",
     "price_variance_swap",
     "price_european_equity_option",
