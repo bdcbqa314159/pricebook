@@ -6,6 +6,88 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.77.0] - 2026-11-22
+
+### Added — tranche 75, options on realized variance under Heston (and the cross-method anchor T74 lacked)
+
+- **`engine/realized_variance_option.py` (L4)** — `integrated_variance_moments` (the first two
+  moments of `∫V dt`), `heston_fair_variance` (the annualised first moment — the continuous
+  variance-swap fair strike under Heston), and `realized_variance_option_value` (§5.2's normal
+  approximation, pricing through L0's `normal_positive_part`).
+- **`products/realized_variance_option.py` (L2)** — `RealizedVarianceOption`, five fields.
+
+#### The cross-METHOD anchor — the independent route T74 never had
+
+T74 built the fair variance by **static replication** (a `1/K²` strip of vanillas) and every oracle
+it had was a transcription, a reduction or a requirement: no *independent route to the number*.
+Heston gives one. The oracle prices Heston's European options, implies their Black vols, feeds them
+through **T74's own `fair_variance` strip**, and compares to the closed form — a replication of a
+model-generated skew against a moment of the variance process, different code and different
+mathematics on each side. It **retroactively gives T74 the cross-method anchor**, which is why this
+piece belonged in this tranche.
+
+The skew is presented through a **subclass** of `ImpliedVolSkew` overriding `volatility`, so T74's
+strip is reused *literally* and the chain stays type-safe. `ImpliedVolSkew` is a log-linear closed
+form and cannot represent Heston's smile; a log-linear **fit** was the alternative and would have
+made the oracle a measure of the fit's quality rather than of the two methods' agreement. **The grid
+is measured here, not inherited** (T74's lens): Heston's integrand is not the skew T31 measured
+against, so the width is swept and the replication is asserted to converge to the closed form
+**from below** — truncation omits tail value — reaching ~0.5%.
+
+#### The two moments: one transcribed, one derived as a theorem
+
+The first is printed (§4.1, per monitoring interval; at the full horizon
+`θT + (V₀−θ)(1−e^{−κT})/κ`). The second is **derived**, because the source's printed second moment is
+per-interval *and* for the jump-extended model, and a `-layout` reflow of it is not a thing to
+transcribe. T19's precedent governs — derive it and assert it as a theorem to machine precision,
+which is immune to a source misprint — so `Var[∫V dt]` is derived from the printed covariance
+structure and asserted **two independent ways**: against a double quadrature of that covariance
+integral (3e-08) and against **tranche 48's `integrated_variance_transform`**, the CIR Laplace
+transform whose derivatives at zero *are* these moments and which shares no line with the new code.
+The finite differences are one-sided (the transform refuses a negative `ψ`) and therefore `O(h)`, so
+that band is the FD's own error and is argued as such.
+
+#### What this does NOT price, and why that is the spec's own reading
+
+The spec's target says "a call/put on **discrete** realized variance" while its out-of-scope defers
+"the discrete-monitoring correction" to T78 — and §5.2 (Drimus et al.) is explicitly *"the price of
+its continuous counterpart plus an adjustment term due to discrete sampling"*. Both cannot hold: the
+discrete price **is** the continuous one plus the correction T78 owns. This prices the **continuous**
+case, the coherent half. Raised as an `Ask:` rather than settled.
+
+#### The approximation's error is the deliverable, not the agreement
+
+The normal match is the only approximation — the moments are exact — so the MC companion's measured
+gap *is* the cost of assuming realized variance is normal. Banded `4·SE + the measured error` (§4's
+two-error-source rule), with the simulation's own accuracy established against the closed-form
+moments **before** it is used to judge anything, and the premise asserted that the approximation
+error is **resolvable above the sampling noise** (else the test asserts only that both numbers are
+noisy). Measured at ~8% of the option value near the money — a real limitation of §5.2, and the
+reason §5.3's partially-exact-and-bounded approximation exists (the arc plan's recorded refinement).
+
+### Notes
+
+- **Mutation sweep: applied 9/9, killed 9, survived 0, no single-killers.** Two single-killers were
+  closed in-tranche rather than left for a re-audit: the `omega` factor (its only killer was parity,
+  a *relation* between the arms — now also transcribed directly) and the invariant-6 expiry bypass
+  (hardened by the **opposite arm**, an expired in-the-money put, the construction T73 used for
+  F-4.1…F-4.5).
+- **The `slow` gate took three lossless passes, and CI found what the local clock could not.** The
+  file began at **11.43s** locally — one Fourier inversion per strike per grid, ~1800 of them — and
+  `heston_call_prices` prices a whole strike vector in one pass (T53's shared `φ(u)`), giving
+  identical numbers at 2.80s. The simulation was then shared through a module fixture *before* CI
+  asked, since F-8.9's fifth file was found by CI rather than foresight. **That still was not
+  enough:** at 3.88s local it read **12.7s on the Windows runner** against the 10.0s ceiling — §9's
+  "for a numerically-heavy file a local re-time is not the measurement, CI is", for the second
+  tranche running. Two further lossless passes: the covariance double quadrature **vectorised** (the
+  gate's own advice — ~2M pure-Python evaluations per parameter set, the *same rule on the same
+  nodes*, so the reference's accuracy and its `rel=1e-6` band are untouched), and the two
+  cross-method oracles **consolidated onto one shared skew over shared grids** (1804 implied-vol
+  root finds → 1203, one vectorised inversion). **Final 1.83s local**, and nothing was traded for
+  the clock: reducing the quadrature's node count or the strike counts would have been the oracle
+  trimming §9 forbids, since those counts are exactly what the bands rest on.
+- **`verify.py` test floor 3124 → 3155.**
+
 ## [0.76.0] - 2026-11-22
 
 ### Added — tranche 74, generalized variance swaps (the gamma swap and the corridor variance swap)
