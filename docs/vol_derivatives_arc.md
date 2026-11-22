@@ -25,7 +25,9 @@ stochastic-vol model (3/2) and the time-changed-Lévy framework with the discret
 ## The spine (queue)
 **T74 → T75 → T76 → T77 → T78 → T79 → checkpoint → re-audit #9.** Single-underlying throughout.
 
-- **T74 — generalized variance swaps: gamma + corridor** (ch 4.3). The **gamma swap** weights realized
+- **T74 — generalized variance swaps: gamma + corridor** (§1.3 payoffs, **§1.4 the static replication** —
+  Prop 1.2 / eqs 1.24–1.26; NOT ch 4.3, which is the *moment-generating-function* model route T75/T76 use —
+  a Cowork sourcing correction at build, recorded in `references.md`). The **gamma swap** weights realized
   variance by `S_t/S_0` (replicated by a `1/K` strip); the **corridor** variance swap accrues variance only
   while `S` is in `[L,U]` (the `1/K²` strip restricted to the corridor). L2 products + L4 engine **reusing**
   `variance_replication`. **Oracles:** the two weightings transcribed pointwise from ch 4.3; the **reduction
@@ -58,6 +60,19 @@ stochastic-vol model (3/2) and the time-changed-Lévy framework with the discret
   perpetual timer closed form transcribed (ch 6.2); the **reduction** to a vanilla as the variance budget →
   the option's fixed-horizon variance (ruled at build); an MC companion (first-passage time of accumulated
   variance); put–call parity.
+
+## Arc-wide lens — the replication grid's TRUNCATION is per-weight, measured not inherited (T74)
+A replication/quadrature grid measured adequate for one weight is **truncation-blind for a slower-decaying
+one.** T74's gamma strip (`1/K`) decays one power of `K` more slowly than the vanilla (`1/K²`), so cutting the
+upper tail at `5·F` costs it far more — the flat-skew identity (gamma = vanilla) held only to 2.98e-05 on
+T31's grid. The diagnosis is the T25/T20a technique (vary the knob to localise the error): the gap was
+**invariant in node count** (2.98e-05 at 1601 *and* 6401 nodes) and **collapsed with width** (8.8e-09 on
+`[0.02,10]`, 1e-10 on `[0.01,20]`) — so it is **truncation, not discretisation**, and the fix is a wider grid,
+not more nodes or a band. **T76 (VIX) and T79 (timer) integrate different weights off the transform and must
+measure their own grid adequacy per weight — do not inherit T31's or T74's.** (A lens, the "a reference is
+code too, in the regime where it is used" clause specialised to quadrature truncation — not a new clause.)
+Keep the corridor's contract bounds `[L,U]` **separate** from the grid's truncation bounds (T74): conflating
+them would make a wider grid change the payoff.
 
 ## Deferred at the pull gate (to `to_go_deeper`, ruled per-tranche)
 - **Finite-maturity (non-perpetual) timer options** — the perpetual case (T79) is the closed form; the
