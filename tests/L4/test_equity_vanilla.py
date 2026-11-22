@@ -290,6 +290,27 @@ class TestTheGuardsAreReachable:
         # and the number the bypass would return is materially different from zero
         assert (SPOT - in_the_money) * NOTIONAL.amount > 1.0
 
+    def test_an_EXPIRED_in_the_money_PUT_is_PV_zero_too_invariant_6(self) -> None:
+        """**The second independent killer for F-4.1** (re-audit #8, F-8.3).
+
+        The test above was this guard's *only* killer for three re-audits, and §9 says an oracle
+        guarding a **previously-shipped** hole especially wants a second — the rule F-1.2 got at
+        tranche 37 and this hole never did. One killer is not inherent here: the guard returns a
+        *value* (PV 0) rather than raising, and the fall-through intrinsic can **equal** it, so the
+        killer has to be a specifically in-the-money expired fixture — a fixture-dependent oracle a
+        later edit can neutralise without deleting anything.
+
+        Independent by construction rather than by parameter: the **opposite arm**. A put is in the
+        money on the other side of the strike, so this fixture is non-degenerate where a call's
+        would be zero and vice versa — the cap/floor pattern tranche 72 used for the same purpose.
+        """
+        in_the_money = 125.0
+        assert in_the_money > SPOT, "the premise: the expired PUT must be ITM, or intrinsic is 0"
+        expired = EuropeanEquityOption(
+            ACME, in_the_money, VAL, NOTIONAL, EquityOptionKind.PUT)
+        assert _pv(expired, _market()) == 0.0
+        assert (in_the_money - SPOT) * NOTIONAL.amount > 1.0
+
     def test_a_NEGATIVE_spot_is_refused(self) -> None:
         with pytest.raises(ValueError, match="spot"):
             EquityUnderlying(-1.0, 0.0, DividendSchedule())

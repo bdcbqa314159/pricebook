@@ -209,6 +209,83 @@ def test_a_swap_struck_at_its_PAR_rate_prices_to_zero() -> None:
 
 
 # ── oracle 5: the valuation-date partition and failures ─────────────────────────────────────
+def _seasoned_model(valuation):
+    """`_model()`'s snapshot re-anchored to `valuation` — the only difference is the date."""
+    return JarrowYildirim(
+        MarketSnapshot(
+            valuation_date=valuation,
+            curves=CurveSet(
+                {
+                    NOMINAL_KEY: DiscountCurve.flat(valuation, 0.03, DC),
+                    REAL_KEY: DiscountCurve.flat(valuation, 0.01, DC),
+                }
+            ),
+            fixings={HICP: _level_series(100.0)},
+        ),
+        JYParams(NOM_P, REAL_P, SI, CORR),
+    )
+
+
+def test_the_FIXED_LEG_alone_excludes_settled_periods_a_SECOND_killer() -> None:
+    """**The second independent killer for F-4.4** (re-audit #8, F-8.3).
+
+    `test_a_SEASONED_swap_EXCLUDES_its_settled_periods` was the only killer of **both** YoY
+    comprehension guards — so deleting that one test reopened **two** previously-shipped holes at
+    once, which is the single-killer hazard at its sharpest. §9 wants a second for a shipped hole;
+    this covers `yoy_fixed_leg_value`'s filter alone and its twin below covers the par-rate
+    annuity's, so the two sites no longer share a single point of failure.
+
+    Independent of the original by construction, not by parameter: a **different straddling date**
+    (two periods in rather than just past the second payment) and the identity asserted the other
+    way round — the straddling leg must equal the leg of a swap whose schedule has been **truncated**
+    to the live periods, rather than a hand-summed reference. A dropped filter makes the straddling
+    side larger, since a settled payment discounts at a negative `t` to a factor above 1.
+    """
+    from pricebook.engine.yoy import yoy_fixed_leg_value
+
+    inside = DATES[2] + timedelta(days=40)
+    settled = [pay for _, pay, _ in SCHEDULE.periods() if pay <= inside]
+    live = [pay for _, pay, _ in SCHEDULE.periods() if pay > inside]
+    assert len(settled) >= 2 and len(live) >= 2, (settled, live)
+
+    seasoned = _seasoned_model(inside)
+    nominal = seasoned.market.curves.discount(EUR)
+    assert nominal.df(settled[-1]) > 1.0, "the premise: a settled payment discounts above 1"
+
+    truncated = YearOnYearInflationSwap(
+        HICP, YoYLeg(CouponSchedule((DATES[2],) + tuple(live), DC), FIXED), Money(N, EUR)
+    )
+    assert yoy_fixed_leg_value(_swap(), seasoned) == pytest.approx(
+        yoy_fixed_leg_value(truncated, seasoned), rel=1e-14, abs=0.0
+    )
+
+
+def test_the_PAR_RATE_annuity_alone_excludes_settled_periods_a_SECOND_killer() -> None:
+    """**The second independent killer for F-4.5** — the par-rate annuity's own filter.
+
+    The annuity is the par rate's denominator, so a settled period left in (its `df` above 1)
+    *inflates* the denominator and **depresses** the par rate. Asserted as the same truncation
+    identity as the fixed leg's twin above, which keeps the two tests independent of each other:
+    neither reads the other's reference, and each exercises one of the two comprehensions.
+    """
+    from pricebook.engine.yoy import yoy_par_rate
+
+    inside = DATES[2] + timedelta(days=40)
+    live = [pay for _, pay, _ in SCHEDULE.periods() if pay > inside]
+    assert len(live) >= 2
+
+    seasoned = _seasoned_model(inside)
+    truncated = YearOnYearInflationSwap(
+        HICP, YoYLeg(CouponSchedule((DATES[2],) + tuple(live), DC), FIXED), Money(N, EUR)
+    )
+    straddling = yoy_par_rate(_swap(), seasoned)
+    assert straddling == pytest.approx(
+        yoy_par_rate(truncated, seasoned), rel=1e-14, abs=0.0
+    )
+    # and the premise that the guard is doing something: the par rate is not degenerate
+    assert straddling > 0.0
+
+
 def test_a_SEASONED_swap_EXCLUDES_its_settled_periods() -> None:
     """Re-audit #4, F-4.4/F-4.5 — the two comprehension guards were invisible.
 

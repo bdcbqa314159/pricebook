@@ -527,6 +527,35 @@ class TestTheGuardsAreReachable:
             SwaptionDirection.PAYER, ACME)
         assert price(alive, _swaption_model()).pv.amount > 1.0
 
+    def test_a_RECEIVER_expiring_exactly_TODAY_is_PV_zero_too_invariant_6(self) -> None:
+        """**The second independent killer for F-4.3** (re-audit #8, F-8.3).
+
+        The test above was this guard's only killer for three re-audits, and §9 wants a second for a
+        previously-shipped hole. Independent in three ways rather than one: the **opposite
+        direction** (receiver, so the intrinsic sits on the other side of the strike), a **different
+        schedule**, and the **boundary** case — an expiry falling *exactly on* the valuation date,
+        which is the `<=` in `is_historical` rather than the `<`. A fixture that expired strictly in
+        the past cannot discriminate a guard that had been written `<`; this one can."""
+        seasoned = tuple(VAL + timedelta(days=round(91.0 * i)) for i in range(-6, 9))
+        schedule = CouponSchedule(seasoned, DC)
+        expiring_today = next(d for d in seasoned if d == VAL)
+        assert expiring_today == VAL < seasoned[-1], "the premise: the boundary, live underlying"
+
+        deep_in_the_money_for_a_receiver = 0.2000
+        product = CreditDefaultSwaption(
+            ForwardPeriod(schedule, expiring_today), deep_in_the_money_for_a_receiver,
+            NOTIONAL, SwaptionDirection.RECEIVER, ACME)
+        out = price(product, _swaption_model())
+        assert isinstance(out, PricingResult), out
+        assert out.pv.amount == 0.0
+
+        # and the same receiver with a future expiry on the same schedule is worth real money
+        live = CreditDefaultSwaption(
+            ForwardPeriod(schedule, seasoned[8]), deep_in_the_money_for_a_receiver,
+            NOTIONAL, SwaptionDirection.RECEIVER, ACME)
+        assert seasoned[8] > VAL
+        assert price(live, _swaption_model()).pv.amount > 1.0
+
     def test_a_NEGATIVE_vol_is_refused(self) -> None:
         with pytest.raises(ValueError, match="volatility"):
             CreditSwaptionModel(_credit(), -0.1)

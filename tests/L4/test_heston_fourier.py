@@ -242,6 +242,21 @@ class TestTheEnginesInvariantSixGuard:
         # the number the bypass would return instead, so the test is not vacuously satisfied
         assert (UNDERLYING.spot - self.IN_THE_MONEY) * 1_000_000.0 > 1.0
 
+    def test_an_EXPIRED_in_the_money_PUT_is_PV_zero_too_invariant_6(self) -> None:
+        """**The second independent killer for F-4.2** (re-audit #8, F-8.3) — the same reasoning as
+        its equity-vanilla twin: this guard had one killer for three re-audits, it returns a value
+        rather than raising, and its killer is fixture-dependent. The opposite arm is the
+        independent construction: a put is in the money above the strike, where a call is not."""
+        out_of_the_money_for_a_call = 125.0
+        assert out_of_the_money_for_a_call > UNDERLYING.spot, "the premise: the PUT is ITM"
+        expired = EuropeanEquityOption(
+            self.ASSET, out_of_the_money_for_a_call, VAL, Money(1_000_000.0, self.EUR),
+            EquityOptionKind.PUT)
+        out = price(expired, self._model())
+        assert isinstance(out, PricingResult), out
+        assert out.pv.amount == 0.0
+        assert (out_of_the_money_for_a_call - UNDERLYING.spot) * 1_000_000.0 > 1.0
+
     @pytest.mark.parametrize("moneyness", [0.8, 1.0, 1.25])
     def test_a_PUT_prices_through_the_registered_engine(self, moneyness: float) -> None:
         """**F-5.1, re-audit #5.** Nothing in this tree priced a put through *this* engine, so the
