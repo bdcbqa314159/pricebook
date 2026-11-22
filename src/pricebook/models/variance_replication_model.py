@@ -24,6 +24,8 @@ Provenance:
 
 from __future__ import annotations
 
+import math
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from pricebook.market.snapshot import MarketSnapshot
@@ -84,6 +86,90 @@ class StrikeGrid:
             forward * (1.0 + (self.upper - 1.0) * k / (call_nodes - 1)) for k in range(1, call_nodes)
         ]
         return tuple(puts + calls)
+
+
+#: One term of the strip, already weighted: `(price, strike, forward) -> contribution`.
+#:
+#: The *weighted* contribution rather than a bare weight, so each product's weight is a single
+#: division and the vanilla path stays **bit-identical** to tranche 31's `price / (K * K)`. A bare
+#: `weight(K, F)` multiplied in afterwards would be `price * (1/K²)` — the same quantity in exact
+#: arithmetic, one extra rounding, and T31's oracles would have had to be rebanded for nothing.
+StripTerm = Callable[[float, float, float], float]
+
+
+def _vanilla_term(price: float, strike: float, forward: float) -> float:
+    """`1/K²` — the vanilla variance swap and the corridor (KWOK-ZHENG eq 1.19, eq 1.26)."""
+    return price / (strike * strike)
+
+
+def _gamma_term(price: float, strike: float, forward: float) -> float:
+    """`1/(K·F₀)` — eq (1.24)'s `1/K` weight with its `1/F₀` normalisation folded in.
+
+    Folded in deliberately: written this way the three products share one prefactor `2/T`, so the
+    strip walk has exactly one varying part. In the prefactor instead it would have had two.
+    """
+    return price / (strike * forward)
+
+
+@dataclass(frozen=True)
+class VarianceStrip:
+    """How a generalized variance swap re-weights and restricts the OTM strip (KWOK-ZHENG §1.4).
+
+    Vocabulary, not abstraction (§6): the grid, the weight and the range are exactly what a strip is,
+    and bundling them is what keeps `generalized_fair_variance` inside §7's five arguments. Built
+    through the three named constructors rather than assembled by callers, so a weight and a range
+    cannot be paired in a combination no product has.
+
+    **`lower`/`upper` are absolute strike levels and are NOT the grid's bounds.** The grid's are
+    multiples of the forward and express the quadrature's *truncation* — a numerical choice whose
+    error T31 measures. These are a **contract term**: the corridor the trade names. Conflating them
+    would make a wider grid change the payoff.
+    """
+
+    grid: StrikeGrid
+    term: StripTerm
+    lower: float
+    upper: float
+
+    def __post_init__(self) -> None:
+        if self.lower < 0.0:
+            raise ValueError(f"a strip's lower bound cannot be negative, got {self.lower}")
+        if self.upper <= self.lower:
+            raise ValueError(
+                f"a strip's upper bound must sit above its lower bound, got "
+                f"{self.lower}..{self.upper}"
+            )
+
+    @classmethod
+    def vanilla(cls, grid: StrikeGrid) -> VarianceStrip:
+        """The `1/K²` strip over the whole range — tranche 31's variance swap."""
+        return cls(grid, _vanilla_term, 0.0, math.inf)
+
+    @classmethod
+    def gamma(cls, grid: StrikeGrid) -> VarianceStrip:
+        """The `1/(K·F₀)` strip over the whole range — the gamma swap, eq (1.24)."""
+        return cls(grid, _gamma_term, 0.0, math.inf)
+
+    @classmethod
+    def corridor(cls, grid: StrikeGrid, lower: float, upper: float) -> VarianceStrip:
+        """The `1/K²` strip restricted to `(lower, upper]` — the corridor swap, eq (1.26)."""
+        return cls(grid, _vanilla_term, lower, upper)
+
+    def restricted(self, forward: float) -> tuple[float, ...]:
+        """The grid's strikes that lie in `(lower, upper]`, refusing a corridor off the forward.
+
+        The replication splits at the forward — puts below, calls above — so a corridor entirely on
+        one side would integrate one empty half and return a plausible number for a contract the
+        formula does not describe. §1.4 states the assumption ("it is reasonable to choose the
+        corridor so that F0 lies within the corridor"); this enforces it.
+        """
+        if not self.lower < forward <= self.upper:
+            raise ValueError(
+                f"the corridor {self.lower}..{self.upper} must contain the forward {forward}: "
+                f"eq (1.26) splits the strip at the forward, so a corridor on one side of it "
+                f"integrates an empty half"
+            )
+        return tuple(k for k in self.grid.strikes(forward) if self.lower < k <= self.upper)
 
 
 @dataclass(frozen=True)

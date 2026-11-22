@@ -71,6 +71,15 @@ SKEW_SLOPE = -0.15
 EXPIRY = VAL + timedelta(days=913)
 YEARS = 913.0 / 365.0
 WIDE = StrikeGrid(lower=0.05, upper=5.0, count=1601)
+#: **The gamma strip needs a WIDER grid than the vanilla one for the same accuracy**, and that is a
+#: measured property rather than caution. Its `1/(K·F₀)` weight decays one power of `K` more slowly
+#: than `1/K²`, so truncating the upper tail at `5·F` costs it far more: on `WIDE` the flat-skew
+#: identity (below) holds only to **2.98e-05**, and that gap is **invariant in the node count** —
+#: 2.98e-05 at 1601 nodes and at 6401 — so it is truncation, not discretisation. Widening fixes it:
+#: 8.8e-09 on `[0.02,10]` and 1.0e-10 on `[0.01,20]`. §4's "a reference is code too, and it needs
+#: its own accuracy argument in the regime where it is used" — the regime differs per weight, so the
+#: grid T31 measured as adequate for the vanilla strip is **not** adequate for the gamma strip.
+UNTRUNCATED = StrikeGrid(lower=0.02, upper=10.0, count=1601)
 CURVE = DiscountCurve.flat(VAL, RATE, DC)
 UNDERLYING = EquityUnderlying(SPOT, 0.0, DividendSchedule())
 FORWARD = dividend_forward(UNDERLYING, EXPIRY, CURVE)
@@ -124,14 +133,21 @@ def _reference_strip(skew: ImpliedVolSkew, weight, lower: float, upper: float) -
 # ============================================================================================
 
 def test_the_SKEW_premise_a_flat_surface_makes_the_two_strips_IDENTICAL():
-    # So every gamma oracle below must run on a skewed surface, or the `1/K` weight is invisible.
+    """Under a flat surface the gamma swap IS the vanilla variance swap, so every gamma oracle below
+    must run on a skewed surface or the `1/K` weight is invisible.
+
+    The identity is exact in the continuum — `F_t` is a martingale, so `E[∫(F_t/F_0)σ²dt]/T = σ²`
+    just as `E[∫σ²dt]/T` does — and it is checked on `UNTRUNCATED` rather than `WIDE` because the
+    two strips have **different truncation errors** at the same bounds (see `UNTRUNCATED`). Running
+    it on `WIDE` would band a real identity at 3e-05 for a reason that has nothing to do with the
+    weight it is testing."""
     flat_vanilla = generalized_fair_variance(
-        UNDERLYING, EXPIRY, CURVE, _flat(), VarianceStrip.vanilla(WIDE)
+        UNDERLYING, EXPIRY, CURVE, _flat(), VarianceStrip.vanilla(UNTRUNCATED)
     )
     flat_gamma = generalized_fair_variance(
-        UNDERLYING, EXPIRY, CURVE, _flat(), VarianceStrip.gamma(WIDE)
+        UNDERLYING, EXPIRY, CURVE, _flat(), VarianceStrip.gamma(UNTRUNCATED)
     )
-    assert flat_gamma == pytest.approx(flat_vanilla, rel=1e-6, abs=0.0)
+    assert flat_gamma == pytest.approx(flat_vanilla, rel=1e-7, abs=0.0)
 
     skewed_vanilla = generalized_fair_variance(
         UNDERLYING, EXPIRY, CURVE, _skewed(), VarianceStrip.vanilla(WIDE)
@@ -140,6 +156,26 @@ def test_the_SKEW_premise_a_flat_surface_makes_the_two_strips_IDENTICAL():
         UNDERLYING, EXPIRY, CURVE, _skewed(), VarianceStrip.gamma(WIDE)
     )
     assert abs(skewed_gamma / skewed_vanilla - 1.0) > 0.05, (skewed_gamma, skewed_vanilla)
+
+
+def test_the_flat_skew_gap_on_a_TRUNCATED_grid_is_truncation_and_NOT_discretisation():
+    """The diagnosis behind `UNTRUNCATED`, asserted rather than asserted-about.
+
+    A gap that does not move when the node count quadruples is not a quadrature-step error; one that
+    falls when the bounds widen is a truncation error. Both halves are measured here, which is what
+    turns "use a wider grid" from a fudge into a stated validity regime (§4/T25)."""
+    def gap(grid: StrikeGrid) -> float:
+        vanilla = generalized_fair_variance(
+            UNDERLYING, EXPIRY, CURVE, _flat(), VarianceStrip.vanilla(grid)
+        )
+        gamma = generalized_fair_variance(
+            UNDERLYING, EXPIRY, CURVE, _flat(), VarianceStrip.gamma(grid)
+        )
+        return abs(gamma / vanilla - 1.0)
+
+    coarse, fine = gap(StrikeGrid(0.05, 5.0, 1601)), gap(StrikeGrid(0.05, 5.0, 6401))
+    assert coarse == pytest.approx(fine, rel=1e-3, abs=0.0), (coarse, fine)   # count: no effect
+    assert gap(StrikeGrid(0.02, 10.0, 1601)) < 0.01 * coarse                  # width: it collapses
 
 
 def test_the_CORRIDOR_premise_it_excludes_real_mass():
@@ -309,6 +345,84 @@ def test_a_MISSING_underlying_or_skew_is_a_PricingFailure_for_both():
         assert isinstance(price(product, model), PricingFailure)
 
 
+def test_an_off_forward_corridor_is_a_PricingFailure_and_NOT_a_raise_through_the_engine():
+    """§3.4 — and the first draft of the engine got this wrong.
+
+    `VarianceStrip.restricted` refuses a corridor that does not contain the forward, and
+    `_price_generalized` originally caught only `KeyError`, so that refusal propagated as a
+    `ValueError` **out of a registered pricer**. Failure is a value. This is also the guard's second
+    independent killer: it reaches the refusal through the engine rather than through the direct
+    call below, so neither test's deletion reopens the hole."""
+    swap = CorridorVarianceSwap(ACME, EXPIRY, 0.05, N, (1.5 * FORWARD, 2.0 * FORWARD))
+    out = price(swap, _model())
+    assert isinstance(out, PricingFailure), out
+    assert "forward" in out.reason
+
+
+def test_the_gamma_swap_and_the_vanilla_swap_DISAGREE_at_the_same_strike():
+    """The gamma pricer's second independent killer: a cross-product check.
+
+    Its sibling asserts the gamma PV equals the gamma strip's discounted difference; this asserts it
+    is **not** the vanilla swap's PV at the same strike — so swapping the strip at the pricer is
+    caught by a test that never computes the gamma strip itself. Under the skewed fixture the two
+    fair variances differ by ~9.7% (the premise above), which is what makes this discriminate."""
+    from pricebook.products import VarianceSwap
+
+    strike = 0.06
+    gamma = price(GammaSwap(ACME, EXPIRY, strike, N), _model())
+    vanilla = price(VarianceSwap(ACME, EXPIRY, strike, N), _model())
+    assert isinstance(gamma, PricingResult) and isinstance(vanilla, PricingResult)
+    assert abs(gamma.pv.amount / vanilla.pv.amount - 1.0) > 0.1, (gamma.pv, vanilla.pv)
+
+
+def test_the_corridor_is_HALF_OPEN_and_the_fixture_puts_a_grid_node_on_each_bound():
+    """`(L,U]` — the lower bound excluded, the upper included (§1.3).
+
+    **The premise is the whole test:** the half-openness is observable only when a strike lands
+    *exactly* on a bound, and no other fixture here does — so a mutation flipping `L < k <= U` to
+    `L <= k < U` survived the whole suite. The bounds are therefore taken **from the grid's own
+    nodes**, which makes the two conventions select different strike sets and different values."""
+    nodes = WIDE.strikes(FORWARD)
+    # Chosen RELATIVE to the forward, not by index: the grid spans 0.05x..5x, so the forward sits
+    # near node 307 and a fixed index is a fixture that silently moves if the grid's bounds change.
+    below = [k for k in nodes if k < FORWARD]
+    above = [k for k in nodes if k >= FORWARD]
+    lower, upper = below[len(below) // 2], above[len(above) // 2]
+    assert lower < FORWARD <= upper, (lower, FORWARD, upper)
+
+    selected = VarianceStrip.corridor(WIDE, lower, upper).restricted(FORWARD)
+    assert lower not in selected and upper in selected, (selected[0], selected[-1])
+    # and the flipped convention would select a DIFFERENT set, which is why this discriminates
+    flipped = tuple(k for k in nodes if lower <= k < upper)
+    assert flipped != selected and len(flipped) == len(selected)
+
+
+def _on_grid_bounds() -> tuple[float, float]:
+    """A corridor whose bounds are grid nodes straddling the forward — the only fixture in which
+    the half-openness is observable at all."""
+    nodes = WIDE.strikes(FORWARD)
+    below = [k for k in nodes if k < FORWARD]
+    above = [k for k in nodes if k >= FORWARD]
+    return below[len(below) // 2], above[len(above) // 2]
+
+
+def test_the_corridor_strip_matches_eq_1_26_pointwise_ON_GRID_BOUNDS_too():
+    """The half-openness convention's **second** killer, and the right shape for it.
+
+    The pointwise transcription above uses an off-grid corridor, where no strike lands on a bound and
+    `(L,U]` versus `[L,U)` select the same set — so it cannot see the convention. Run with bounds
+    **on grid nodes**, the reference's own `L < k <= U` filter and a flipped implementation select
+    different sets and produce different numbers, so this kills the flip independently of the
+    node-set test above. The first attempt here asserted that shifting both bounds moves the value,
+    which does not discriminate at all: *both* conventions move when the bounds move."""
+    lower, upper = _on_grid_bounds()
+    want = _reference_strip(_skewed(), lambda k: 1.0 / (k * k), lower, upper)
+    got = generalized_fair_variance(
+        UNDERLYING, EXPIRY, CURVE, _skewed(), VarianceStrip.corridor(WIDE, lower, upper)
+    )
+    assert got == pytest.approx(want, rel=1e-14, abs=0.0)
+
+
 def test_a_corridor_that_EXCLUDES_THE_FORWARD_is_refused_the_source_assumes_it_inside():
     # §1.4: "It is reasonable to choose the corridor so that F0 lies within the corridor" — the
     # replication splits the strip AT the forward, so a corridor entirely above or below it would
@@ -318,3 +432,67 @@ def test_a_corridor_that_EXCLUDES_THE_FORWARD_is_refused_the_source_assumes_it_i
             UNDERLYING, EXPIRY, CURVE, _skewed(),
             VarianceStrip.corridor(WIDE, 1.5 * FORWARD, 2.0 * FORWARD),
         )
+
+
+# ============================================================================================
+# 5. The products themselves — pure data (KWOK-ZHENG §1.3).
+# ============================================================================================
+
+def _gamma_product() -> GammaSwap:
+    return GammaSwap(ACME, EXPIRY, 0.0625, N)
+
+
+def _corridor_product() -> CorridorVarianceSwap:
+    return CorridorVarianceSwap(ACME, EXPIRY, 0.0484, N, CORRIDOR)
+
+
+def test_both_products_ROUND_TRIP_through_their_payloads():
+    assert GammaSwap.from_dict(_gamma_product().to_dict()) == _gamma_product()
+    assert CorridorVarianceSwap.from_dict(_corridor_product().to_dict()) == _corridor_product()
+
+
+def test_the_payload_carries_the_CORRIDOR_which_is_constitutive_of_the_contract():
+    # A corridor swap without its corridor is a different trade, so the round trip must carry it
+    # (§6: a carried field is allowed when constitutive of identity, and is then exercised).
+    payload = _corridor_product().to_dict()
+    assert payload["corridor"] == list(CORRIDOR)
+    assert CorridorVarianceSwap.from_dict(payload).corridor == CORRIDOR
+
+
+def test_a_payload_of_the_WRONG_kind_is_refused_by_each():
+    with pytest.raises(ValueError, match="not a gamma_swap"):
+        GammaSwap.from_dict(_corridor_product().to_dict())
+    with pytest.raises(ValueError, match="not a corridor_variance_swap"):
+        CorridorVarianceSwap.from_dict(_gamma_product().to_dict())
+
+
+@pytest.mark.parametrize("strike", [-1e-9, -0.05])
+def test_a_NEGATIVE_variance_strike_is_refused(strike: float):
+    with pytest.raises(ValueError, match="variance strike"):
+        GammaSwap(ACME, EXPIRY, strike, N)
+    with pytest.raises(ValueError, match="variance strike"):
+        CorridorVarianceSwap(ACME, EXPIRY, strike, N, CORRIDOR)
+
+
+@pytest.mark.parametrize("corridor", [(-1.0, 130.0), (130.0, 80.0), (100.0, 100.0)])
+def test_an_INVALID_corridor_is_refused(corridor: tuple[float, float]):
+    with pytest.raises(ValueError, match="corridor"):
+        CorridorVarianceSwap(ACME, EXPIRY, 0.05, N, corridor)
+
+
+def test_a_ZERO_lower_bound_is_ACCEPTED_because_the_source_allows_it():
+    # §1.3's corridor is `(L,U]` with `L >= 0`, so a one-sided corridor is a real contract.
+    assert CorridorVarianceSwap(ACME, EXPIRY, 0.05, N, (0.0, 130.0)).corridor == (0.0, 130.0)
+
+
+def test_the_two_products_are_DISTINCT_types_with_no_hierarchy_against_the_vanilla_swap():
+    from pricebook.products import VarianceSwap
+
+    assert not issubclass(GammaSwap, (VarianceSwap, CorridorVarianceSwap))
+    assert not issubclass(CorridorVarianceSwap, (VarianceSwap, GammaSwap))
+    assert not issubclass(VarianceSwap, (GammaSwap, CorridorVarianceSwap))
+
+
+def test_a_STRIP_with_an_inverted_range_is_refused_at_construction():
+    with pytest.raises(ValueError, match="upper bound"):
+        VarianceStrip.corridor(WIDE, 130.0, 80.0)
