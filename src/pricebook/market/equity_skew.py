@@ -35,10 +35,38 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
 
 #: Below this the option is worthless at any strike the strip visits, so flooring here changes no
 #: price while keeping `black_price` out of its deterministic branch (see the module docstring).
 _VOLATILITY_FLOOR = 1e-6
+
+
+@runtime_checkable
+class SmileLike(Protocol):
+    """Anything the variance-replication strip can read a volatility from.
+
+    **Extracted at tranche 76, the second consumer — §6's rule of two, not a speculative hook.**
+    Tranche 31's strip was typed to the concrete `ImpliedVolSkew`, a *log-linear closed form*. When
+    tranche 75 needed to present **Heston's** smile to that same strip it subclassed
+    `ImpliedVolSkew` and overrode `volatility` — correct for one consumer, and a mild smell:
+    subclassing a log-linear closed form only to override its log-linearity away. Tranche 76's VIX²
+    cross-check is the genuine second consumer of *present a model's smile to the strip*, so the
+    shape is extracted now rather than left as two ad-hoc subclasses drifting apart.
+
+    **One real member, deliberately.** A `@runtime_checkable` protocol with **no** members is
+    satisfied by everything (tranche 33b, F-8.x's input-population shape), so it could never reject a
+    non-smile and an `isinstance` guard against it would be decoration. `volatility` is the only
+    thing the strip ever calls, so one member is both the minimum and the whole interface.
+
+    **It lives at L1, with `ImpliedVolSkew`, so the dependency points DOWN** (§2): the L4 strip
+    consumes a market-layer protocol, and the L3/L4 model-smile presenters implement it. Putting it
+    beside its consumer at L4 would have made L1's `ImpliedVolSkew` implement an L4 type.
+    """
+
+    def volatility(self, strike: float, forward: float, years: float = 0.0) -> float:
+        """The volatility at `(strike, years)`, read in log-moneyness against `forward`."""
+        ...
 
 
 @dataclass(frozen=True)

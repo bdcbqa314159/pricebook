@@ -54,7 +54,7 @@ from pricebook.market.equity import (
     EquityUnderlying,
     dividend_forward,
 )
-from pricebook.market.equity_skew import ImpliedVolSkew
+from pricebook.market.equity_skew import ImpliedVolSkew, SmileLike
 from pricebook.models.black import black_implied_vol
 from pricebook.models.variance_replication_model import StrikeGrid, VarianceStrip
 from pricebook.models.heston import HestonModel, HestonParams
@@ -298,28 +298,31 @@ def test_a_MISSING_discount_curve_is_a_PricingFailure():
 # 5. ORACLE 1 — the cross-METHOD anchor, and the independent route tranche 74 never had.
 # ============================================================================================
 
-class _HestonSkew(ImpliedVolSkew):
-    """Heston's own implied-volatility skew, presented through tranche 31's skew interface.
+class _HestonSkew:
+    """Heston's own implied-volatility skew, presented to tranche 31's strip.
 
-    **A subclass rather than a duck-typed stand-in, so this stays type-safe** — `fair_variance` is
-    typed against `ImpliedVolSkew`, which is a *log-linear closed form* and cannot represent
-    Heston's smile. Overriding `volatility` is what lets T74's strip be reused **literally** instead
-    of re-implemented in the test: the strip then forms Black prices at Heston's implied vols, which
-    by the definition of implied vol **are** Heston's prices. So the chain is the spec's — Heston
-    options → implied vols → T74's strip — with no fitted intermediary to blur the comparison. (A
-    log-linear *fit* to Heston's smile was the alternative, and it would have made the oracle a
-    measure of the fit's quality rather than of the two methods' agreement.)
+    **A plain presenter from tranche 76, not a subclass.** This began as a subclass of
+    `ImpliedVolSkew` overriding `volatility`, because the strip was typed to that concrete
+    log-linear closed form and Heston's smile is not log-linear. T76 is the second consumer of
+    *present a model's smile to the strip*, so §6's rule of two fired and the strip now consumes the
+    **`SmileLike` protocol** (`market/equity_skew.py`) — which this satisfies by having the one
+    member, with nothing inherited and no log-linearity to override away. Cowork's 0401(2) ruling:
+    acceptable as a subclass for one consumer, extracted at the second. The retype was proved a pure
+    refactor by bit-identity across 108 strip evaluations (§4/T49).
+
+    What it does not change: the chain is still the spec's — Heston options → implied vols → T74's
+    strip, with no fitted intermediary. A log-linear **fit** to Heston's smile was the alternative
+    and would have made the oracle a measure of the fit's quality rather than of the two methods'
+    agreement.
 
     **The vols are precomputed in ONE vectorised inversion, and that is a timing fix, not a
     shortcut.** Called per strike, this file ran **11.43s** against the `slow` gate's 10.0s ceiling
     — ~1800 separate Fourier inversions, one per strike per grid. `heston_call_prices` prices a
     whole strike vector in a single pass (the same `φ(u)` evaluated once rather than per strike —
-    tranche 53's optimisation), so the numbers are identical and the cost collapses. Lossless: same
-    quadrature, same grid, same strikes, same prices.
+    tranche 53's optimisation), so the numbers are identical and the cost collapses.
     """
 
     def __init__(self, params: HestonParams, underlying, expiry: date, discount, strikes) -> None:
-        super().__init__(atm_volatility=0.2, slope=0.0)
         forward = dividend_forward(underlying, expiry, discount)
         horizon = discount.time_measure.year_fraction(expiry)
         wanted = tuple(sorted(set(strikes)))
@@ -338,10 +341,25 @@ class _HestonSkew(ImpliedVolSkew):
             vols[strike] = black_implied_vol(
                 max(undiscounted, 1e-300), forward, strike, horizon, kind
             )
-        object.__setattr__(self, "_vols", vols)
+        self._vols = vols
 
     def volatility(self, strike: float, forward: float, years: float = 0.0) -> float:
         return self._vols[strike]
+
+
+def test_the_presenter_satisfies_the_SMILE_protocol_and_a_non_smile_does_NOT():
+    """The protocol's non-degeneracy premise (§4, the T33b input-population rule).
+
+    A `@runtime_checkable` protocol with **no** members is satisfied by everything, so the guard
+    would be decoration. `SmileLike` carries one real member, and this asserts it actually
+    discriminates — the presenter passes, an object without `volatility` is rejected."""
+    underlying = EquityUnderlying(100.0, 0.0, DividendSchedule())
+    forward = dividend_forward(underlying, EXPIRY, CURVE)
+    presenter = _HestonSkew(PARAMS, underlying, EXPIRY, CURVE, [forward])
+    assert isinstance(presenter, SmileLike)
+    assert isinstance(ImpliedVolSkew(0.28, -0.15), SmileLike)
+    assert not isinstance(object(), SmileLike)
+    assert not isinstance(PARAMS, SmileLike)
 
 
 #: The three grids the cross-method oracles share, widest last. Shared so **one** vectorised Heston
