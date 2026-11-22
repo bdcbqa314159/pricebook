@@ -82,6 +82,19 @@ pure refactor by **bit-identity across 108 strip evaluations** (§4/T49, in-proc
   question from "is VIX² the variance-swap rate and do the products price". 8.99s → **2.88s + 3.62s**.
   The concentrated law's ~1.4s per integral is irreducible: reaching the analytic branch *requires* a
   high noncentrality, and the mixture costs O(√noncentrality) per node.
+- **An honest `slow-test-exempt`, ledgered as `OPEN.md` OI-8 — the first in the arc.** Five passes
+  took the VIX tests from 8.99s to **2.97s + 3.60s** locally, and Windows CI still read **11.5s and
+  11.1s** (a **4×** runner factor, worse than the 3.3× the two previous tranches showed — itself the
+  F-8.9 data point). Everything left to cut is an oracle: fewer nodes, a narrower span or a smaller
+  simulation all widen bands that are *measured* to resolve the defects they exist to catch, and the
+  concentrated law cannot be made cheaper because reaching the quadrature's below-mass branch
+  **requires** a high noncentrality whose mixture is `O(√nc)` per node. **And the obvious
+  optimisation was tried and measured slower:** hoisting the Poisson ladder out of the node loop (the
+  T53 shape) is bit-identical and ran 2.88s → 3.12s and 3.62s → 4.44s, because the scalar survival
+  terminates its ladder early *per node* while a shared one runs until the **worst** node converges.
+  That is recorded in the code so it is not retried blind, and it is the exemption's **named removal
+  trigger**: a mixture with *per-argument* early exit, raised as its own unit. An honest exemption
+  beats a gamed green.
 - **`verify.py` test floor 3155 → 3187.**
 
 ## [0.77.0] - 2026-11-22

@@ -13,6 +13,49 @@ exists in `src/` or `tests/` (verified at v0.6.0).
 
 ## Other open items
 
+### OI-8 · The two VIX test files are `slow-test-exempt` — OPEN (taken at tranche 76, 2026-11-22)
+
+**The exemption.** `tests/L4/test_vix.py` and `tests/L4/test_vix_quadrature.py` each carry
+`# slow-test-exempt:` with the reason in place. Measured: **2.97s and 3.60s locally, 11.5s and 11.1s
+on the Windows CI runner** against the 10.0s ceiling — a 4x runner factor, worse than the 3.3x the
+two previous tranches showed, which is itself the F-8.9 data point.
+
+**What was tried first, because an exemption is the last resort and not the first (§9).** Five
+passes, four lossless and one a real subject seam, took the VIX tests from **8.99s to 6.28s and then
+to 2.97s + 3.60s**:
+
+1. the terminal-variance simulation shared through a module fixture rather than re-run per test;
+2. the concentrated-law future shared the same way (one integral instead of three);
+3. the node count measured down from 4000 to **2000** — quadrature error 5.2e-05 against oracle
+   bands of ~0.5-1%, so two orders of margin and nothing traded;
+4. the future's integral skipped for a **call**, which never uses it (a real waste, not a trick);
+5. a **split along a subject seam** — "is the by-parts integral computed correctly" is a different
+   question from "is VIX² the variance-swap rate and do the products price", and §9 names that as
+   the lossless move before an exemption.
+
+**What was declined, and why each would have been the trimming §9 forbids.** Cutting the node count
+further, narrowing the quadrature span, or shrinking the simulation's paths/steps all widen bands
+that are measured to resolve the defects they exist to catch. The concentrated law cannot be made
+cheaper: reaching the quadrature's below-mass analytic branch **requires** `stdev/mean < 1/12`, i.e.
+a noncentrality above ~320, and the Poisson mixture costs `O(sqrt(noncentrality))` per node. Dropping
+that fixture would leave the branch unreachable — the survivor the sweep found in the first place.
+
+**And the obvious optimisation was tried and measured SLOWER**, which is why it is the trigger rather
+than the fix: hoisting the Poisson ladder out of the node loop (the weights depend on `(dof, nc)` and
+not on `x` — the tranche-53 shape) gives bit-identical results and ran **2.88s -> 3.12s and
+3.62s -> 4.44s**, because the scalar survival terminates its ladder early *per node* while a shared
+one must run until the **worst** node converges.
+
+**Removal trigger (named, per §9).** A `noncentral_chisquare` mixture with **per-argument early
+exit** — a vectorised survival that drops arguments from the ladder as each converges, rather than
+running every argument to the worst case. That is a real production optimisation for any quadrature
+against the mixture (tranche 76's VIX integrals, and anything the arc's remaining tranches build on
+the transform), so it is raised as its own unit rather than smuggled into a correctness tranche. When
+it lands, re-time both files on **both** CI runners and remove the markers and this entry.
+
+**Not a correctness concern.** Both files are green on both runners' *suite* step; it is only the
+timing gate they exceed, and every oracle they carry is intact and measured.
+
 ### OI-7 · `MarketSnapshot` carries a `# fields-exempt` marker — OPEN (taken at tranche 60, 2026-11-19)
 
 **The exemption.** `market/snapshot.py`'s `MarketSnapshot` declares `# fields-exempt:` with its

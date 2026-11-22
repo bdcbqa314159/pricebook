@@ -147,6 +147,13 @@ def _survival_integral(params: HestonParams, years: float, window: float, lower:
     # span only where the integrand actually varies, instead of spending its nodes on a constant.
     total = math.sqrt(a * start + b) - math.sqrt(a * lower + b) if start > lower else 0.0
 
+    # **A vectorised mixture was tried here and was SLOWER — measured, and recorded so it is not
+    # retried blind.** The Poisson weights depend on `(dof, nc)` and not on `x`, so hoisting the
+    # ladder out of the node loop looks like the obvious win (the tranche-53 shape). It is not: the
+    # scalar survival terminates its ladder early *per node*, where a shared one must run until the
+    # **worst** node converges. Bit-identical results, 2.88s -> 3.12s and 3.62s -> 4.44s. The win
+    # would need per-argument early exit, which is a real optimisation and its own unit — it is the
+    # named removal trigger on this file's `slow` exemption (`OPEN.md` OI-8).
     step = (stop - start) / _NODES
     for index in range(_NODES):
         x = start + (index + 0.5) * step

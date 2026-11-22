@@ -42,6 +42,14 @@ No density is needed, nothing is differentiated, and the integrand decays with t
 where `noncentral_chisquare_sf` is accurate rather than where `1 − cdf` collapses to zero.
 """
 
+# slow-test-exempt: the concentrated-law integrals cost ~1.4s each and reaching the quadrature's
+# below-mass analytic branch REQUIRES a high noncentrality, whose mixture is O(sqrt(nc)) per node.
+# Five lossless passes took the VIX tests from 8.99s to 2.97s + 3.60s locally; Windows CI still read
+# 11.5s and 11.1s (a 4x factor, not the 3.3x projected). Trading the node count or the strike counts
+# would be the oracle-trimming §9 forbids, and the one remaining optimisation measured SLOWER. Ledgered
+# as OPEN.md OI-8 with its removal trigger.
+
+
 import math
 from datetime import date, timedelta
 
