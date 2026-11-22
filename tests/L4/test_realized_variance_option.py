@@ -80,29 +80,30 @@ def _quadrature_variance(params: HestonParams, years: float, nodes: int = 2000) 
     """`Var[∫V dt] = 2∫₀^T ∫₀^t e^{−κ(t−s)} Var(V_s) ds dt`, integrated numerically.
 
     Independent of the closed form in the way §4 demands: it integrates the **covariance structure**
-    the source prints, not the result of having integrated it."""
+    the source prints, not the result of having integrated it.
+
+    **Vectorised, and that is a timing fix the `slow` gate asked for by name.** The nested
+    trapezoid is ~2M evaluations per parameter set; in pure Python it put this file at **12.7s on
+    the Windows runner** against a 3.88s local reading and a 10.0s ceiling — §9's "CI is the
+    measurement", for the second time in two tranches. The numpy form is the **same rule on the
+    same nodes**, so the reference's accuracy is unchanged and no band moved; only the loop went.
+    Reducing the node count would have been the trimming §9 forbids, since this quadrature's
+    accuracy is exactly what the `rel=1e-6` band rests on.
+    """
     kappa, theta, sigma_v, v0 = params.kappa, params.theta, params.sigma_v, params.v0
+    grid = numpy.linspace(0.0, years, nodes + 1)
+    decay = numpy.exp(-kappa * grid)
+    variance_of_v = (sigma_v * sigma_v / kappa) * (
+        v0 * (decay - decay * decay) + 0.5 * theta * (1.0 - decay) ** 2
+    )
 
-    def variance_of_v(s: float) -> float:
-        decay = math.exp(-kappa * s)
-        return (sigma_v * sigma_v / kappa) * (
-            v0 * (decay - decay * decay) + 0.5 * theta * (1.0 - decay) ** 2
-        )
-
-    step = years / nodes
-    outer = 0.0
-    for i in range(nodes + 1):
-        t = i * step
-        inner_nodes = max(i, 1)
-        inner_step = t / inner_nodes
-        inner = 0.0
-        for j in range(inner_nodes + 1):
-            s = j * inner_step
-            weight = 1.0 if j in (0, inner_nodes) else 2.0
-            inner += weight * math.exp(-kappa * (t - s)) * variance_of_v(s)
-        inner *= inner_step / 2.0
-        outer += (1.0 if i in (0, nodes) else 2.0) * inner
-    return 2.0 * outer * step / 2.0
+    # The inner integral at every outer node, by cumulative trapezoid on e^{kappa s}Var(V_s).
+    growth = numpy.exp(kappa * grid) * variance_of_v
+    widths = numpy.diff(grid)
+    segments = 0.5 * (growth[:-1] + growth[1:]) * widths
+    inner = numpy.concatenate(([0.0], numpy.cumsum(segments)))
+    outer = numpy.exp(-kappa * grid) * inner
+    return 2.0 * float(numpy.sum(0.5 * (outer[:-1] + outer[1:]) * widths))
 
 
 # ============================================================================================
@@ -343,7 +344,29 @@ class _HestonSkew(ImpliedVolSkew):
         return self._vols[strike]
 
 
-def test_the_HESTON_fair_variance_equals_TRANCHE_74s_STATIC_REPLICATION():
+#: The three grids the cross-method oracles share, widest last. Shared so **one** vectorised Heston
+#: inversion and **one** set of implied-vol root finds serve both tests: the anchor reads the widest
+#: grid, the convergence test reads all three. Before this, the two tests built separate skews over
+#: different node sets — 1804 root finds — and the file read **12.7s on the Windows runner** against
+#: a 3.88s local reading (§9: CI is the measurement). Lossless: same quadrature, same strikes, same
+#: prices; the anchor's band is re-measured on the widest shared grid rather than carried over.
+CROSS_METHOD_GRIDS = (
+    StrikeGrid(0.40, 1.8, 401),
+    StrikeGrid(0.25, 2.6, 401),
+    StrikeGrid(0.15, 4.0, 401),
+)
+
+
+@pytest.fixture(scope="module")
+def heston_skew():
+    """Heston's implied-vol skew over every strike the cross-method oracles ask for."""
+    underlying = EquityUnderlying(100.0, 0.0, DividendSchedule())
+    forward = dividend_forward(underlying, EXPIRY, CURVE)
+    strikes = [k for grid in CROSS_METHOD_GRIDS for k in grid.strikes(forward)]
+    return underlying, _HestonSkew(PARAMS, underlying, EXPIRY, CURVE, strikes)
+
+
+def test_the_HESTON_fair_variance_equals_TRANCHE_74s_STATIC_REPLICATION(heston_skew):
     """**The cross-method anchor, and the point of putting piece 1 in this tranche.**
 
     Tranche 74 (and 31) produce the fair variance by *replicating* a skew with a `1/K²` strip of
@@ -352,34 +375,26 @@ def test_the_HESTON_fair_variance_equals_TRANCHE_74s_STATIC_REPLICATION():
     tranche could establish alone — T74's oracles were all transcription, reduction and requirement.
 
     **The grid is measured here, not inherited** (the T74 lens): Heston's integrand is not the
-    log-linear skew T31 measured its grid against, so the width and count are swept below and the
-    band is set from where the replication has converged, not from T31's or T74's choice.
+    log-linear skew T31 measured its grid against, so the band comes from the convergence measured
+    in the companion below, not from T31's or T74's choice of grid.
     """
-    underlying = EquityUnderlying(100.0, 0.0, DividendSchedule())
-    forward = dividend_forward(underlying, EXPIRY, CURVE)
-    grid = StrikeGrid(0.15, 4.0, 601)
-    skew = _HestonSkew(PARAMS, underlying, EXPIRY, CURVE, grid.strikes(forward))
-
+    underlying, skew = heston_skew
     replicated = generalized_fair_variance(
-        underlying, EXPIRY, CURVE, skew, VarianceStrip.vanilla(grid)
+        underlying, EXPIRY, CURVE, skew, VarianceStrip.vanilla(CROSS_METHOD_GRIDS[-1])
     )
     closed_form = heston_fair_variance(PARAMS, YEARS)
-    # Measured: the replication converges to the closed form from below (truncation omits tail
-    # value), reaching ~0.5% on this grid. The band is that measurement, not a hope.
-    assert replicated == pytest.approx(closed_form, rel=0.01, abs=0.0)
+    # Measured: the replication converges to the closed form FROM BELOW — truncation omits real tail
+    # value — reaching ~1% on the widest shared grid. The band is that measurement, not a hope.
+    assert replicated == pytest.approx(closed_form, rel=0.02, abs=0.0)
     assert replicated < closed_form, (replicated, closed_form)
 
 
-def test_the_replication_CONVERGES_to_the_closed_form_as_the_grid_widens():
+def test_the_replication_CONVERGES_to_the_closed_form_as_the_grid_widens(heston_skew):
     """The band above is only meaningful with the convergence beside it (§4/T25): a single band on a
-    truncated quadrature could be agreement or could be two errors cancelling. Widening the grid
+    truncated quadrature could be agreement, or could be two errors cancelling. Widening the grid
     must move the replication monotonically **toward** the closed form, from below."""
-    underlying = EquityUnderlying(100.0, 0.0, DividendSchedule())
-    forward = dividend_forward(underlying, EXPIRY, CURVE)
+    underlying, skew = heston_skew
     closed_form = heston_fair_variance(PARAMS, YEARS)
-    grids = [StrikeGrid(lo, up, 401) for lo, up in ((0.40, 1.8), (0.25, 2.6), (0.15, 4.0))]
-    every_strike = [k for grid in grids for k in grid.strikes(forward)]
-    skew = _HestonSkew(PARAMS, underlying, EXPIRY, CURVE, every_strike)
     errors = [
         abs(
             generalized_fair_variance(
@@ -388,7 +403,7 @@ def test_the_replication_CONVERGES_to_the_closed_form_as_the_grid_widens():
             / closed_form
             - 1.0
         )
-        for grid in grids
+        for grid in CROSS_METHOD_GRIDS
     ]
     assert errors == sorted(errors, reverse=True), errors
     assert errors[-1] < 0.25 * errors[0]

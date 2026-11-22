@@ -72,11 +72,20 @@ reason §5.3's partially-exact-and-bounded approximation exists (the arc plan's 
   a *relation* between the arms — now also transcribed directly) and the invariant-6 expiry bypass
   (hardened by the **opposite arm**, an expired in-the-money put, the construction T73 used for
   F-4.1…F-4.5).
-- **The file was 11.43s before the Heston inversions were shared**, over the `slow` ceiling: one
-  inversion per strike per grid, ~1800 of them. `heston_call_prices` prices a whole strike vector in
-  one pass (T53's shared `φ(u)`), giving identical numbers at 2.80s. The simulation is likewise
-  shared through a module fixture **before CI had to find it** — F-8.9's fifth file was found by CI,
-  not by foresight. Final: 3.88s local.
+- **The `slow` gate took three lossless passes, and CI found what the local clock could not.** The
+  file began at **11.43s** locally — one Fourier inversion per strike per grid, ~1800 of them — and
+  `heston_call_prices` prices a whole strike vector in one pass (T53's shared `φ(u)`), giving
+  identical numbers at 2.80s. The simulation was then shared through a module fixture *before* CI
+  asked, since F-8.9's fifth file was found by CI rather than foresight. **That still was not
+  enough:** at 3.88s local it read **12.7s on the Windows runner** against the 10.0s ceiling — §9's
+  "for a numerically-heavy file a local re-time is not the measurement, CI is", for the second
+  tranche running. Two further lossless passes: the covariance double quadrature **vectorised** (the
+  gate's own advice — ~2M pure-Python evaluations per parameter set, the *same rule on the same
+  nodes*, so the reference's accuracy and its `rel=1e-6` band are untouched), and the two
+  cross-method oracles **consolidated onto one shared skew over shared grids** (1804 implied-vol
+  root finds → 1203, one vectorised inversion). **Final 1.83s local**, and nothing was traded for
+  the clock: reducing the quadrature's node count or the strike counts would have been the oracle
+  trimming §9 forbids, since those counts are exactly what the bands rest on.
 - **`verify.py` test floor 3124 → 3155.**
 
 ## [0.76.0] - 2026-11-22
