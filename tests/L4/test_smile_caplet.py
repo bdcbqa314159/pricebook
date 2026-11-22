@@ -139,15 +139,21 @@ def test_the_BACHELIER_caplet_matches_the_p147_transcription(forward, strike, st
     # Reconciled across `-raw` and `-layout` of pdf p.157 (book p.147). The second term is written
     # in the source's own shape, not as `s*phi(d1)`, so this does not restate `norm_pdf`.
     accrual, df_pay = 0.4932, 0.94
-    d1 = (forward - strike) / stdev
+    unit = _period(forward, df_pay, accrual)
+    # The RECOVERED forward, not the nominal one — the helper's round trip is ~1e-14 relative, and
+    # the engine prices what `forward_rate()` returns. Reading it back is reading an INPUT to the
+    # transcription, not the answer (see the note on `_period`). With the nominal forward this
+    # reference disagreed by 3.0e-14 at the 2.8%/3.1% case and **5.6e-13** deep out of the money,
+    # where the two terms cancel — a gap that was invisible until `abs=0.0` removed `pytest.approx`'s
+    # 1e-12 absolute floor (F-8.6). Pricing the same forward makes the transcription EXACT.
+    recovered = unit.forward_rate()
+    d1 = (recovered - strike) / stdev
     want = accrual * df_pay * (
-        (forward - strike) * norm_cdf(d1)
+        (recovered - strike) * norm_cdf(d1)
         + (stdev / math.sqrt(2.0 * math.pi)) * math.exp(-0.5 * d1 * d1)
     )
-    got = bachelier_caplet(
-        _period(forward, df_pay, accrual), strike, stdev * stdev, CapFloorKind.CAP
-    )
-    assert got == pytest.approx(want, rel=1e-14), (got, want)
+    got = bachelier_caplet(unit, strike, stdev * stdev, CapFloorKind.CAP)
+    assert got == pytest.approx(want, rel=1e-14, abs=0.0), (got, want)
 
 
 @pytest.mark.parametrize("forward,strike,stdev", BACHELIER_CASES)
@@ -184,14 +190,15 @@ def test_the_DISPLACED_caplet_matches_the_p151_transcription(forward, strike):
     accrual, df_pay, years = 0.4932, 0.94, 1.7
     variance = LOGNORMAL_VOL * LOGNORMAL_VOL * years
     root = math.sqrt(variance)
-    shifted_f, shifted_k = forward + SHIFT, strike + SHIFT
+    unit = _period(forward, df_pay, accrual)
+    shifted_f, shifted_k = unit.forward_rate() + SHIFT, strike + SHIFT
     d_plus = (math.log(shifted_f / shifted_k) + 0.5 * variance) / root
     d_minus = d_plus - root
     want = accrual * df_pay * (shifted_f * norm_cdf(d_plus) - shifted_k * norm_cdf(d_minus))
     got = displaced_caplet(
         _period(forward, df_pay, accrual), strike, variance, SHIFT, CapFloorKind.CAP
     )
-    assert got == pytest.approx(want, rel=1e-14), (got, want)
+    assert got == pytest.approx(want, rel=1e-14, abs=0.0), (got, want)
 
 
 # ============================================================================================
@@ -246,7 +253,10 @@ def test_DISPLACED_put_call_parity(forward, strike):
     cap = displaced_caplet(unit, strike, variance, SHIFT, CapFloorKind.CAP)
     floor = displaced_caplet(unit, strike, variance, SHIFT, CapFloorKind.FLOOR)
     want = accrual * df_pay * (unit.forward_rate() - strike)
-    assert cap - floor == pytest.approx(want, rel=1e-13)
+    # A difference of equals at the at-the-money case, where `want` is ~1e-17 — so a relative
+    # band is meaningless there (T55) and the omitted `abs` was silently supplying 1e-12
+    # (F-8.6). Stated as an absolute band against the price scale (~1e-3) instead.
+    assert cap - floor == pytest.approx(want, rel=1e-13, abs=1e-18)
 
 
 @pytest.mark.parametrize("forward,strike", DISPLACED_CASES)

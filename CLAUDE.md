@@ -556,12 +556,22 @@ not an oracle. Ruled principles:
   3069 tests** — in the very test whose docstring cited *"relative, not absolute — tranche 20a"* and whose
   next line wrote the absolute band by omission; against a true survival of `8.7e-32` the effective tolerance
   was `1e-12`, so `0.0` matched. Pin **`abs=0.0`** to get the relative band the rule requires (it took the
-  survival site `0 → 7` killers, the unmutated code still exact to `1e-11` relative at `3e-148`). The blind
-  subset is **tails and differences-of-equals** (357 `approx(…, rel=…)` sites tree-wide, 10 pinning
-  `abs=0.0`); for an expected that is `O(1e-4)+` the floor is looseness, not blindness. Not statically
-  gateable — whether an expected can fall below `1e-12` is dynamic (§9's boundary) — so it is the mutation
-  sweep's job plus this note. *(F-8.6, re-audit #8: the one blind oracle the short-rate arc shipped, in the
-  tranche built to prevent exactly it.)*
+  survival site `0 → 8` killers suite-wide — 7 of them inside the primitive's own file — with the
+  unmutated code still exact to `1e-11` relative at `3e-148`). **The blind
+  condition is `rel·|x| < 1e-12`, not "x is a tail"** — the floor bites wherever the relative band it should
+  give is tighter than the absolute floor it actually gives, which is a tail OR **a tight `rel` on a moderate
+  value** (a `rel=1e-14` claim on a `1e-4` quantity is floored four orders looser than it reads — the band is
+  blind to any error between `1e-18` and `1e-12`). **Audit mechanically, not by eye** (the F-7.1 two-parsers
+  rule): a one-off plugin that wraps `approx` and flags every call whose expected can reach the floor without
+  an explicit `abs` found **14 sites tree-wide, 6 hiding real relative error, 4 of those not tails** — two
+  were test references pricing the wrong forward (now exact), the rest floating-point composition/cancellation
+  carrying **measured** bands with the cause named, not one blanket loosening (that would be the §9
+  oracle-trimming). Resolve **per site**; re-run the same plugin to confirm **zero blind sites** rather than
+  asserting it. Not statically gateable — whether an expected falls below the floor is dynamic (§9's boundary)
+  — so it is the mutation sweep's job plus this note. *(F-8.6, re-audit #8, its true domain found at the T73
+  remediation: the §8 "characterise severity by sweeping the domain, not one sample" rule applied to a blind
+  oracle. The OI-3 `norm_cdf` defect itself was **not** re-introducible — T20c's oracle fails 9 tests on the
+  cancelling form; this is a harness-floor blindness beside it, not a reopening.)*
   **And a reference's regime error can hide as a convergence *plateau* rather than a value mismatch —
   so the convergence RATE is the detector a flat band misses.** Give each home-grown reference an
   explicit **validity regime** and assert the references agree only where both hold. *(T25: an EPE

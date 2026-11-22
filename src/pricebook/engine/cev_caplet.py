@@ -50,6 +50,7 @@ from __future__ import annotations
 
 import math
 
+from pricebook.engine.cap_strip import price_cap_strip
 from pricebook.engine.registry import register
 from pricebook.foundation.inflation import CapFloorKind
 from pricebook.foundation.money import Money
@@ -155,26 +156,16 @@ def cev_caplet(
 
 @register(NominalCap, CevModel)
 def price_cev_cap(cap: NominalCap, model: CevModel) -> PricingResult | PricingFailure:
-    """Sum the CEV caplet over the strip's remaining periods."""
-    market = model.market
-    currency = cap.notional.currency
+    """Value each live period under CEV, over the strip walk shared with the smile engines.
 
-    # Invariant 6: an already-paid period is the shell's business, checked before any market lookup.
-    periods = [p for p in cap.schedule.periods() if not is_historical(p[1], market.valuation_date)]
-    if not periods:
-        return PricingResult(pv=Money(0.0, currency))
+    **`ArithmeticError` is in the exception set and that is load-bearing.** `cev_call` refuses an
+    unaffordable chi-squared mixture rather than returning a plausible intrinsic, and §3 says that
+    refusal must reach the caller as a `PricingFailure` rather than as a traceback out of a
+    registered pricer. The shared walker has no default set, so this cannot be dropped silently."""
+    variance_rate = model.vol * model.vol
+    beta = model.beta
 
-    try:
-        curve = market.curves.discount(currency)
-        measure = curve.time_measure
-        total = 0.0
-        for start, pay, accrual in periods:
-            unit = CapletPeriod(curve.df(start), curve.df(pay), accrual)
-            variance = model.vol * model.vol * measure.year_fraction(start)
-            total += cap.notional.amount * cev_caplet(
-                unit, cap.strike, variance, model.beta, cap.kind
-            )
-    except (KeyError, ArithmeticError) as exc:
-        return PricingFailure(f"cannot price the cap: {exc}")
+    def value(unit: CapletPeriod, years: float) -> float:
+        return cev_caplet(unit, cap.strike, variance_rate * years, beta, cap.kind)
 
-    return PricingResult(pv=Money(total, currency))
+    return price_cap_strip(cap, model.market, value, (KeyError, ArithmeticError))

@@ -63,3 +63,29 @@ tier is ruled; the oracle-able identities it leans on (the CVA/DVA/FVA closed fo
 balance-sheet identities) are the *spine* and are built, and the oracle-able-but-unpulled routes
 (static KVA, collateral/CSA, CDS/defaultable-bond calibration) are `to_go_deeper`. Fixed at the arc
 checkpoint `CP_xva_spine.md`.
+
+
+## `MCINERNEY-ZASTAWNIAK` — *Stochastic Interest Rates* (the single-curve short-rate arc: T66–T72)
+
+### §8.5 — the stochastic-volatility smile (candidate, re-binned at re-audit #8)
+
+**Why it is here and not in `to_go_deeper`.** §1's two-bin test is the **oracle gate**, and §8.5
+offers **no closed form** — it is SABR-adjacent, and the section's content is the dynamics plus a
+qualitative discussion. A capability with no closed form, no cross-check and no requirement identity
+to pin it cannot pass §4 as the method stands, which makes it a **candidate for a deliberate §4
+extension** (a statistical/stochastic-oracle tier) rather than a route that comes back under the same
+method. Recorded as a candidate; **ruled on only if interest ever pulls that way**, never built under
+§4 as it stands.
+
+**How it got mis-binned, which is the part worth recording.** T72's spec, the arc checkpoint and
+`references.md`'s chapter table all called it a `to_go_deeper` route — three artifacts agreeing, none
+of them against §1's actual test. The checkpoint even half-named the right answer ("the arc's
+`out_of_method` candidate") while listing it under "Deferred to `to_go_deeper`". The bins are the
+method's own distinction, so getting them wrong is not a filing error: a `to_go_deeper` entry is a
+promise that the thing *is* oracle-able and merely unpulled, and this one is not.
+
+**What would change it** — the third column every decision owes: acquiring a source that prints a
+**closed-form or asymptotic approximation** for the stochastic-vol smile (Hagan's SABR expansion is
+the obvious one). That would move it straight to `to_go_deeper`, because then there is a formula to
+transcribe and a limit to reduce to, and the oracle gate is passable. Absent that, the §4 extension
+is the only route and it is Bernardo's and Cowork's to rule, not a build's.

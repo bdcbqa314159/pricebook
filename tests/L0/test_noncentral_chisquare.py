@@ -49,7 +49,7 @@ CASES = (
 def test_the_CDF_matches_scipy_RELATIVELY(x, dof, nc):
     want = scipy_stats.ncx2.cdf(x, dof, nc)
     got = noncentral_chisquare_cdf(x, dof, nc)
-    assert got == pytest.approx(want, rel=1e-11), (got, want)
+    assert got == pytest.approx(want, rel=1e-11, abs=0.0), (got, want)
 
 
 @pytest.mark.parametrize("x,dof,nc", CASES)
@@ -58,14 +58,14 @@ def test_the_SURVIVAL_matches_scipy_RELATIVELY_including_the_deep_tail(x, dof, n
     # error gets where the true value is ~0, which is the whole upper tail.
     want = scipy_stats.ncx2.sf(x, dof, nc)
     got = noncentral_chisquare_sf(x, dof, nc)
-    assert got == pytest.approx(want, rel=1e-11), (got, want)
+    assert got == pytest.approx(want, rel=1e-11, abs=0.0), (got, want)
 
 
 @pytest.mark.parametrize("x", (100.0, 200.0, 400.0, 800.0))
 def test_the_survival_is_NATIVE_because_one_minus_the_cdf_is_destroyed_there(x):
     # Both halves, so the design is proved necessary and not assumed (tranche 15).
     want = scipy_stats.ncx2.sf(x, 4.0, 5.0)
-    assert noncentral_chisquare_sf(x, 4.0, 5.0) == pytest.approx(want, rel=1e-11)
+    assert noncentral_chisquare_sf(x, 4.0, 5.0) == pytest.approx(want, rel=1e-11, abs=0.0)
     complement = 1.0 - noncentral_chisquare_cdf(x, 4.0, 5.0)
     assert abs(complement - want) > 0.01 * want, (
         f"at x={x} the complement is supposed to be ruined; if it is not, this fixture no longer "
@@ -89,7 +89,7 @@ def test_a_ZERO_noncentrality_is_the_CENTRAL_chi_squared(x, dof):
         scipy_stats.chi2.cdf(x, dof), rel=1e-12
     )
     assert noncentral_chisquare_sf(x, dof, 0.0) == pytest.approx(
-        scipy_stats.chi2.sf(x, dof), rel=1e-12
+        scipy_stats.chi2.sf(x, dof), rel=1e-12, abs=0.0
     )
 
 

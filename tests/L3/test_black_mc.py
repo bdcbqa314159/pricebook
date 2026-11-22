@@ -119,7 +119,7 @@ def test_at_ZERO_variance_the_simulation_IS_the_intrinsic_exactly():
     for kind in CapFloorKind:
         out = black_mc_price(F, K, 0.0, kind, MonteCarloConfig(paths=1_000, seed=9))
         intrinsic = black_price(F, K, 0.0, kind)
-        assert out.mean == pytest.approx(intrinsic, rel=1e-14)
+        assert out.mean == pytest.approx(intrinsic, rel=1e-14, abs=0.0)
         assert out.standard_error == pytest.approx(0.0, abs=1e-15)
 
 

@@ -183,7 +183,7 @@ HW), ch 4 (the HJM framework), ch 8 (the volatility-smile short-rate models). Ar
 | 3.7 | **two-factor Hull–White (G2++)** | new; reduces to 1F HW, reuses `linalg` Cholesky (T63) |
 | 4.1–4.5 | **the HJM forward-rate framework** (1-factor + drift condition, Gaussian, multi-factor, calibration) | new; **Gaussian HJM reduces to Hull–White** exactly |
 | 8.1–8.4 | **volatility-smile short-rate models** — Normal/Bachelier, CEV, displaced-diffusion | new; extend the Black caplet to the smile; closed-form or semi-closed |
-| 8.5 | stochastic volatility | `to_go_deeper` (SABR-adjacent, harder to oracle) |
+| 8.5 | stochastic volatility | **`out_of_method` candidate** — the section offers no closed form, so it cannot pass §4's oracle gate as the method stands; **not** come-back-same-method debt (re-binned at re-audit #8, F-8.1) |
 | 5–6 | LMM / SMM | **held** (BERHAN MM-I + the Jäckel arc) — a second source, not rebuilt |
 | 7 | exotic IR products (CMS, range accruals, trigger swaps, ratchet floaters) | `to_go_deeper` unless pulled |
 

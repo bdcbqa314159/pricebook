@@ -304,7 +304,7 @@ def test_T17_a_NON_UNIFORM_correlation_is_read_at_the_RIGHT_pair():
     model = LiborMarketModel(TENOR, rho, numeraire_index=2)
     for index in range(len(TENOR)):
         expected = _reference_drift_matrix(index, 2, rho.matrix)
-        assert model.drift(index) == pytest.approx(expected, rel=1e-13)
+        assert model.drift(index) == pytest.approx(expected, rel=1e-13, abs=0.0)
 
     # Non-degeneracy asserted as a PREMISE: if the fixture were flat this test would be vacuous.
     off_diagonal = {rho.matrix[i][j] for i in range(len(TENOR)) for j in range(len(TENOR)) if i != j}

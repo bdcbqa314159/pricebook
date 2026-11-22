@@ -450,7 +450,8 @@ def test_put_call_PARITY(forward, strike, variance, beta):
     cap = cev_caplet(unit, strike, variance, beta, CapFloorKind.CAP)
     floor = cev_caplet(unit, strike, variance, beta, CapFloorKind.FLOOR)
     want = accrual * df_pay * (unit.forward_rate() - strike)
-    assert cap - floor == pytest.approx(want, rel=1e-9)
+    # A difference of equals at the at-the-money case (T55/F-8.6) — see the smile-caplet twin.
+    assert cap - floor == pytest.approx(want, rel=1e-9, abs=1e-18)
 
 
 @pytest.mark.parametrize("forward,strike", ((0.05, 0.03), (0.05, 0.07)))

@@ -6,6 +6,118 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.75.0] - 2026-11-22
+
+### Added / Changed — tranche 73, re-audit #8 remediation
+
+One tranche for all of re-audit #8 (the T59 precedent). The sweep ran **68 applied / 63 killed / 5
+survived**; this closes every finding it produced.
+
+#### F-8.6 — the real blind oracle, and the audit found thirteen more sites than reported
+
+`pytest.approx(x, rel=r)` uses `max(r·|x|, 1e-12)`, not a relative band — so in a tail a `rel=` claim
+is **secretly absolute**, and a returned **exactly 0.0** passes. The mutation restoring the T20a/OI-3
+defect (computing a survival as `1 − cdf`) therefore survived all 3069 tests, inside the very test
+whose docstring cites tranche 20a. Charter clause added at §4's T20a bullet.
+
+**The blind subset was audited mechanically, not by eye** (the F-7.1 lesson): a one-off plugin wrapped
+`pytest.approx` and recorded every call whose expected value could fall at or below the floor without
+an explicit `abs`. **Fourteen sites**, not one — and pinning `abs=0.0` on them showed **six were
+hiding real relative error**:
+
+| site | what the floor was covering |
+|---|---|
+| ncx2 native survival | a survival of **exactly 0.0** against a 8.7e-32 truth — the blind oracle |
+| CVA `expected_positive_exposure` | 1.6e-12 relative at ratio −10, genuine cancellation in `m·Φ + s·φ` |
+| Bachelier transcription ×2 | the test's reference priced the **nominal** forward where the engine prices the recovered one — 3.0e-14, and **5.6e-13** deep out of the money |
+| displaced-diffusion transcription | the same cause, 4.9e-14 |
+| Hull-White caplet ×2 | 1.7e-13 and **4.0e-12** between two independent compositions |
+| Black transcription | **1.35e-11** at a price of 3.5e-29, where `F·Φ − K·Φ` cancels away every digit |
+
+Four of those are **not tails at all** — they are `O(1e-4)` values whose true error merely exceeds
+their *stated* tolerance, which the 1e-12 absolute floor silently covered. Resolved per site rather
+than by one blanket loosening: the two transcriptions now price the forward the engine prices (exact,
+rel 0.0); the composition and cancellation cases carry **measured** bands with the cause named; Black
+carries **two** measured regimes so the tight claim survives where it is true. The five
+structurally-**zero** sites were measured to return exactly 0.0, so `abs=0.0` is both honest and
+tightest there; the two near-zero **parity** checks get an absolute band against the price scale
+(T55 — a difference of equals has nothing to be relative to). **Re-audit after the fixes: zero blind
+sites**, verified by re-running the same instrument that found them. The ncx2 survival defect goes
+**0 → 8 killers**.
+
+*(Checked and not claimed: the OI-3 `norm_cdf` defect itself was **not** re-introducible — it already
+failed 9 tests before this tranche. T20c's oracle was sound; the pin adds one more killer.)*
+
+#### F-8.3 — second killers for five previously-shipped holes (the highest-value item)
+
+F-4.1…F-4.5 — the expired-option bypasses shipped before re-audit #4 and remediated at T45 — each had
+**exactly one** killer, and §9 says an oracle guarding a previously-shipped hole especially wants a
+second (the rule F-1.2 got at T37 and these never did). **Worse than first reported: `yoy.py:138` and
+`:154` shared the same single test**, so deleting one test reopened *two* shipped holes.
+
+One killer is not inherent here, which is what separates these from the standing table's "guards, one
+condition each" rows: a refusal *raises*, so any test asserting the raise kills a drop — these return
+PV 0, and the fall-through intrinsic can **equal** it, so the killer must be a specifically
+**in-the-money** expired fixture. Each second killer is independent **by construction**, not by
+parameter: the **opposite arm** for the two equity engines (an expired ITM *put*, non-degenerate
+exactly where a call's fixture is zero — T72's cap/floor pattern), and for the CDS swaption the
+opposite **direction** plus the `<=` **boundary** (an expiry falling exactly on the valuation date,
+which a strictly-past fixture cannot discriminate). The two YoY sites get a test each, asserting a
+**truncation identity** — the straddling leg equals the leg of a swap whose schedule holds only the
+live periods — so neither reads the other's reference. **All five measured 1 → 2; the sweep reports
+no single-killers.**
+
+#### F-8.2 — the sweep instrument survives a kill
+
+Its `finally` restore does not survive SIGTERM, which stranded a mutation **twice in one sitting** —
+once `engine/commodity_asian.py`, once **`foundation/sobol.py`'s Gray code**, the core recurrence of
+the quasi-random spine, silently wrong in the working tree. Three layers now: the per-mutation
+`finally`, a **signal-handled restore** (SIGTERM/SIGINT → restore → re-raise, so the process still
+dies with the signal it was sent), and a **tree-digest assertion** that refuses to return a verdict
+from a tree left mutated. The end-to-end test sends a **real signal to a real child**, because that
+is the path that failed and a unit test of the handler would not have caught it. It is
+**platform-aware rather than skipped**: on Windows `send_signal(SIGTERM)` is `TerminateProcess` and no
+handler can run, so the digest assertion is the only guard there and the test says so — the tree has
+carried **zero** suppressions since v0.6.0 and a conditional skip would have both broken that and
+hidden the limitation.
+
+#### F-8.4 / F-8.1 / F-8.5 / F-8.7 / F-8.8
+
+- **`VasicekParams.long_run_mean` deleted** — zero consumers in `src/` *or* `tests/`, §4's third
+  survivor kind. The `theta`-vs-`theta/alpha` warning it carried already lives in the class docstring.
+- **ch-8.5 re-binned to `out_of_method` as a candidate.** §1's test is the oracle gate, and the
+  section prints no closed form — so it is a §4-extension question, **not** come-back-same-method
+  debt. Three artifacts had called it a `to_go_deeper` route; `references.md`'s row pointed *at* a bin
+  the route was not in. The arc's other T71/T72 routes were transcribed into `to_go_deeper.md`, which
+  held **none** of them. What would change the bin is recorded: a source printing a closed-form or
+  asymptotic approximation (Hagan's SABR expansion).
+- **F-8.5** a non-probe, **F-8.7** a proved equivalent mutant (bit-identical over 588 combinations),
+  **F-8.8** the full tree clean — and the T71 L0 promotion *strengthened* T25 (59 and 52 killers).
+
+#### C16 — the strip walk extracted, and the convention becomes GUARDED
+
+`engine/cap_strip.price_cap_strip` is now the one walk the three smile-family pricers share: it
+partitions by the valuation date, reads the curve, builds each `CapletPeriod`, and hands a valuation
+the **fixing-date horizon** — computed once. That is the structural guard C16 has lacked since T71: a
+valuation is **never handed a payment date**, so it cannot read the wrong one, and C16 flips
+**per-module → guarded**.
+
+**Scope measured, not assumed.** Three consumers, not eight. Hull-White stays separate — its quantity
+is a *bond-option* variance over two dates, so there is no shared value to extract — and remains
+per-module, which is the honest residue. `capfloor` and `yoy` take different payoffs, so a common
+walker would need a protocol over products sharing the word "leg" and not its content (§6).
+**Each caller's exception set is a required parameter with no default**, because `cev_caplet`'s
+`ArithmeticError` is the one a careless merge drops silently, turning a `PricingFailure` into a
+traceback out of a registered pricer. **Purity: bit-identical** across all 54
+`(periods × strike × kind × model)` combinations — the T12(a) proof, available because no operation
+order moved.
+
+### Notes
+
+- **`verify.py` test floor 3069 → 3090.**
+- One charter clause (§4, F-8.6's `pytest.approx` floor), ratified with re-audit #8's rulings.
+- The slow-budget margin (F-8.9) is **not** in this tranche — it is Bernardo's §9 call.
+
 ## [0.74.0] - 2026-11-21
 
 ### Added — tranche 72, the CEV smile model (the single-curve short-rate arc capstone)

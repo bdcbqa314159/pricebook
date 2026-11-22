@@ -111,12 +111,6 @@ class VasicekParams:
         if self.sigma < 0.0:
             raise ValueError(f"volatility cannot be negative, got {self.sigma}")
 
-    @property
-    def long_run_mean(self) -> float:
-        """`theta/alpha` - the level the short rate reverts to, named so a caller cannot mistake
-        `theta` for it."""
-        return self.theta / self.alpha
-
 
 @dataclass(frozen=True)
 class MertonParams:
