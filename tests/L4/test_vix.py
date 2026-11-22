@@ -83,9 +83,17 @@ N = Money(1_000.0, EUR)
 
 
 def _simulate_terminal_variance(
-    params: HestonParams, years: float, paths: int = 300_000, steps: int = 1200
+    params: HestonParams, years: float, paths: int = 150_000, steps: int = 600
 ) -> "numpy.ndarray":
-    """`V_T` by full-truncation Euler — the independent law the closed forms are checked against."""
+    """`V_T` by full-truncation Euler — the independent law the closed forms are checked against.
+
+    **The path and step counts are measured, not chosen round.** Against the closed-form future:
+    300k x 1200 costs 1.76s for a bias of −0.011% and `SE/mean = 0.0010`; **150k x 600 costs 0.45s**
+    for a bias of **+0.073%** and `SE/mean = 0.0014`. The band below is `4*SE + 0.5%`, so the bias
+    sits seven times inside its own term and the standard error stays under the **0.002** resolution
+    premise this file asserts. Nothing was traded for the clock — a configuration whose bias broke
+    the band or whose SE broke the premise would have been the trimming §9 forbids; this one breaks
+    neither, and the numbers are here so the next reader can check that rather than trust it."""
     rng = numpy.random.default_rng(20261123)
     step = years / steps
     root = math.sqrt(step)
@@ -162,12 +170,12 @@ def test_the_OPTION_matches_the_simulated_expectation(strike: float, terminal_va
     assert abs(got - mean) < 4.0 * standard_error + 0.01 * mean, (got, mean, standard_error)
 
 
-def test_the_simulation_RESOLVES_the_quantities_it_is_judging():
+def test_the_simulation_RESOLVES_the_quantities_it_is_judging(terminal_variance):
     # The band-resolution premise: at 300k paths the SE must be small against the value, else the
-    # agreement above asserts only that both numbers are noisy.
-    sample = _simulate_terminal_variance(PARAMS, MATURITY_YEARS, paths=300_000, steps=1200)
+    # agreement above asserts only that both numbers are noisy. Reads the SHARED draws — a second
+    # simulation here cost 1.75s and asserted the same thing about different noise.
     a, b = vix_affine_coefficients(PARAMS, WINDOW)
-    vix = numpy.sqrt(a * sample + b)
+    vix = numpy.sqrt(a * terminal_variance + b)
     relative_error = float(vix.std(ddof=1)) / math.sqrt(vix.size) / float(vix.mean())
     assert relative_error < 0.002, relative_error
 
@@ -209,11 +217,16 @@ def test_the_OPTION_is_monotone_in_the_strike_and_obeys_PARITY():
         for k in (0.15, 0.22, 0.30, 0.45)
     ]
     assert values == sorted(values, reverse=True), values
+    # **Parity here is a TAUTOLOGY, labelled rather than presented as evidence** (T70): the put is
+    # computed *from* parity (`call - (future - strike)`), so `call - put` is the forward difference
+    # by construction. It is kept as a guard that the two arms stay wired to one quadrature — it
+    # fails the day someone integrates the put separately — and the correctness of both arms rests
+    # on the simulation oracles above, not on this.
+    future = vix_future_value(PARAMS, MATURITY_YEARS, WINDOW)
     for strike in (0.18, 0.28, 0.40):
         call = vix_option_value(PARAMS, MATURITY_YEARS, WINDOW, strike, CapFloorKind.CAP)
         put = vix_option_value(PARAMS, MATURITY_YEARS, WINDOW, strike, CapFloorKind.FLOOR)
-        future = vix_future_value(PARAMS, MATURITY_YEARS, WINDOW)
-        assert call - put == pytest.approx(future - strike, rel=1e-6, abs=1e-12)
+        assert call - put == pytest.approx(future - strike, rel=1e-12, abs=1e-15)
 
 
 # ============================================================================================
@@ -290,3 +303,67 @@ def test_a_MISSING_discount_curve_is_a_PricingFailure_for_the_option():
     bare = HestonModel(MarketSnapshot(valuation_date=VAL, curves=CurveSet({})), PARAMS)
     out = price(VixOption(MATURITY, WINDOW, 0.25, N, CapFloorKind.CAP), bare)
     assert isinstance(out, PricingFailure), out
+
+
+def test_both_PVs_scale_LINEARLY_in_the_notional():
+    """The notional scaling's second independent killer — a homogeneity requirement, so it holds for
+    every parameter set and needs no reference price."""
+    doubled = Money(2.0 * N.amount, EUR)
+    for product, twin in (
+        (VixFuture(MATURITY, WINDOW, N), VixFuture(MATURITY, WINDOW, doubled)),
+        (
+            VixOption(MATURITY, WINDOW, 0.25, N, CapFloorKind.CAP),
+            VixOption(MATURITY, WINDOW, 0.25, doubled, CapFloorKind.CAP),
+        ),
+    ):
+        one = price(product, _model())
+        two = price(twin, _model())
+        assert isinstance(one, PricingResult) and isinstance(two, PricingResult)
+        assert two.pv.amount == pytest.approx(2.0 * one.pv.amount, rel=1e-15, abs=0.0)
+        assert one.pv.amount > 0.0
+
+def test_the_OPTIONS_discount_is_visible_at_a_ZERO_rate_versus_a_positive_one():
+    """The option's discounting, killed a second way — by the *rate* rather than by a reference.
+
+    At a zero rate the discounted and undiscounted values coincide; at a positive rate the PV must
+    be strictly smaller, by exactly the discount factor. A pricer that forgot to discount passes the
+    first and fails the second, and neither reads a reference price.
+    """
+    strike = 0.25
+    option = VixOption(MATURITY, WINDOW, strike, N, CapFloorKind.CAP)
+    undiscounted = N.amount * vix_option_value(
+        PARAMS, MATURITY_YEARS, WINDOW, strike, CapFloorKind.CAP
+    )
+
+    flat_zero = HestonModel(
+        MarketSnapshot(
+            valuation_date=VAL,
+            curves=CurveSet({DISCOUNT_KEY: DiscountCurve.flat(VAL, 0.0, DC)}),
+        ),
+        PARAMS,
+    )
+    at_zero = price(option, flat_zero)
+    assert isinstance(at_zero, PricingResult)
+    assert at_zero.pv.amount == pytest.approx(undiscounted, rel=1e-14, abs=0.0)
+
+    at_rate = price(option, _model())
+    assert isinstance(at_rate, PricingResult)
+    assert at_rate.pv.amount < 0.98 * undiscounted
+
+def test_the_FUTURES_PRICE_matches_the_simulation_THROUGH_THE_ENGINE(terminal_variance):
+    """The notional scaling's second independent killer, and the first one was not one at all.
+
+    `test_both_PVs_scale_LINEARLY_in_the_notional` asserts `PV(2N) = 2·PV(N)` — a *homogeneity*
+    requirement that a **uniform** scaling error satisfies perfectly, so it never discriminated the
+    halving the sweep planted. This does: the engine's price per unit notional is compared to the
+    independent simulation, so the path runs through `price(...)` rather than through
+    `vix_future_value`, and any constant the pricer applies has to be 1.
+    """
+    out = price(VixFuture(MATURITY, WINDOW, N), _model())
+    assert isinstance(out, PricingResult), out
+    per_unit = out.pv.amount / N.amount
+
+    a, b = vix_affine_coefficients(PARAMS, WINDOW)
+    simulated = numpy.sqrt(a * terminal_variance + b)   # the SHARED draws, not a second run
+    standard_error = float(simulated.std(ddof=1)) / math.sqrt(simulated.size)
+    assert abs(per_unit - float(simulated.mean())) < 4.0 * standard_error + 0.005 * per_unit
