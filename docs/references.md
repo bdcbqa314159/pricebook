@@ -551,7 +551,7 @@ prints a transcribable method with a reachable anchor (the T72 lesson — a chap
 cite it as a *second* source for the relevant section; it flips to `worked-from` only when a `src/` module
 cites it.
 
-### `KWOK-ZHENG` — `in-hand`
+### `KWOK-ZHENG` — `worked-from`
 
 Kwok, Y. K. & Zheng, W., *Pricing Models of Volatility Products and Exotic Variance Derivatives*, Chapman &
 Hall/CRC Financial Mathematics Series. 283 pp. Held at `_stock/NewDocuments/Pricing Models of Volatility
@@ -582,6 +582,14 @@ Heston char function (T33) and the T62 moment-approximation+MC-companion discipl
 `docs/vol_derivatives_arc.md`; queue T74 (generalized variance swaps) → T75 (options on realized variance) →
 T76 (VIX derivatives) → T77 (3/2-model variance swap) → T78 (time-changed Lévy + discrete-vs-continuous
 convergence) → T79 (timer options).
+
+**Status `worked-from`** since tranche 74 (v0.76.0): §1.4's Proposition 1.2 (the gamma swap,
+eq 1.24) and eq (1.26) (the corridor variance swap) are transcribed and oracled in
+`engine/variance_replication.py`; §1.3's two payoffs in `products/generalized_variance_swap.py`.
+**One correction to the arc plan, recorded here because it will mislead the next reader otherwise:**
+the static replication of the generalized swaps is **§1.4**, not ch 4.3 — ch 4.3 is *Moment
+generating function methods*, a model-based route (the Heston MGF) that T75/T76 will use. The T74
+spec cited ch 4.3 for the replication; the build read §1.4.
 
 ### `OVERHAUS-2002` — `in-hand` (a second equity source; the weakest of the shelf)
 
