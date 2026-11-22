@@ -51,12 +51,14 @@ silently mutating whatever has moved there.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import re
 import shutil
+import signal
 import subprocess
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -255,6 +257,86 @@ def _invalidate_bytecode(root: Path) -> None:
         shutil.rmtree(cache, ignore_errors=True)
 
 
+#: Files mutated right now, mapped to their original text, so a SIGNAL HANDLER can put them back.
+#: A mapping rather than one slot because losing an entry is the whole failure being guarded against.
+_PENDING: dict[Path, str] = {}
+
+
+def _restore_pending() -> None:
+    """Put every live mutation back and empty the registry. Safe to call twice."""
+    for path, original in list(_PENDING.items()):
+        try:
+            path.write_text(original, encoding="utf-8")
+        finally:
+            _PENDING.pop(path, None)
+
+
+@contextlib.contextmanager
+def _pending_restores(path: Path, original: str) -> Iterator[None]:
+    """Hold `path`'s original text in the registry for as long as it is mutated.
+
+    The `finally` restore below is the normal path; the registry exists so the *abnormal* path — a
+    signal — has something to restore from."""
+    _PENDING[path] = original
+    try:
+        yield
+    finally:
+        try:
+            path.write_text(original, encoding="utf-8")
+        finally:
+            _PENDING.pop(path, None)
+
+
+@contextlib.contextmanager
+def _signal_safe_restore() -> Iterator[None]:
+    """Restore any live mutation on SIGTERM/SIGINT, then re-raise so the caller still dies.
+
+    **`finally` does not survive a SIGTERM, and that cost this project twice in one sitting**
+    (re-audit #8, F-8.2): a harness timeout and a kill each left a mutation in `src/` — once
+    `engine/commodity_asian.py`, once `foundation/sobol.py`'s Gray code, the core of the
+    quasi-random spine. A long unattended sweep is exactly when a kill arrives, so the instrument
+    must survive one.
+
+    The handler restores, reinstates the previous disposition, and re-raises the same signal — so
+    the process still terminates with the signal it was sent, rather than the instrument quietly
+    swallowing a kill. If the signals cannot be installed (not the main thread), the `finally`
+    restore remains and this is a no-op rather than an error."""
+    previous: dict[int, signal._HANDLER] = {}
+
+    def handler(signum: int, frame: object) -> None:
+        _restore_pending()
+        signal.signal(signum, previous.get(signum, signal.SIG_DFL))
+        signal.raise_signal(signum)
+
+    for number in (signal.SIGTERM, signal.SIGINT):
+        try:
+            previous[number] = signal.signal(number, handler)
+        except (ValueError, OSError):
+            continue
+    try:
+        yield
+    finally:
+        for number, disposition in previous.items():
+            with contextlib.suppress(ValueError, OSError):
+                signal.signal(number, disposition)
+
+
+def _assert_tree_restored(root: Path, digest: str) -> None:
+    """Refuse to return a verdict from a sweep that left the tree mutated.
+
+    The counterpart to the applied-count and ERRORED guards: those catch a run that did not test
+    what it claimed, and this catches a run that did not put back what it changed. A `0 survivors`
+    read off a tree that is still mutated is worse than a wrong verdict, because the next commit
+    ships it."""
+    current = _tree_digest(root)
+    assert current == digest, (
+        f"the sweep left mutated source behind: the tree digest under {root} changed from "
+        f"{digest[:12]}... to {current[:12]}.... Run `git status` and restore before trusting any "
+        f"verdict or staging anything — a stranded mutation plus a non-path-by-path `git add` "
+        f"commits it with a green suite"
+    )
+
+
 def _apply(mutation: Mutation) -> str | None:
     """Mutate one line in place, returning the original text — or `None` if it did not apply.
 
@@ -287,8 +369,10 @@ def sweep(
     invalidated — caches are cleared *before* each run (so the mutated source is what compiles) and
     *after* (so a mutant's bytecode cannot outlive the mutant).
 
-    The source is restored in a `finally`, so an interrupted or failing sweep never leaves the tree
-    mutated — which would be a worse outcome than any verdict.
+    The source is restored three ways, because losing a mutation into the tree is worse than any
+    wrong verdict: a `finally` per mutation (the normal path), a **signal-handled restore** for
+    SIGTERM/SIGINT (which `finally` does not survive — F-8.2, which bit twice in one sitting), and a
+    **tree-digest assertion** at the end that refuses to return a verdict from a tree left mutated.
     """
     if not mutations:
         raise ValueError(
@@ -296,7 +380,8 @@ def sweep(
             "and would be trivially clean, which is the can't-fail shape §9 forbids"
         )
 
-    _verified_baseline(tuple(tests), str(root), _tree_digest(root), timeout)
+    baseline_digest = _tree_digest(root)
+    _verified_baseline(tuple(tests), str(root), baseline_digest, timeout)
 
     flags = _PYTEST_COUNTING if count_killers else _PYTEST
     killed = survived = 0
@@ -305,37 +390,37 @@ def sweep(
     not_applied: list[str] = []
     errored: list[str] = []
 
-    for mutation in mutations:
-        original = _apply(mutation)
-        if original is None:
-            not_applied.append(mutation.label)
-            continue
-        try:
-            _invalidate_bytecode(root)
-            completed = subprocess.run(
-                [sys.executable, *flags, *tests],
-                cwd=root,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-            )
-            if completed.returncode == _ALL_PASSED:
-                survived += 1
-                survivors.append(mutation.label)
-            elif completed.returncode == _TESTS_FAILED:
-                killed += 1
-                if killers is not None:
-                    killers[mutation.label] = _failing_tests(completed.stdout)
-            else:
-                # Not a verdict: an import error, a usage error or an empty collection. Counting
-                # this as a kill is re-audit #4's false clean sheet.
-                errored.append(
-                    f"{mutation.label} (pytest exit {completed.returncode})"
+    with _signal_safe_restore():
+        for mutation in mutations:
+            original = _apply(mutation)
+            if original is None:
+                not_applied.append(mutation.label)
+                continue
+            with _pending_restores(mutation.path, original):
+                _invalidate_bytecode(root)
+                completed = subprocess.run(
+                    [sys.executable, *flags, *tests],
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
                 )
-        finally:
-            mutation.path.write_text(original, encoding="utf-8")
-            _invalidate_bytecode(root)
+                if completed.returncode == _ALL_PASSED:
+                    survived += 1
+                    survivors.append(mutation.label)
+                elif completed.returncode == _TESTS_FAILED:
+                    killed += 1
+                    if killers is not None:
+                        killers[mutation.label] = _failing_tests(completed.stdout)
+                else:
+                    # Not a verdict: an import error, a usage error or an empty collection.
+                    # Counting this as a kill is re-audit #4's false clean sheet.
+                    errored.append(
+                        f"{mutation.label} (pytest exit {completed.returncode})"
+                    )
+                _invalidate_bytecode(root)
 
+    _assert_tree_restored(root, baseline_digest)
     return SweepResult(
         total=len(mutations),
         applied=killed + survived + len(errored),
