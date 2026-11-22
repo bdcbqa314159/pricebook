@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import math
 
+from pricebook.engine.cap_strip import price_cap_strip
 from pricebook.engine.registry import register
 from pricebook.foundation.distributions import normal_positive_part
 from pricebook.foundation.inflation import CapFloorKind
@@ -94,42 +95,29 @@ def displaced_caplet(
 def _price_strip(
     cap: NominalCap, model: BachelierModel | DisplacedDiffusionModel
 ) -> PricingResult | PricingFailure:
-    """Sum a caplet valuation over the strip's remaining periods.
+    """Value each live period under whichever smile model this is, over the shared strip walk.
 
-    One walk for both models — the strip, the curve lookups and the valuation-date partition are the
-    same work, and the models differ only in how a single period is valued. Two copies of this loop
-    would be duplicated knowledge (§6), and the two pricers below are the two `@register` bindings
-    the registry needs rather than two algorithms.
-    """
-    market = model.market
-    currency = cap.notional.currency
+    One walk for both models, and from tranche 73 the **same** walk the CEV engine uses
+    (`engine/cap_strip.py`) — the duplication re-audit #8's pass 2 measured, and the shared
+    fixing-date horizon that makes convention C16 guarded rather than per-module. What is local here
+    is only the per-period valuation, which is the one thing that genuinely differs."""
+    if isinstance(model, BachelierModel):
+        variance_rate = model.normal_vol * model.normal_vol
 
-    # Invariant 6: a period that has already paid is the shell's business and is excluded from the
-    # mark, checked before any market lookup so a settled strip needs no curve.
-    periods = [p for p in cap.schedule.periods() if not is_historical(p[1], market.valuation_date)]
-    if not periods:
-        return PricingResult(pv=Money(0.0, currency))
+        def value(unit: CapletPeriod, years: float) -> float:
+            return bachelier_caplet(unit, cap.strike, variance_rate * years, cap.kind)
 
-    try:
-        curve = market.curves.discount(currency)
-        measure = curve.time_measure
-        total = 0.0
-        for start, pay, accrual in periods:
-            unit = CapletPeriod(curve.df(start), curve.df(pay), accrual)
-            years = measure.year_fraction(start)
-            if isinstance(model, BachelierModel):
-                variance = model.normal_vol * model.normal_vol * years
-                value = bachelier_caplet(unit, cap.strike, variance, cap.kind)
-            else:
-                variance = model.vol * model.vol * years
-                value = displaced_caplet(
-                    unit, cap.strike, variance, model.displacement, cap.kind
-                )
-            total += cap.notional.amount * value
-    except KeyError as exc:
-        return PricingFailure(f"cannot price the cap: {exc}")
+    else:
+        variance_rate = model.vol * model.vol
+        displacement = model.displacement
 
-    return PricingResult(pv=Money(total, currency))
+        def value(unit: CapletPeriod, years: float) -> float:
+            return displaced_caplet(
+                unit, cap.strike, variance_rate * years, displacement, cap.kind
+            )
+
+    # Only `KeyError` — a missing curve. Neither closed form raises anything else it expects.
+    return price_cap_strip(cap, model.market, value, (KeyError,))
 
 
 @register(NominalCap, BachelierModel)
