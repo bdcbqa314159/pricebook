@@ -6,6 +6,84 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.78.0] - 2026-11-22
+
+### Added — tranche 76, VIX derivatives (and the `SmileLike` protocol extracted at its second consumer)
+
+- **`engine/vix.py` (L4)** — `vix_squared`, `vix_affine_coefficients`, `vix_future_value`,
+  `vix_option_value`, and the two registered pricers.
+- **`products/vix.py` (L2)** — `VixFuture` and `VixOption`, both naming the index's own window.
+- **`market/equity_skew.SmileLike` (L1)** — the protocol ruling 0401(2) asked for.
+
+#### There is almost no new mathematics, and that is the finding
+
+Four things the arc already had compose into the whole tranche:
+
+1. **The identity is §1.5.2 / eq (1.31), not §3.1.1.** The spec pinned "§3.1 (and §3.1.1 for the jump
+   correction) … **this is the load-bearing identity**". §3.1.1 opens by saying the opposite — *"Under
+   the assumption of pure diffusion process … we have shown **in Sec. 1.5.2** that VIX² equals the
+   risk neutral expected cumulative diffusion variance **[see (1.31)]**"* — so §3.1.1 is Carr–Wu's
+   **jumps** correction, which Heston does not have. *(The spec's own honesty flag asked for the
+   futures/options sub-section to be pinned from the TOC: **§3.1.2** defines them, eqs (3.6) and
+   (3.7a), and **§3.2.1** "Affine stochastic volatility models" is the pricing — exactly where
+   expected, so no `Ask:` was needed there.)*
+2. **Eq (1.31) is tranche 31's strip verbatim** — same `1/K²`, same `2/T`, same OTM split at the
+   forward. So `vix_squared` **is** `heston_fair_variance` and the "model-free VIX² strip" **is**
+   `fair_variance`. There is no forward-window arrangement to build for the level: `VIX²_t` reads
+   `[t, t+τ]`, which at `t = 0` is spot-starting.
+3. **`VIX²_T` is affine in `V_T` with coefficients that fall out of (1)**: `a = (1−e^{−κτ})/(κτ)`,
+   `b = θ(1−a)`, matching `heston_fair_variance` to **4.4e-16** across starting variances.
+4. **`V_T`'s law is non-central chi-squared, so tranche 72's primitive prices these** —
+   verified against a 400k-path simulation at the 10th/50th/90th percentiles (0.24–0.65%, the Euler
+   bias). **And integrating by parts** reduces both payoffs to one integrand against the **survival**
+   function: no density (so nothing new at L0, §6), nothing differentiated (so no finite-difference
+   noise floor, the T11 trap), and the integrand decays with the chi-squared tail — exactly where
+   `noncentral_chisquare_sf` is accurate and where `1 − cdf` collapses to zero. F-8.6's defect,
+   turned into the reason this construction is the right one.
+
+#### Two things the oracles caught in my own build
+
+- **The first quadrature spanned 60× the *mean*** while the distribution's *spread* shrinks as the
+  noncentrality grows, so the nodes stopped resolving the transition. The tell was a **non-monotone**
+  error (1.3e-4, 8.6e-5, 1.9e-5, 1.1e-4) — a quadrature losing resolution, not a limit being
+  approached. The span now tracks the spread, with the stretch *below* the mass integrated
+  **analytically** (`∫ a/2√(ax+b) dx = √(ax+b)`, the survival being 1 there), which is what makes a
+  narrow span safe rather than truncating.
+- **Measuring that span exposed a coupling worth recording: wider is not safer.** With the node count
+  fixed, widening past the mass **thins the nodes** and the answer drifts back — 0.2479 at 0.25
+  spreads (8.1% wrong), flat to ~1e-3 from 6 through 30, drifting again by 9e-4 at 60. Holding the
+  *step size* constant instead, the shipped 12-spreads/2000-nodes pair is converged to **4e-6**. The
+  oracle asserts the plateau *and* that too narrow a span moves it by orders more, so the stability
+  claim is not vacuous.
+
+#### The protocol extraction (ruling 0401(2))
+
+`SmileLike` is `@runtime_checkable` with the **single real member** `volatility` — memberful
+deliberately, since an empty protocol is satisfied by everything (T33b) and could never reject a
+non-smile. It lives at **L1** beside `ImpliedVolSkew`, so the L4 strip depends *down* on it. T75's
+Heston subclass **collapsed into a plain presenter** in the same change, and the retype was proved a
+pure refactor by **bit-identity across 108 strip evaluations** (§4/T49, in-process).
+
+### Notes
+
+- **Mutation sweep: applied 12/12, killed 11, survived 1.** The survivor narrows the quadrature's
+  **span margin**, and for a margin that is the correct outcome — its job is to be wide enough, and a
+  narrower one that still covers the mass is not a defect. Rather than pin a margin to an exact
+  value (the opposite of what a margin is), the insensitivity is now **asserted**. Two first-pass
+  survivors and four single-killers were closed: the below-mass analytic branch was **unreachable**
+  in the main fixture (`start == lower` always — §4's third survivor kind, dead code in that regime),
+  closed by a concentrated law whose mass clears zero; and the notional-scaling "killer" was
+  **homogeneity**, which a *uniform* scaling error satisfies perfectly — replaced by a check through
+  the engine against the simulation.
+- **The `slow` gate took five passes, four lossless and one a real seam.** Sharing the simulation,
+  sharing the concentrated future, measuring the node count down to 2000 (quadrature error 5.2e-05
+  against bands of ~0.5–1%), skipping the future's integral for a call that never uses it, and
+  finally **splitting along a subject seam** — "is the integral computed correctly" is a different
+  question from "is VIX² the variance-swap rate and do the products price". 8.99s → **2.88s + 3.62s**.
+  The concentrated law's ~1.4s per integral is irreducible: reaching the analytic branch *requires* a
+  high noncentrality, and the mixture costs O(√noncentrality) per node.
+- **`verify.py` test floor 3155 → 3187.**
+
 ## [0.77.0] - 2026-11-22
 
 ### Added — tranche 75, options on realized variance under Heston (and the cross-method anchor T74 lacked)
