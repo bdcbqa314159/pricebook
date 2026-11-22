@@ -501,6 +501,125 @@ derivation-step rule, available three tranches running.
 
 ---
 
+### `KROESE-TAIMRE-2011` — `in-hand`
+
+Kroese, D. P., Taimre, T. & Botev, Z. I., *Handbook of Monte Carlo Methods*, Wiley Series in Probability
+and Statistics, 2011. 772 pp. Held at `_stock/NewDocuments/Handbook of Monte Carlo Methods …pdf` (gitignored
+— copyrighted; only this record is tracked).
+
+**The canonical Monte-Carlo reference — the extension to `JAECKEL-2002` (Bernardo, 2026-11-22).** Where Jäckel
+is the finance-MC methods source (Sobol, the Brownian bridge, variance-reduction identities, BGM/J), this is
+the general, derivation-rich handbook that sits behind it: a reference to **pull a chapter from when the MC
+arc is extended**, not an arc of its own. Held, not yet built against; flips to `worked-from` at the first
+tranche that cites it. **It is a reference textbook (canonical algorithms with derivations and forced
+properties), not a results-and-figures paper — so it clears the oracle gate the Miller anthology does not.**
+
+Chapter map (ruled per-tranche at build; most of our MC foundation already exists and would be *cross-checked*
+against it, not rebuilt):
+
+| ch | what | relation to the tree |
+|---|---|---|
+| 1–2 | uniform & **quasirandom** (Sobol) generation | **held** (`rng`, `sobol`, the Jäckel arc) — a second source, §4 same-object caveat |
+| 3–4 | random-variable generation, distributions | **held** (`distributions`, `noncentral_chisquare`, `inverse_norm_cdf`) |
+| 5 | random-**process** generation (Markov chains, SDE paths) | extends `mc_path_engine` (path construction) |
+| 9 | **variance reduction** — antithetic, control variates, **importance sampling**, **quasi-MC** | extends T19/T21; **importance sampling is NEW** (not in the tree), oracle-able by the unbiasedness requirement + the measured variance ratio (the T19/T21 discipline) |
+| 10 | **rare-event simulation** (importance sampling for tails) | new; relevant to deep-OTM / tail pricing — oracle-able by unbiasedness + the rate |
+| 11 | **estimation of derivatives** (pathwise / likelihood-ratio Greeks) | extends the Jäckel-ch-11 Greeks; oracle-able against our closed-form Greeks |
+| 6–8, 12–13 | MCMC, estimation, randomized optimization, cross-entropy | mostly `out_of_method` / not pricing (statistical, optimisation) |
+
+### `MILLER-EDELMAN-APPLEBY-2007` — `in-hand` (extra, per-chapter)
+
+Miller, J. J. H., Edelman, D. & Appleby, J. A. D. (eds), *Numerical Methods for Finance*, Chapman & Hall/CRC
+Financial Mathematics Series, 2007. 312 pp. Held at `_stock/NewDocuments/Numerical methods for finance …pdf`
+(gitignored — copyrighted; only this record is tracked).
+
+**An extra reference, kept handy and mined PER CHAPTER when a chapter feeds a topic we already have
+(Bernardo, 2026-11-22) — not an arc.** It is a **research anthology** (15 standalone conference papers), so
+**most of it fails the oracle gate**: results are empirical, statistical, ML, or validated by the author's
+own convergence figures / twin Monte Carlo — which §4 ("no number fitted to a figure") and §1 (twin-MC-only
+is `out_of_method`) forbid. The usable minority, flagged so a future tranche can pull one:
+
+| ch | what | feeds | oracle |
+|---|---|---|---|
+| 12 | **Multilevel Monte Carlo** (Giles) | the **MC arc** (`mc_estimator`, `mc_path_engine`) | **oracle-able** — unbiasedness (telescoping sum hits plain-MC price, the T19 pattern) + the complexity/variance-decay **rate** (T25/T21, measured not plotted); MLMC is standard enough to transcribe against the canonical method |
+| 2 | high-dimensional American options | the **Bermudan** work (T18 `exercise_boundary`) | oracle-able via the structural foresight+suboptimality bracket (T18/T19) |
+| 11 | performance-dependent options | the spread/basket work | maybe — if it reduces to a multivariate-normal closed form |
+| 1, 3, 5–10, 13–15 | risk measures, allocation, HPC, forecasting, VaR self-similarity, Kalman, EDDIE | — | `out_of_method` (empirical / statistical / ML, no pricing closed form) |
+
+**Mining rule:** when a tranche's topic matches a flagged chapter, **read the chapter first** and confirm it
+prints a transcribable method with a reachable anchor (the T72 lesson — a chapter can be figure-only), then
+cite it as a *second* source for the relevant section; it flips to `worked-from` only when a `src/` module
+cites it.
+
+### `KWOK-ZHENG` — `worked-from`
+
+Kwok, Y. K. & Zheng, W., *Pricing Models of Volatility Products and Exotic Variance Derivatives*, Chapman &
+Hall/CRC Financial Mathematics Series. 283 pp. Held at `_stock/NewDocuments/Pricing Models of Volatility
+Products and Exotic Variance Derivatives …pdf` (gitignored — copyrighted; only this record is tracked).
+
+**The variance/volatility-DERIVATIVES authority — added by Bernardo, 2026-11-22.** Distinct from
+`GATHERAL-2006`, which is the vol *surface*; this is the *products on* variance/volatility and their pricing.
+A proper textbook (replication identities, closed forms, char-function reductions), so an **arc candidate**,
+not just a per-chapter mine — it **extends** the variance/vol swaps and the Heston Fourier machinery the tree
+already holds. Held, not yet built against; flips to `worked-from` at the first tranche that cites it.
+
+Chapter map (ruled per-tranche at build; heavy reuse of project-six machinery):
+
+| ch | what | relation to the tree |
+|---|---|---|
+| 1 | derivatives on realized variance; **replication of variance swaps**; VIX as model-free vol | the **base is held** (T31 variance-swap static replication, T48 vol swap) — a second source + the discrete-vs-continuous correction |
+| 2 | model pricing (Variance Gamma, continuous realized variance) | extends the Heston/Lévy char-function work (T33/T49) |
+| 3 | **VIX derivatives** — the VIX²/variance-swap-rate relation under jumps, consistent & direct models | new; prices off the variance-swap rate + the char function |
+| 4 | **swaps on discrete variance/vol** — Heston & 3/2 model, **gamma & corridor** variance swaps, time-changed Lévy | extends T31/T48; **generalized variance swaps** (gamma/corridor/conditional) are new, oracle-able by reduction to the vanilla variance swap in the degenerate corridor |
+| 5 | **options on discrete realized variance** — lognormal, **normal approximation**, partially-exact-bounded | new; a moment-matching approximation with an MC companion — the **Turnbull–Wakeman pattern** of the Asian arc (T62), measured error the deliverable |
+| 6 | **timer options** (perpetual) | new; the first-passage-on-accumulated-variance exotic — oracle-able by the perpetual closed form |
+
+**Project ten — the vol-derivatives arc (Bernardo, 2026-11-22; scope: bigger ~6).** Opened at v0.75.0; flips
+to `worked-from` at T74. Reuse-heavy throughout: **T48 already built `integrated_variance_transform`** (the
+Heston Laplace transform of integrated variance), which is the engine behind VIX, options on realized
+variance, and timer options; `fair_variance`/the `1/K²` strip (T31) is the base for the generalized swaps; the
+Heston char function (T33) and the T62 moment-approximation+MC-companion discipline carry over. Arc plan
+`docs/vol_derivatives_arc.md`; queue T74 (generalized variance swaps) → T75 (options on realized variance) →
+T76 (VIX derivatives) → T77 (3/2-model variance swap) → T78 (time-changed Lévy + discrete-vs-continuous
+convergence) → T79 (timer options).
+
+**Status `worked-from`** since tranche 74 (v0.76.0): §1.4's Proposition 1.2 (the gamma swap,
+eq 1.24) and eq (1.26) (the corridor variance swap) are transcribed and oracled in
+`engine/variance_replication.py`; §1.3's two payoffs in `products/generalized_variance_swap.py`.
+**One correction to the arc plan, recorded here because it will mislead the next reader otherwise:**
+the static replication of the generalized swaps is **§1.4**, not ch 4.3 — ch 4.3 is *Moment
+generating function methods*, a model-based route (the Heston MGF) that T75/T76 will use. The T74
+spec cited ch 4.3 for the replication; the build read §1.4.
+
+### `OVERHAUS-2002` — `in-hand` (a second equity source; the weakest of the shelf)
+
+Overhaus, M., Ferraris, A., Knudsen, A., Milward, R., Nguyen-Ngoc, L. & Schindlmayr, G. (the Deutsche Bank
+Global Quantitative Research team), *Equity Derivatives: Theory and Applications*, Wiley, 2002. 238 pp. Held
+at `_stock/NewDocuments/Equity Derivatives Theory and Applications …pdf` (gitignored — copyrighted; only this
+record is tracked).
+
+**Added by Bernardo, 2026-11-22 — a SECOND equity source, and recorded honestly as the thinnest of the four
+recent additions.** It overlaps heavily with `BROCKHAUS-2016` (project four, the equity-hybrids arc) and the
+vol arc, it is older (2002), and roughly a third of it (chs 6–8) is dated pricing-over-the-Internet software,
+which is `out_of_method` and out of scope (§0). Its genuinely-useful content is narrow:
+
+| ch | what | relation to the tree |
+|---|---|---|
+| 1–2 | mathematical foundation; hedging in incomplete markets | theory; a cross-check, little to build |
+| 3 | **Lévy processes + the Heston Jump-Diffusion model** | a **second source** for Heston (T33) and SVJ/Bates (T49) — cross-check where it renders the same object (§4 same-formula caveat), and a more general Lévy framing |
+| 4 | a stochastic-volatility model | extends Heston (T33) |
+| 5 | **convertible bonds** + convertible-bond asset swaps | **new to the tree** — the one genuinely-new pull, but convertibles are **tree/PDE-priced** (American conversion), so harder to oracle cleanly than a closed form; a `to_go_deeper`/careful-arc question, not a reduction-rich spine |
+| 6–8 | pricing/hedging analytics "over the Internet" | `out_of_method` / out of §0 scope (software delivery, not a numerical method) |
+| 9 | a portfolio & hedging simulation engine (discrete hedging, hedging in Heston) | a simulation study — figures, mostly `out_of_method` |
+
+**Use:** primarily a **cross-check** source for the jump-diffusion / Lévy stochastic-vol work we already hold
+(a different team's rendering of Heston/Bates), and the convertible-bond reference **if** a convertibles arc
+is ever pulled — with the honest caveat that convertibles want a lattice/PDE the tree would build largely for
+them (the T68 lattice is one-factor rates; an equity-credit convertible lattice is a bigger step). On the
+shelf, weakest first to pull.
+
+---
+
 ## Named-but-not-in-hand — NOT citable as `source:` until obtained
 
 Transcribed verbatim from `BERHAN-2012`'s reference list (p. 49), so they are grounded in a held

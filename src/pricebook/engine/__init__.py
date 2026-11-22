@@ -25,7 +25,13 @@ from pricebook.engine.commodity_asian import (
     price_commodity_arithmetic_asian,
     price_commodity_geometric_asian,
 )
-from pricebook.engine.variance_replication import fair_variance, price_variance_swap
+from pricebook.engine.variance_replication import (
+    fair_variance,
+    generalized_fair_variance,
+    price_corridor_variance_swap,
+    price_gamma_swap,
+    price_variance_swap,
+)
 from pricebook.engine.heston_fourier import FourierGrid, heston_call_price, heston_probabilities
 from pricebook.engine.equity_rate_hybrid import price_european_equity_option_hull_white
 from pricebook.engine.defaultable_equity import price_european_equity_option_defaultable
@@ -69,7 +75,8 @@ __all__ = [
     "heston_call_price",
     "heston_probabilities",
     "simulate_heston_spots",
-    "fair_variance",
+    "fair_variance", "generalized_fair_variance",
+    "price_gamma_swap", "price_corridor_variance_swap",
     "price_variance_swap",
     "price_european_equity_option",
     "price_commodity_option",
