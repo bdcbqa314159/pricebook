@@ -388,3 +388,36 @@ demand), which is why this is a route and not a tranche.
   fix is to split each integral at the exercise boundary so each piece is smooth; oracle-able (the pieces
   recover the Gauss–Hermite rate), unpulled — T68's grid is chosen (401 points, 1.2e-4) so this term is an
   order and a half below the dominant one, so it is not load-bearing yet. *(Surfaced T68, 2026-11-21.)*
+
+### The ch-8 smile routes and the ch-7 exotics (recorded at the arc close, re-audit #8)
+
+*Recorded by Code at re-audit #8, 2026-11-21.* Re-audit #8's register pass (Cowork's) reported these as
+already here and they were not — the file's last touch was T68, so it carried the two Bermudan routes above
+and nothing from T71/T72. The routes themselves were ruled (in T72's spec, in `CP_stochastic_rates.md`'s
+completion ratio, and in `references.md`'s `MCINERNEY-ZASTAWNIAK` chapter table, whose ch-8.5 row *names*
+`to_go_deeper` without the route being in it — a pointer to an empty bin). Transcribed here from those
+rulings, which is where §1 says a deferred-but-oracle-able route lives. See finding **F-8.1**.
+
+- **Stochastic-volatility smile (ch 8.5) — the arc's `out_of_method` CANDIDATE, not a `to_go_deeper`
+  route.** SABR-adjacent, and the section offers no closed form, so it cannot pass §4's oracle gate as the
+  method stands. By §1's two-bin test that makes it a candidate for a deliberate §4 extension (a
+  statistical/stochastic-oracle tier), **not** come-back-same-method debt. Recorded here only as a pointer to
+  that distinction, because every other artifact that mentions it has called it `to_go_deeper` — which is the
+  wrong bin, and the reason the bins exist. *(Ruled a `to_go_deeper` route in the T72 spec and the
+  checkpoint; re-binned here as a candidate, flagged for Cowork since §1's bin assignment is a ruling.)*
+- **CEV as a short-rate process** (rather than a forward-rate smile). The absorbing-boundary behaviour at
+  `r = 0` for `β < 1` is its own subject — a short rate that absorbs at zero and stays there is a different
+  modelling claim from a forward that does. Oracle-able (the same Cox machinery plus the absorption
+  probability already built), unpulled: nothing needs it. *(Surfaced T72.)*
+- **Drifted CEV** — an equity or FX CEV option, i.e. `BROCKHAUS-2016` eq (6.10)'s space-time change rather
+  than T72's driftless forward-measure case. **Pulling it must start at the source defect**: eq (6.10) as
+  printed carries a spurious `/T` against the space-time change printed on the same page, recorded in
+  `references.md`'s Brockhaus defect log and deliberately unpinned because a caplet's forward is already a
+  martingale. Whoever pulls this transcribes the *derivation step*, not eq (6.10). *(Surfaced T72.)*
+- **CEV / HJM / G2++ surface calibration** — fitting `(σ, β)` (or the HJM vol function, or G2++'s five
+  parameters) to a market skew rather than taking them as given. The T11 identifiability discipline is the
+  whole content: `σ` and `β` trade off along a valley, so the oracle is a **multi-start parameter spread**
+  plus distance-from-a-synthetic-truth, never a condition number. Oracle-able, unpulled. *(Surfaced T72.)*
+- **The ch-7 exotic interest-rate products** — CMS, range accruals, ratchet floaters, trigger swaps. The
+  chapter the arc did not touch; each is a product-pull away and all are oracle-able against the single-curve
+  spine the arc built. *(Recorded at the arc close.)*

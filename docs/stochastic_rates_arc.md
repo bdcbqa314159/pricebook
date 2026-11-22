@@ -78,7 +78,16 @@ era" half of the design invariant Bernardo asked for: the same library prices a 
 parallel project can show the two side by side. No new invariant — the existing one (project seven),
 exercised from the other side.
 
-## Status (updated 2026-11-21)
+## Status — CLOSED (v0.74.0, 2026-11-21)
+- **Spine complete (T66–T72, all merged):** Vasicek · G2++ · Bermudan-in-HW · Gaussian HJM · multi-factor HJM
+  (generalised) · Bachelier+displaced-diffusion · CEV. Checkpoint `docs/checkpoints/CP_stochastic_rates.md`;
+  close triggered **re-audit #8** (`docs/audit/reaudit_08_findings.md`).
+- Two charter advances (T66 numerics clause + T67 tightening); **then nothing — T68–T72 grew the charter not
+  at all**, the convergence signal. CEV sourced from `BROCKHAUS-2016` (MZ §8.3 is figure-only) and its printed
+  formula corrected — the first source correction in the project.
+- **Next: re-audit #8 sweep (Code), then the arc boundary.**
+
+## Earlier status (superseded)
 - **Built & merged:** T66 Vasicek (v0.68.0) · T67 G2++ (v0.69.0) · T68 Bermudan-in-HW (v0.70.0).
 - **Built & merged (cont.):** T69 Gaussian HJM (v0.71.0) · T70 multi-factor HJM (v0.72.0, generalised into one
   `GaussianHjmModel`).

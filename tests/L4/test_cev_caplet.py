@@ -209,15 +209,23 @@ def test_the_PRINTED_form_is_UNDEFINED_at_the_sources_own_market_practice_beta()
 # 3. The MONTE CARLO anchor — the only oracle here that does not share the formula.
 # ============================================================================================
 
-def _mc_cev(forward: float, strike: float, variance: float, beta: float,
-            paths: int = 120_000, steps: int = 1000) -> tuple[float, float]:
+def _simulate_cev(forward: float, variance: float, beta: float,
+                  paths: int = 120_000, steps: int = 1000):
     """Euler on `dF = F^beta dW` over the TOTAL VARIANCE, absorbed at zero (BROCKHAUS p.79).
 
     The time change is why the horizon is the variance and not the expiry: eq (6.9)'s driftless
-    process has unit volatility, so `V` IS its clock."""
+    process has unit volatility, so `V` IS its clock.
+
+    Returns the TERMINAL DISTRIBUTION, not a price, so one simulation serves every strike — the
+    paths do not depend on `K`. Running it per strike (as the first cut did) computed the same
+    distribution three times over and put the file at **13.4s on the Windows CI runner against the
+    10.0s ceiling**, while reading 3.1s locally: §9's "for a numerically-heavy file, CI is the
+    measurement". The reduction is **lossless** — identical scheme, identical seed, identical paths,
+    and each strike's assertion still compares its own mean against its own closed form; sharing the
+    draws only correlates the three tests' sampling errors, which no assertion depends on being
+    independent."""
     rng = numpy.random.default_rng(20261121)
-    step = variance / steps
-    root = math.sqrt(step)
+    root = math.sqrt(variance / steps)
     level = numpy.full(paths, forward)
     for _ in range(steps):
         live = level > 0.0
@@ -225,8 +233,18 @@ def _mc_cev(forward: float, strike: float, variance: float, beta: float,
             int(live.sum())
         ) * root
         level[level < 0.0] = 0.0
-    payoff = numpy.maximum(level - strike, 0.0)
-    return float(payoff.mean()), float(payoff.std(ddof=1) / math.sqrt(paths))
+    return level
+
+
+@pytest.fixture(scope="module")
+def cev_terminal():
+    """The shared terminal distribution at `F = 5%`, `V = 0.04`, `beta = 0.5`."""
+    return _simulate_cev(0.05, 0.04, 0.5)
+
+
+def _mc_price(terminal, strike: float) -> tuple[float, float]:
+    payoff = numpy.maximum(terminal - strike, 0.0)
+    return float(payoff.mean()), float(payoff.std(ddof=1) / math.sqrt(terminal.size))
 
 
 # `4*SE + 0.5%`: the two error sources banded SEPARATELY (§4). The 0.5% is the measured ceiling on
@@ -236,8 +254,8 @@ def _mc_cev(forward: float, strike: float, variance: float, beta: float,
 # out a defect larger than about **2.7%** — which is why the pointwise and requirement oracles above
 # carry the precision and this one carries the independence.
 @pytest.mark.parametrize("strike", (0.03, 0.05, 0.07))
-def test_the_closed_form_matches_an_INDEPENDENT_simulation_with_absorption(strike):
-    mean, se = _mc_cev(0.05, strike, 0.04, 0.5)
+def test_the_closed_form_matches_an_INDEPENDENT_simulation_with_absorption(strike, cev_terminal):
+    mean, se = _mc_price(cev_terminal, strike)
     exact = cev_call(0.05, strike, 0.04, 0.5)
     assert abs(mean - exact) < 4.0 * se + 0.005 * exact, (mean, se, exact)
 

@@ -549,6 +549,19 @@ not an oracle. Ruled principles:
   an **absolute** band against the natural scale (the notional), a small-but-nonzero value gets a relative
   one. *(T55: the OIS=projection reduction's PV is zero at the par rate; `rel=1e-11` failed at `rel=1.25` on
   2.1e-09, rebanded absolutely against notional at ~500× the measured noise.)*
+  **And the TOOL you assert *relative* with may not be relative in the tail — `pytest.approx(x, rel=r)` floors
+  at `1e-12` absolute** (`max(r·|x|, 1e-12)`), so where the true value is `≪1e-12` — a deep tail, a
+  difference-of-equals — a `rel=` band is **secretly absolute**, and a returned **exactly `0.0` passes**. The
+  T20a/OI-3 `norm_cdf` defect (survival as `1−cdf`) was **re-introducible through this floor and survived all
+  3069 tests** — in the very test whose docstring cited *"relative, not absolute — tranche 20a"* and whose
+  next line wrote the absolute band by omission; against a true survival of `8.7e-32` the effective tolerance
+  was `1e-12`, so `0.0` matched. Pin **`abs=0.0`** to get the relative band the rule requires (it took the
+  survival site `0 → 7` killers, the unmutated code still exact to `1e-11` relative at `3e-148`). The blind
+  subset is **tails and differences-of-equals** (357 `approx(…, rel=…)` sites tree-wide, 10 pinning
+  `abs=0.0`); for an expected that is `O(1e-4)+` the floor is looseness, not blindness. Not statically
+  gateable — whether an expected can fall below `1e-12` is dynamic (§9's boundary) — so it is the mutation
+  sweep's job plus this note. *(F-8.6, re-audit #8: the one blind oracle the short-rate arc shipped, in the
+  tranche built to prevent exactly it.)*
   **And a reference's regime error can hide as a convergence *plateau* rather than a value mismatch —
   so the convergence RATE is the detector a flat band misses.** Give each home-grown reference an
   explicit **validity regime** and assert the references agree only where both hold. *(T25: an EPE
