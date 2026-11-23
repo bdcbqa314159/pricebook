@@ -42,7 +42,8 @@ Provenance:
           zero (scipy's `hyp1f1`, test-only — two routes, one number, 8.1e-10); `L(0) = 1` exactly
           as the requirement oracle that pins α; the `ε → 0` **logistic** reduction with its
           convergence rate and a material-`ε` companion (T39); monotonicity in `v0`, the long-horizon
-          limit to `θ` and the vanishing-horizon limit to `v0` as requirements
+          limit to the STATIONARY mean `θ/(1+ε²/(2κ))` — NOT `θ`, which is only its `ε → 0` case —
+          and the vanishing-horizon limit to `v0` as requirements
   crosscheck: none — QuantLib implements no non-affine 3/2 model
   slice:  tranche 77 — the 3/2-model variance swap
 """
@@ -120,21 +121,6 @@ def expected_variance(params: ThreeHalvesParams, years: float) -> float:
         noncentrality, lambda index: 1.0 / (dof + 2.0 * index - 2.0)
     )
     return inverse / scale
-
-
-def stationary_variance(params: ThreeHalvesParams) -> float:
-    """`E[V_∞] = θ / (1 + ε²/(2κ))` — the long-run mean variance, which is **not `θ`**.
-
-    Worth its own name because it is a result, not a restatement: the vol-of-vol pulls the stationary
-    mean of a 3/2 variance **below** its reversion level, by a factor `1/(1 + ε²/2κ)` — 3.8% at
-    `ε = 0.4, κ = 2` and **26% at `ε = 1.2`**. It falls out of the reciprocal-CIR law: `Y`'s
-    stationary law is a central chi-squared whose inverse mean is `1/(scale·(dof − 2))`, and
-    substituting `dof = 4(κ+ε²)/ε²` and `scale → ε²/(4κθ)` gives exactly this — verified to machine
-    precision against the ladder at four parameter sets.
-
-    T77's spec asserted the long-horizon limit was `θ`. That is the `ε → 0` case of this.
-    """
-    return params.theta / (1.0 + params.epsilon * params.epsilon / (2.0 * params.kappa))
 
 
 def three_halves_fair_variance(params: ThreeHalvesParams, years: float) -> float:

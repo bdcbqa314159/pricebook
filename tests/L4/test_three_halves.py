@@ -36,7 +36,6 @@ from pricebook.engine import price
 from pricebook.engine.three_halves import (
     expected_variance,
     reciprocal_cir_law,
-    stationary_variance,
     three_halves_fair_variance,
 )
 from pricebook.foundation import Currency, Money, PricingFailure, PricingResult
@@ -242,6 +241,24 @@ def test_the_COMPANION_a_material_vol_of_vol_moves_the_answer_away_from_the_logi
 # ============================================================================================
 # 4. Requirement oracles — structural, so they survive a transcription error (F-6.1).
 # ============================================================================================
+
+def stationary_variance(params: ThreeHalvesParams) -> float:
+    """`E[V_inf] = theta / (1 + eps^2/(2 kappa))` — the long-run mean variance, which is **not theta**.
+
+    The reference for oracle 5 below, and it lives **here rather than in `engine/`** by ruling 0411:
+    its only consumer is this oracle, so under §6 it is an oracle's derived reference ("a reference is
+    code too"), not production surface. It graduates to the engine by product-pull — a 3/2 VIX, a
+    calibration that fits the long-run variance — raised with that consumer, the C16 pattern.
+
+    Derived, not transcribed, which is the point of the correction it encodes: `Y = 1/V`'s stationary
+    law is a central chi-squared, whose inverse mean is `1/(scale*(dof - 2))`, and substituting
+    `dof = 4(kappa+eps^2)/eps^2` with `scale -> eps^2/(4 kappa theta)` gives exactly this. The
+    vol-of-vol pulls the stationary mean **below** the reversion level by `1/(1 + eps^2/2kappa)` —
+    3.8% at `eps = 0.4, kappa = 2` and **26% at `eps = 1.2`** — and `theta` is the `eps -> 0` case,
+    which is why the spec's `-> theta` was a limiting case rather than simply wrong.
+    """
+    return params.theta / (1.0 + params.epsilon * params.epsilon / (2.0 * params.kappa))
+
 
 def test_the_fair_variance_is_POSITIVE_and_MONOTONE_in_the_initial_variance():
     values = [

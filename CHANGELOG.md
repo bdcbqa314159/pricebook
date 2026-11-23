@@ -13,7 +13,7 @@ single source of truth and CI asserts it matches the top entry.
 - **`models/three_halves.py` (L3)** — `ThreeHalvesParams` and `ThreeHalvesModel` for
   `dv = κv(θ−v)dt + εv^{3/2}dW` (eq 2.75d), non-affine, with the mean-reversion **speed scaling with
   the variance level**.
-- **`engine/three_halves.py` (L4)** — the fair variance, `stationary_variance`, and
+- **`engine/three_halves.py` (L4)** — the fair variance and
   `@register(VarianceSwap, ThreeHalvesModel)`. **No new product:** T31's `VarianceSwap` priced
   model-based, its third model after the model-free strip and Heston.
 - **`foundation/noncentral_chisquare.poisson_weighted_sum` (L0)** — the Poisson ladder, extracted at
@@ -49,8 +49,13 @@ derivations and different code. `E[1/Y]` always exists here: `dof = 4(κ+ε²)/�
 - **The long-horizon limit is NOT `θ`.** The spec's oracle 5 asserts it. The stationary mean is
   **`θ/(1 + ε²/(2κ))`** — verified to machine precision at four parameter sets, and a **26% gap at
   `ε = 1.2`**: the vol-of-vol pulls the stationary mean *below* the reversion level. `θ` is the
-  `ε → 0` case, now asserted as the reduction. Named `stationary_variance` because it is a result,
-  not a restatement.
+  `ε → 0` case, now asserted as the reduction. Cowork ruled this its own error (0411) — the
+  obligation-not-form lesson applied to a *requirement oracle's value*: the stationary mean of a
+  **non-affine** process is not its reversion parameter, so a requirement oracle's target must be
+  derived rather than read off the naive parameter. The derived `stationary_variance` lives in the
+  **test**, not `engine/`: its only consumer is this oracle, so under §6 it is an oracle's reference,
+  and it graduates to engine surface by product-pull. `θ`-as-long-run-variance stays correct for
+  **Heston** and is wrong for **3/2** — a model-specific distinction, so it lives in the 3/2 docstring.
 - **The ladder has a two-sided regime, and both edges are exact limits rather than fudges.** The
   noncentrality diverges as `t → 0` or `ε → 0` — where `Y` **concentrates**, so `E[1/Y] → 1/E[Y]`,
   converging as `1/nc` (2.5e-02 at nc=77, 1.4e-04 at 2.8e4) — and vanishes as `t → ∞`, where the law

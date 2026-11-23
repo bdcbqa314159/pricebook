@@ -39,7 +39,13 @@ from pricebook.market.snapshot import MarketSnapshot
 
 @dataclass(frozen=True)
 class ThreeHalvesParams:
-    """`v0, kappa, theta, epsilon` for `dv = κv(θ−v)dt + εv^{3/2}dW`."""
+    """`v0, kappa, theta, epsilon` for `dv = κv(θ−v)dt + εv^{3/2}dW`.
+
+    **`theta` is the reversion LEVEL, not the long-run variance** — the distinction is specific to
+    this model and is why it is named here. For Heston the two coincide; for the 3/2 the `v^{3/2}`
+    vol-of-vol pulls the stationary mean **below** `θ`, to `θ/(1 + ε²/(2κ))` — 26% below at `ε = 1.2`.
+    Oracle 5 in `tests/L4/test_three_halves.py` derives and asserts it (T77, ruling 0411).
+    """
 
     v0: float
     kappa: float
@@ -50,7 +56,7 @@ class ThreeHalvesParams:
         for name, value in (
             ("initial variance", self.v0),
             ("mean reversion", self.kappa),
-            ("long-run variance", self.theta),
+            ("reversion level", self.theta),
             ("vol-of-vol", self.epsilon),
         ):
             if not value > 0.0:
