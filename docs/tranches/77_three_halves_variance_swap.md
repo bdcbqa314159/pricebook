@@ -98,8 +98,13 @@ does the new-L0-primitive sub-`Ask:` return.
    the ladder. Not load-bearing (1–3 already pin it); skip if it does not fall out.
 5. **Requirement oracles (structural, survive a transcription error — F-6.1):** the fair variance `> 0`;
    **monotone increasing in `v₀`** (more initial variance ⇒ more expected variance); and the long-horizon
-   limit `(1/T)·E[∫v] → θ` as `T → ∞` (the fair *rate* tends to the long-run variance — a requirement the
-   mean-reversion forces), swept where non-degenerate.
+   limit `(1/T)·E[∫v] → the 3/2 model's STATIONARY mean` as `T → ∞`. **Corrected (0411): that stationary
+   mean is `θ/(1 + ε²/(2κ))`, NOT `θ` — the `v^{3/2}` vol-of-vol pulls the long-run variance *below* the
+   reversion level** (θ is only the `ε→0` case; verified to machine precision, a 26% gap at ε=1.2). My
+   original "→ θ" was wrong: the obligation-not-form lesson applied to a *requirement oracle's value* — the
+   stationary mean of a non-affine process is not its reversion parameter, and a requirement oracle's target
+   must be derived, not read off the naive parameter. Assert the corrected limit (Code's `stationary_variance`
+   = `θ/(1+ε²/(2κ))`), with `θ` asserted as the `ε→0` reduction of it.
 
 ## Degeneracy premises (§4 / §9)
 - The `epsilon → 0` companion is **non-degenerate in `epsilon`** (a material vol-of-vol, T39) — state it;
