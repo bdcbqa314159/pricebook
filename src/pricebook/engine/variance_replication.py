@@ -49,7 +49,7 @@ from pricebook.foundation.results import PricingFailure, PricingResult
 from pricebook.foundation.time_measure import is_historical
 from pricebook.market.curve import CurveHandle
 from pricebook.market.equity import EquityUnderlying, dividend_forward
-from pricebook.market.equity_skew import ImpliedVolSkew
+from pricebook.market.equity_skew import SmileLike
 from pricebook.models.black import black_price
 from pricebook.models.variance_replication_model import StrikeGrid, VarianceStrip, VarianceReplicationModel
 from pricebook.products.equity_option import EquityOptionKind
@@ -61,7 +61,7 @@ def generalized_fair_variance(
     underlying: EquityUnderlying,
     expiry: date,
     discount: CurveHandle,
-    skew: ImpliedVolSkew,
+    skew: SmileLike,
     strip: VarianceStrip,
 ) -> float:
     """The fair variance of a generalized variance swap — one strip walk, three products.
@@ -102,7 +102,7 @@ def fair_variance(
     underlying: EquityUnderlying,
     expiry: date,
     discount: CurveHandle,
-    skew: ImpliedVolSkew,
+    skew: SmileLike,
     grid: StrikeGrid,
 ) -> float:
     """`K_var` - the fair variance, as the `1/K^2`-weighted strip of OTM vanillas.

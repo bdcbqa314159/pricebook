@@ -10,8 +10,16 @@ the TOC, 0397: §4.2.1 the Heston fair variance; ch 5 / §5.2 the options and th
 the MGF route — this tranche's cross-check anchor. Not a repeat of T74's §1.4-vs-ch-4.3 mix-up.)*
 
 ## Target
-Price the **fair variance under Heston** and a **call/put on discrete realized variance** —
+Price the **fair variance under Heston** and a **call/put on *continuous* realized variance** —
 `price(product, HestonModel) → PricingResult` for each.
+
+> **Ruled continuous, not discrete (Cowork 0401, post-merge).** The original target said "discrete",
+> but that contradicted this spec's own out-of-scope (which defers the discrete-monitoring correction
+> to T78) and §5.2's "the continuous counterpart **plus** an adjustment term due to discrete
+> sampling". Code priced the coherent half — the continuous case — and said so in the module and the
+> CHANGELOG. **T75 is the continuous case; the discrete-monitoring adjustment is T78's**, which that
+> ruling turns into a *pricing* tranche (not only a convergence study). The arc plan's T78 entry
+> carries it.
 
 ## Pieces, layer, reuse
 - **The Heston fair variance** (new engine, L4) — the expected realized variance under Heston, off
