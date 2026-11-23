@@ -18,6 +18,7 @@ second half is what proves the design necessary rather than merely plausible (th
 
 import math
 
+import numpy
 import pytest
 
 from pricebook.foundation.noncentral_chisquare import (
@@ -131,3 +132,53 @@ def test_a_non_finite_argument_is_REFUSED_rather_than_returning_nan():
     for bad in (math.nan, math.inf):
         with pytest.raises(ValueError):
             noncentral_chisquare_cdf(bad, 4.0, 5.0)
+
+
+# ============================================================================================
+# The shared Poisson ladder, extracted at tranche 77's second consumer (§6's rule of two).
+# ============================================================================================
+
+def test_the_ladder_sums_POISSON_WEIGHTS_to_one_when_the_term_is_one():
+    # The weights are a probability mass function, so a constant summand returns that constant —
+    # which is the cheapest complete check that the walk visits every term with the right weight.
+    from pricebook.foundation.noncentral_chisquare import poisson_weighted_sum
+
+    for intensity in (0.1, 1.0, 5.0, 40.0, 300.0, 1500.0):
+        assert poisson_weighted_sum(intensity, lambda index: 1.0) == pytest.approx(
+            1.0, rel=1e-12, abs=0.0
+        )
+
+
+def test_the_ladder_reproduces_the_POISSON_MEAN_which_the_constant_test_cannot_see():
+    # `sum_j P(j)*j = intensity/2`. A walk that visited every term with equal weight would pass the
+    # test above and fail this one, so the pair pins the weights and not merely their total.
+    from pricebook.foundation.noncentral_chisquare import poisson_weighted_sum
+
+    for intensity in (0.5, 4.0, 60.0, 900.0):
+        assert poisson_weighted_sum(intensity, float) == pytest.approx(
+            0.5 * intensity, rel=1e-10, abs=0.0
+        )
+
+
+def test_the_ladder_matches_the_INVERSE_central_moment_tranche_77_prices_on():
+    # `E[1/chi'^2_d(lambda)] = sum_j P(j)/(d + 2j - 2)`, against scipy's own non-central chi-squared
+    # by quadrature — a different route to the same number, and the one the 3/2 model needs.
+    from pricebook.foundation.noncentral_chisquare import poisson_weighted_sum
+
+    for dof, intensity in ((54.0, 200.0), (10.0, 3.0), (6.0, 0.5)):
+        ladder = poisson_weighted_sum(intensity, lambda j: 1.0 / (dof + 2.0 * j - 2.0))
+        grid = numpy.linspace(1e-9, dof + intensity + 40.0 * math.sqrt(dof + 2.0 * intensity), 400_001)
+        density = scipy_stats.ncx2.pdf(grid, dof, intensity)
+        quadrature = float(numpy.trapezoid(density / grid, grid))
+        assert ladder == pytest.approx(quadrature, rel=1e-6, abs=0.0)
+
+
+@pytest.mark.parametrize("intensity", [0.0, -1.0, math.inf, math.nan])
+def test_a_NON_POSITIVE_or_non_finite_intensity_is_REFUSED(intensity):
+    # The T33b input-population rule: every present caller guards before calling, so this branch is
+    # unreachable from the engines and a mutation dropping it survived the whole suite — §4's third
+    # survivor kind. Reached here by supplying the input the guard exists to reject.
+    from pricebook.foundation.noncentral_chisquare import poisson_weighted_sum
+
+    with pytest.raises(ValueError, match="positive intensity"):
+        poisson_weighted_sum(intensity, lambda index: 1.0)

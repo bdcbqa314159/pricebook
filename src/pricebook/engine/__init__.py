@@ -72,6 +72,12 @@ from pricebook.engine.vix import (
     vix_option_value,
     vix_squared,
 )
+from pricebook.engine.three_halves import (
+    expected_variance,
+    price_three_halves_variance_swap,
+    reciprocal_cir_law,
+    three_halves_fair_variance,
+)
 from pricebook.engine.registry import dispatch as price
 from pricebook.engine.yoy import price_yoy_inflation_swap
 from pricebook.engine.mc_path_engine import PathGrid, mc_caplet_price, simulate_terminal_forwards
@@ -94,6 +100,8 @@ __all__ = [
     "realized_variance_option_value", "price_realized_variance_option",
     "vix_squared", "vix_affine_coefficients", "vix_future_value", "vix_option_value",
     "price_vix_future", "price_vix_option",
+    "reciprocal_cir_law", "expected_variance", "three_halves_fair_variance",
+    "price_three_halves_variance_swap",
     "price_gamma_swap", "price_corridor_variance_swap",
     "price_variance_swap",
     "price_european_equity_option",

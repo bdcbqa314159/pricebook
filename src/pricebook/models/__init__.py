@@ -6,6 +6,7 @@ from pricebook.models.market_model_ii import MarketModelII, MMIICorrelations, MM
 from pricebook.models.market_model_i import MarketModelI, MMICorrelations, MMIParams
 from pricebook.models.black import black_implied_vol, black_price
 from pricebook.models.cev import CevModel
+from pricebook.models.three_halves import ThreeHalvesModel, ThreeHalvesParams
 from pricebook.models.smile import (
     BachelierModel,
     DisplacedDiffusionModel,
@@ -30,6 +31,7 @@ __all__ = [
     "MarketModelI", "MMICorrelations", "MMIParams",
     "black_implied_vol", "black_price",
     "BachelierModel", "DisplacedDiffusionModel", "atm_matched_displaced_vol", "CevModel",
+    "ThreeHalvesModel", "ThreeHalvesParams",
     "DiscountingModel", "HullWhiteParams", "JYCorrelations", "JYParams", "JarrowYildirim", "hw_beta",
     "yoy_convexity", "yoy_variance",
 ]

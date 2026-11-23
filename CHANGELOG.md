@@ -6,6 +6,86 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.79.0] - 2026-11-23
+
+### Added — tranche 77, the 3/2-model variance swap (two routes to one number, and `src/` stays scipy-free)
+
+- **`models/three_halves.py` (L3)** — `ThreeHalvesParams` and `ThreeHalvesModel` for
+  `dv = κv(θ−v)dt + εv^{3/2}dW` (eq 2.75d), non-affine, with the mean-reversion **speed scaling with
+  the variance level**.
+- **`engine/three_halves.py` (L4)** — the fair variance and
+  `@register(VarianceSwap, ThreeHalvesModel)`. **No new product:** T31's `VarianceSwap` priced
+  model-based, its third model after the model-free strip and Heston.
+- **`foundation/noncentral_chisquare.poisson_weighted_sum` (L0)** — the Poisson ladder, extracted at
+  its second consumer (§6).
+
+#### The source defect, and why acquiring the paper resolved it
+
+The book's **eq (3.30)** prints the 3/2 Laplace transform as `₁F₁(−2/σ²U; α, γ)` — **argument
+first** — and read that way it **diverges**: `L(0)` is 4.32 or 4.19 depending on which rendering's
+grouping of `α` you take, and the renderings disagree about that grouping. A Laplace transform of a
+non-negative quantity must give `L(0) = 1`, so the printed form is not transcribable (reported at
+step 1, thread 0407, as the arc's third source defect and the first I could not repair from the held
+text). Eq (3.30) attributes itself to Zhao et al. (2018); Bernardo acquired it, and that paper's
+**Proposition 3 / eq (19)** writes `M(α, γ, −2/(σ²y_T))` — **argument last** — whereupon `L(0) = 1`
+**exactly**, since α's grouping makes `α(0) = 0` and then `M(0,γ,z) = 1`, `(·)^0 = 1`,
+`Γ(γ)/Γ(γ) = 1`. So the requirement oracle does not merely check the transcription: it **pins the
+grouping the two renderings could not settle**. §5's "acquire the source and reconcile", working.
+
+#### Production needs no hypergeometric, which was the layer question
+
+Eq (19) *is* hypergeometric, which would have put a new special function on the production path and
+scipy inside `src/`. It is not needed: §4.2.2's **eq (4.35)** gives `Y = 1/V` as a **CIR** process, so
+`E[V_t] = E[1/Y_t]` is the **inverse first moment of a non-central chi-squared** — a Poisson-weighted
+sum of *elementary* terms `1/(dof + 2j − 2)`, because `χ'²_d(λ)` is a Poisson mixture of central
+chi-squareds and `E[1/χ²_m] = 1/(m−2)`. So production is elementary and **eq (19) is the oracle**,
+with `scipy.special.hyp1f1` in the test only (the T20a arrangement). **The two routes agree to
+8.1e-10** — an elementary ladder against a hypergeometric transform differentiated at zero, different
+derivations and different code. `E[1/Y]` always exists here: `dof = 4(κ+ε²)/ε² > 4` for any positive
+`κ`, so the Feller-type condition §4.2.2 discusses is automatic — asserted rather than guarded for.
+
+#### Three findings beyond the spec
+
+- **The long-horizon limit is NOT `θ`.** The spec's oracle 5 asserts it. The stationary mean is
+  **`θ/(1 + ε²/(2κ))`** — verified to machine precision at four parameter sets, and a **26% gap at
+  `ε = 1.2`**: the vol-of-vol pulls the stationary mean *below* the reversion level. `θ` is the
+  `ε → 0` case, now asserted as the reduction. Cowork ruled this its own error (0411) — the
+  obligation-not-form lesson applied to a *requirement oracle's value*: the stationary mean of a
+  **non-affine** process is not its reversion parameter, so a requirement oracle's target must be
+  derived rather than read off the naive parameter. The derived `stationary_variance` lives in the
+  **test**, not `engine/`: its only consumer is this oracle, so under §6 it is an oracle's reference,
+  and it graduates to engine surface by product-pull. `θ`-as-long-run-variance stays correct for
+  **Heston** and is wrong for **3/2** — a model-specific distinction, so it lives in the 3/2 docstring.
+- **The ladder has a two-sided regime, and both edges are exact limits rather than fudges.** The
+  noncentrality diverges as `t → 0` or `ε → 0` — where `Y` **concentrates**, so `E[1/Y] → 1/E[Y]`,
+  converging as `1/nc` (2.5e-02 at nc=77, 1.4e-04 at 2.8e4) — and vanishes as `t → ∞`, where the law
+  is **central** and `E[1/χ²_d] = 1/(d−2)` exactly. The concentration premise was checked in **both**
+  directions it can be reached, which is T72's lesson: there, "a large parameter means a negligible
+  dispersion" was false and returned an intrinsic for a caplet worth 0.00398.
+- **The `ε → 0` reduction's T39 companion needed its own fixture.** At `ε = 0.4` the separation from
+  the logistic limit is only **5.8e-04** — nearly degenerate in the very parameter the companion
+  exists to exercise, the T39 trap wearing a plausible fixture's clothes. It runs at `ε = 2.0`
+  (1.9e-02), with the main fixture's weakness **asserted** rather than hidden.
+
+#### The reduction itself
+
+`ε = 0` makes the dynamics the **logistic** ODE (the speed scales with `v`), so
+`∫₀^T v dt = (1/κ)·ln[(v₀+(θ−v₀)e^{−κθT})/θ] + θT` — a genuine closed form derived in the test, not a
+numerical limit, and the reduction converges at **second order in `ε`**. The κ→0 watch: the logistic
+integral does carry a removable `(1/κ)ln(1+O(κ))` singularity, reported rather than left silent.
+
+### Notes
+
+- **Mutation sweep: applied 10/10, killed 10, survived 0, no single-killers.** One first-pass survivor
+  was the new L0 ladder's intensity guard — unreachable because every present caller guards before
+  calling (§4's third survivor kind, T33b's validation-guard shape), closed by supplying the input the
+  guard exists to reject, plus three further oracles for the new L0 surface.
+- **The ladder extraction is a pure refactor**: T72's CDF and survival are **bit-identical across 336
+  `(dof × noncentrality × x)` points** (§4/T49, in-process).
+- `ZHAO-CUI-FLORESCU-2018` flips **`in-hand` → `worked-from`**; eq (19) is credited to Carr–Sun
+  (2007), which is **not** held, so the held paper is what is cited (§7: no reference by inference).
+- **`verify.py` test floor 3187 → 3213.**
+
 ## [0.78.0] - 2026-11-22
 
 ### Added — tranche 76, VIX derivatives (and the `SmileLike` protocol extracted at its second consumer)
