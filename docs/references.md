@@ -591,6 +591,49 @@ the static replication of the generalized swaps is **§1.4**, not ch 4.3 — ch 
 generating function methods*, a model-based route (the Heston MGF) that T75/T76 will use. The T74
 spec cited ch 4.3 for the replication; the build read §1.4.
 
+**One sourcing correction (T76, recorded at 0404):** VIX² as the variance-swap rate is **§1.5.2 /
+eq (1.31)** — which *is* T31's strip verbatim — **not** §3.1.1, which is Carr–Wu's *jumps* correction
+(how VIX² and the variance-swap rate **differ** under jumps, out of scope for pure-diffusion Heston).
+The futures/options are **§3.1.2** (eqs 3.6/3.7a), the affine pricing **§3.2.1**. The T76 spec's §3.1.1
+pin was the §1.4-vs-ch-4.3 shape again.
+
+**Source defects found (recorded, as `BERHAN-2012` §5.1's, `JAECKEL-2002` §12.8's and `BROCKHAUS-2016`
+§6.1's are):**
+- **§3.2.2 eq (3.30) — the 3/2-model Laplace transform of integrated variance fails `L(0)=1`;
+  DIAGNOSED and RESOLVED by acquiring the source paper (`ZHAO-CUI-FLORESCU-2018`, now held).** As
+  printed in the book, `L(0) = 4.32`/`4.19` across renderings and the renderings disagree on `α` —
+  it looked irreparable (T77 step-1, 0407). The fix came from the attributed source: eq (3.30) cites
+  **Zhao et al. (2018)**, which Bernardo then acquired (SSRN 3043402). The paper's **Proposition 3
+  (the canonical Carr–Sun (2007) form), eq (19)**, writes the confluent hypergeometric as
+  `M(α, γ, −2/(σ²y_T))` — **parameters α, γ first, argument last** — and satisfies **`L(0) = 1`
+  EXACTLY** (measured 1.000000000000, and exact by structure rather than numerically close: α's
+  grouping makes `α(0) = 0`, whence `M(0,γ,z) = 1`, the power `(·)^0 = 1` and `Γ(γ)/Γ(γ) = 1`, so the
+  requirement oracle is an equality and not a band — which is also what *pins* α's grouping, the
+  renderings having disagreed about it). The two routes then agree to **8.1e-10**, which is the
+  separate number: ladder against transform, not `L(0)` against 1. The book's `₁F₁(−2/σ²U; α, γ)` put the **argument first**; read in
+  that order it diverges (→∞). So the defect is the **book's argument-order rendering of `M`**, not
+  the mathematics — the §5 "acquire the source and reconcile" move working exactly. T77 transcribes
+  eq (19) from the held paper as the **oracle** cross-check and prices on the **reciprocal-CIR
+  Poisson-ladder** (route c) in production, the two agreeing (ruled 0409). *(The 3/2 SDE eq (2.75d)
+  and the reciprocal map eq (4.35) were sound and held throughout — only the book's eq (3.30)
+  rendering was defective.)*
+
+### `ZHAO-CUI-FLORESCU-2018` — `in-hand` (flips to `worked-from` at T77)
+
+Zhao, Z., Cui, Z. & Florescu, I. (2018). *VIX derivatives valuation and estimation based on closed-form
+series expansions.* International Journal of Financial Engineering, 5(2), 1850020 (18 pp). Held at
+`_stock/NewDocuments/ssrn-3043402.pdf` (the SSRN preprint, 26 pp; gitignored — only this record is tracked).
+
+**Acquired by Bernardo, 2026-11-23, to resolve the `KWOK-ZHENG` eq (3.30) defect** — eq (3.30) attributes
+itself to this work, and the book's rendering of the 3/2-model integrated-variance Laplace transform failed
+`L(0)=1` (the defect log above). The paper's **Proposition 3** (the canonical **Carr–Sun (2007)** form; the
+paper restates it, we cite the held paper, not the un-held Carr–Sun) carries the correct transform,
+`M(α, γ, −2/(σ²y_T))` — **confluent hypergeometric, argument last** — which satisfies `L(0)=1` exactly; the
+book put the argument first. The paper's method is a **Hermite series expansion** for VIX derivatives under
+general stochastic-vol models (Heston, mean-reverting CEV, 3/2); for T77 only **Proposition 3** (the 3/2
+transform) is load-bearing, used as the **oracle** transcription cross-check of the reciprocal-CIR route.
+*(The Hermite-series VIX-pricing method itself is a `to_go_deeper` candidate, not pulled.)*
+
 ### `OVERHAUS-2002` — `in-hand` (a second equity source; the weakest of the shelf)
 
 Overhaus, M., Ferraris, A., Knudsen, A., Milward, R., Nguyen-Ngoc, L. & Schindlmayr, G. (the Deutsche Bank
