@@ -36,6 +36,7 @@ from pricebook.engine import price
 from pricebook.engine.three_halves import (
     expected_variance,
     reciprocal_cir_law,
+    stationary_variance,
     three_halves_fair_variance,
 )
 from pricebook.foundation import Currency, Money, PricingFailure, PricingResult
@@ -211,11 +212,31 @@ def test_the_reduction_CONVERGES_at_first_order_in_the_vol_of_vol():
 
 
 def test_the_COMPANION_a_material_vol_of_vol_moves_the_answer_away_from_the_logistic():
-    # §4/T39: the `epsilon -> 0` reduction zeroes exactly the parameter the stochastic term lives in,
-    # so it is structurally blind to it. The companion asserts the fixture is non-degenerate there.
-    stochastic = three_halves_fair_variance(PARAMS, YEARS) * YEARS
-    deterministic = _logistic_integral(PARAMS, YEARS)
-    assert abs(stochastic / deterministic - 1.0) > 1e-3, (stochastic, deterministic)
+    """§4/T39's mandatory companion — and it needed its **own** fixture, which is the finding.
+
+    The `ε → 0` reduction zeroes exactly the parameter the stochastic term lives in, so it is
+    structurally blind to it and the companion must exercise a vol-of-vol where it bites. **The main
+    fixture does not**: measured, `ε = 0.4` over this horizon separates the stochastic fair variance
+    from the logistic one by only **5.8e-04** — a companion built on it would be nearly degenerate in
+    the very parameter it exists to exercise, which is the T39 trap wearing a plausible fixture's
+    clothes. The separation grows with both the vol-of-vol and the horizon: 2.4e-03 at `ε = 0.8`,
+    5.7e-03 at 1.2, **1.9e-02 at 2.0**; and at `ε = 0.4` alone, 5.0e-03 by `T = 5` and 2.0e-02 by
+    `T = 20`. So the companion uses a vol-of-vol of 2.0, and both halves are asserted — that it
+    separates there, and that the main fixture is the weak case.
+    """
+    loud = ThreeHalvesParams(PARAMS.v0, PARAMS.kappa, PARAMS.theta, 2.0)
+    separation = abs(
+        three_halves_fair_variance(loud, YEARS) * YEARS / _logistic_integral(loud, YEARS) - 1.0
+    )
+    assert separation > 0.01, separation
+
+    quiet = abs(
+        three_halves_fair_variance(PARAMS, YEARS) * YEARS
+        / _logistic_integral(PARAMS, YEARS)
+        - 1.0
+    )
+    assert 1e-4 < quiet < 1e-3, quiet          # the main fixture: real, but nearly degenerate
+    assert separation > 20.0 * quiet, (separation, quiet)
 
 
 # ============================================================================================
@@ -234,13 +255,31 @@ def test_the_fair_variance_is_POSITIVE_and_MONOTONE_in_the_initial_variance():
     assert values[-1] > 2.0 * values[0]
 
 
-def test_the_fair_RATE_tends_to_THETA_over_a_long_horizon():
-    # The mean reversion forces it: the annualised expected variance must approach the long-run level.
-    assert three_halves_fair_variance(PARAMS, 400.0) == pytest.approx(
-        PARAMS.theta, rel=0.02, abs=0.0
+def test_the_fair_RATE_tends_to_the_STATIONARY_mean_which_is_NOT_theta():
+    """**The spec's oracle 5 is wrong for a positive vol-of-vol, and this is the corrected form.**
+
+    It asserts the long-horizon limit is `θ`. It is not: the 3/2 variance's stationary mean is
+    `θ/(1 + ε²/(2κ))` — the vol-of-vol pulls it **below** the reversion level, by 3.8% at this
+    fixture and **26%** at `ε = 1.2`. It falls out of the reciprocal-CIR law (`Y`'s stationary law is
+    a central chi-squared, whose inverse mean is `1/(scale·(dof−2))`) and is verified to machine
+    precision against the ladder. `θ` is the `ε → 0` case, which is asserted below as the reduction.
+    """
+    assert three_halves_fair_variance(PARAMS, 600.0) == pytest.approx(
+        stationary_variance(PARAMS), rel=0.02, abs=0.0
     )
-    # the premise: v0 and theta differ materially, so this is not vacuous
+    # the premise that makes this a correction rather than a restatement: it differs from theta
+    assert abs(stationary_variance(PARAMS) / PARAMS.theta - 1.0) > 0.03
     assert abs(PARAMS.v0 / PARAMS.theta - 1.0) > 0.4
+
+
+def test_the_stationary_mean_REDUCES_to_theta_as_the_vol_of_vol_vanishes():
+    # Which is why the spec's claim is the limiting case rather than simply wrong.
+    for epsilon in (0.4, 0.1, 0.01):
+        params = ThreeHalvesParams(PARAMS.v0, PARAMS.kappa, PARAMS.theta, epsilon)
+        assert stationary_variance(params) < PARAMS.theta
+    assert stationary_variance(
+        ThreeHalvesParams(PARAMS.v0, PARAMS.kappa, PARAMS.theta, 1e-6)
+    ) == pytest.approx(PARAMS.theta, rel=1e-12, abs=0.0)
 
 
 def test_the_SPOT_limit_is_v0_as_the_horizon_vanishes():

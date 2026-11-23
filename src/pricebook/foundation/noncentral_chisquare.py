@@ -53,6 +53,7 @@ Provenance:
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 
 #: Guard against a zero denominator in the continued fraction's Lentz recurrence. Far below any
 #: representable intermediate the recursion legitimately produces, so reaching it means a term
@@ -135,13 +136,27 @@ def _check(x: float, dof: float, noncentrality: float) -> None:
         )
 
 
-def _poisson_mixture(x: float, dof: float, noncentrality: float, central) -> float:
-    """`sum_j Poisson(j; lambda/2) * central(nu/2 + j, x/2)`, summed OUTWARD from the mode.
+def poisson_weighted_sum(noncentrality: float, term: Callable[[int], float]) -> float:
+    """`sum_j Poisson(j; noncentrality/2) * term(j)`, summed OUTWARD from the Poisson mode.
 
-    `central` is one of the two private incomplete gammas, so one walk serves both public functions:
-    the weights and the stopping rule are identical and only the central quantity differs. Summing
-    from the mode keeps the largest weight first, which is what makes a `lambda` of 1500 tractable —
-    from `j = 0` the leading weights underflow and the sum loses its significant digits."""
+    **Extracted at tranche 77, the second consumer — §6's rule of two.** Tranche 72 wrote this walk
+    inside the non-central chi-squared's mixture, where `term(j)` is a central chi-squared CDF or
+    survival. Tranche 77's 3/2 variance swap needs the *same walk* with an **elementary** summand:
+    `E[1/chi'^2_d(lambda)] = sum_j Poisson(j) / (d + 2j - 2)`, the inverse first moment, which is what
+    lets that tranche price without a confluent hypergeometric. Two consumers of one ladder; the
+    summand is the varying part and is the parameter.
+
+    **Summed from the mode, not from `j = 0`**, which is the whole reason this is worth sharing: at a
+    noncentrality of 1500 the weight at `j = 0` underflows to zero while the mode's is O(1), so a sum
+    started at zero spends hundreds of terms accumulating nothing and then loses its leading digits.
+
+    The convergence test is relative to the running total, so it is a genuine test for a sum of
+    positive terms and a hopeful one otherwise — both present consumers have positive summands.
+    """
+    if not math.isfinite(noncentrality) or noncentrality <= 0.0:
+        raise ValueError(
+            f"a Poisson-weighted sum needs a positive intensity, got {noncentrality}"
+        )
     half = 0.5 * noncentrality
     mode = int(half)
     log_weight = -half + mode * math.log(half) - math.lgamma(mode + 1.0)
@@ -150,9 +165,9 @@ def _poisson_mixture(x: float, dof: float, noncentrality: float, central) -> flo
     weight = math.exp(log_weight)
     index = mode
     for _ in range(_MAX_POISSON_TERMS):
-        term = weight * central(0.5 * dof + index, 0.5 * x)
-        total += term
-        if index > mode and term <= total * 1.0e-18 and index > half:
+        contribution = weight * term(index)
+        total += contribution
+        if index > mode and contribution <= total * 1.0e-18 and index > half:
             break
         index += 1
         weight *= half / index
@@ -164,11 +179,22 @@ def _poisson_mixture(x: float, dof: float, noncentrality: float, central) -> flo
     while index > 0:
         weight *= index / half
         index -= 1
-        term = weight * central(0.5 * dof + index, 0.5 * x)
-        total += term
-        if term <= total * 1.0e-18:
+        contribution = weight * term(index)
+        total += contribution
+        if contribution <= total * 1.0e-18:
             break
     return total
+
+
+def _poisson_mixture(x: float, dof: float, noncentrality: float, central) -> float:
+    """The non-central chi-squared as a Poisson mixture of central ones, over the shared ladder.
+
+    `central` is one of the two private incomplete gammas, so one walk serves both public functions:
+    the weights and the stopping rule are identical and only the central quantity differs.
+    """
+    return poisson_weighted_sum(
+        noncentrality, lambda index: central(0.5 * dof + index, 0.5 * x)
+    )
 
 
 def noncentral_chisquare_cdf(x: float, dof: float, noncentrality: float) -> float:
