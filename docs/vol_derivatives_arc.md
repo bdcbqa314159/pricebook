@@ -68,7 +68,9 @@ stochastic-vol model (3/2) and the time-changed-Lévy framework with the discret
   a parameter map — ruled at build whether exact); an MC companion; the `α→0`-type numerics watch (the T66
   rate-in-a-regime clause, if a removable singularity appears).
 - **T78 — time-changed Lévy variance swaps + the discrete-monitoring correction (a PRICING tranche)**
-  (ch 4.4, 1.5, 4.3.3). *(Scope set at 0401: T75 priced the continuous case, so T78 **carries the
+  (§2.4 framework; §4.4.1/§4.4.2/§4.4.4–5 pricing + convergence; §1.5.3 model-free discrete cross-check —
+  sourcing pinned from the TOC at T78 spec, the arc plan's earlier "4.3.3" was wrong). *(Scope set at 0401:
+  T75 priced the continuous case, so T78 **carries the
   discrete-monitoring adjustment as a priced deliverable** — it prices a discretely-monitored realized-variance
   claim as "the continuous counterpart **plus** the §5.2 adjustment", not only a convergence study.)* The
   variance swap under a time-changed Lévy process (a general framework), and the **discrete-monitoring
