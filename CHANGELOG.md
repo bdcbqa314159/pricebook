@@ -6,6 +6,103 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.80.0] - 2026-11-23
+
+### Added — tranche 78, variance swaps under time-changed Lévy processes (the arc's jump pillar, and the discrete-monitoring adjustment as a priced deliverable)
+
+- **`models/time_changed_levy.py` (L3)** — `LevyParams` (a diffusion part plus `Y = 0` CGMY /
+  **Variance Gamma** jumps), `ActivityRateParams` (the **absolutely continuous** CIR clock), and
+  `TimeChangedLevyModel`. The clock's long-run level is **1 by the `E[Z_t] = t` normalisation**, not
+  a field — eq (4.81) pins it, so a `theta` would be a fifth wheel.
+- **`products/discrete_variance_swap.py` (L2)** — `DiscreteVarianceSwap`, carrying the monitoring
+  count. A **separate type**, not a `None`-count variant of T31's swap (§6): the count is
+  constitutive of the payoff, which is the whole subject here.
+- **`engine/time_changed_levy.py` (L4)** — the continuous strike (Prop 4.2), the discrete
+  adjustment (Prop 4.3), the multiplier (Table 4.3), and two `@register`ed pricers. **No Fourier
+  inversion and no special function:** everything is a derivative of the cumulant exponent at 0 or
+  its value at 1.
+
+#### Two readings of the source had to be ruled, both pinned by oracles
+
+**§4.4 contradicts itself.** Prop 4.8 prints `Kv(∞) = −(1/T)φ_L⁽²⁾(0)E[Z_T]`, which under the book's
+own (4.84) is the **second moment** `E[L₁²]`; Prop 4.2 with Prop 4.1 gives `var(L₁)`. They differ by
+`(E[L₁])²` — measured **20%**, **5%** and **24,245%** apart on three parameter sets, and agreeing
+only for a centred `L`, which is why an ordinary fixture would not have noticed. **We compute
+`var(L₁)`**: a fair strike is expected quadratic variation, `[L,L]` is **drift-free**, and Prop 4.1's
+own proof states `E[L,L]₁ = var(L₁)`. Props 4.9/4.10 use `ψ_L″` rather than `φ`, which makes `φ⁽²⁾`
+the misprint. The §4 derivation-step-discrepancy rule, and the arc's **fourth** source defect.
+
+**Table 4.3's CGMY row prints no `Y` and no `Γ`** while its footnote permits `Y < 2`. Derived against
+the Lévy density it is the `Y = 0` case **exactly** (machine precision, three parameter sets) and
+2.8% off at `Y = 0.5`. The formula is right; the row's generality claim is not.
+
+#### The spec's structural anchor was false, and the replacement is stronger
+
+The spec made *"the adjustment vanishes in the pure-diffusion limit"* the heart of the tranche. **It
+does not vanish.** Prop 4.3's first correction term `(1/T)Σ(E[Δln S])²` survives the vanishing of the
+jumps entirely, and the pure-diffusion adjustment is **exactly `(r − q − σ²/2)²·T/N`** — the classic
+discrete-variance result, asserted at `rel=1e-14` rather than as a limit. The adjustment vanishes as
+`N → ∞`, not as the jumps go. That is a **stronger** anchor than the spec's: an exact nonzero closed
+form rather than a zero, which a no-op adjustment would also have satisfied (§4's vacuous-reduction
+trap). It is simultaneously oracle 3's rate, since the same constant is §4.4.4's `O(1/N)` constant.
+
+#### Three findings beyond that
+
+- **The multiplier buys no independence.** `Q_L·(κ(1) − κ′(0)) = κ″(0)` is an **algebraic identity**,
+  so computing the strike "both ways" is one computation written twice (T70). `Q_L` is built because
+  Table 4.3 tabulates it — it is the transcription target — and the strike's only independent check
+  is the simulation. Asserted as an identity so the oracle set is not credited with independence it
+  does not have.
+- **The clock's variance carries a cancellation defect in PRODUCTION, not in a reference.** The spec
+  scoped the κ→0 watch to references (T77's landed there); here `var(ΔZ) = 2s²(κΔ − 1 + e^{−κΔ})/κ²`
+  carries it. Written naively the bracket is **29% wrong at `x = 2.5e-8` and returns exactly 0.0** by
+  `2.5e-10`. **Not a removable singularity** — `s² = σ_v²/(2κ)` diverges, so the variance genuinely
+  blows up; the defect is the arithmetic. Fixed with `expm1` **plus a series branch**, because
+  `x + expm1(−x)` still cancels (losing `2ε/x`); the crossover at `1e-3` is where the two errors
+  meet, **measured for this model rather than inherited** (T67).
+- **The clock must be an integrated rate, not a subordinator.** §4.4.4's convergence assumes
+  `E[(ΔZ)²] ~ O(N⁻²)`, which an absolutely continuous clock gives and a gamma subordinator does not
+  (`O(N⁻¹)`) — under which the discrete strike would **not** converge to the continuous one at all.
+  Asserted as a measured rate (`var/Δ² → s²`), not as a remark.
+
+#### Oracles
+
+Table 4.3's CGMY row transcribed pointwise and its Brownian row as an **exact reduction** (`Q_L = 2`
+at `rel=1e-15`), with a T39 companion where the multiplier exceeds 2; the pure-diffusion adjustment
+against its exact closed form; the `O(1/N)` rate as `adjustment × N → constant` over `N = 50…1600`
+while the adjustment itself moves 32× (the T25 rate-detector, measured not plotted); §4.4.2's printed
+**positivity** requirement; and an **exact-increment** Lévy simulation — a `Y = 0` CGMY process is the
+difference of two gamma processes, so the Lévy increments carry no discretisation error and only the
+clock integral is sub-stepped. Simulation resolves the adjustment at **3.86 SE** with 250k paths at
+`N = 4`; at 60k it is 1.92 SE and **not** resolvable, so the path count is part of the claim.
+
+#### The mutation sweep found two holes with one root cause, and the second corrected the code
+
+**19 mutations: 18 killed, 1 survived** — substituting the naive cancelling bracket for `expm1`.
+Every `κ` the stability test probed put `x = κ·Δ` **below** the branch threshold, so the whole
+`expm1` branch was unexercised. Chasing it, all three forms were measured against a **60-digit
+`decimal` reference** (T20a's independent-high-precision move, with the standard library rather
+than scipy), which overturned two of the build's own claims:
+
+- the series-based reference used while diagnosing was itself the **weaker side** above a few
+  thousandths, so readings there measured the reference's truncation, not the bracket — "a
+  reference is code too", inside a diagnostic;
+- **the crossover was in the wrong place.** The code had `1e-3` and the docstring claimed the two
+  errors met there. They meet at **2e-3**; at `1e-3` the series is **70× more accurate** than the
+  `expm1` it switched to (2.78e-15 against 1.95e-13) — accurate enough to pass every oracle, and
+  wrong about where the trade-off lies. Corrected; worst case is now ~5e-14 across the domain.
+  (`expm1` everywhere would not do either: it is **1.5e-7 wrong at `x = 1e-9`**.)
+
+**A second sweep then surfaced a second survivor with the same root cause**: reverting the
+threshold to `1e-3` survived, because the new crossover test compared the two *forms* to each other
+and **never called production** — a true statement about the error curves that holds whatever
+threshold the code uses, i.e. a tautology with respect to the code under test. Killed by the one
+point where the forms are separable: at `x = 1e-3` they differ 70×, where at `1.5e-3` it is 2.8×
+and at `1.9e-3` only 1.7×, so most candidate points would not have discriminated. Both holes are
+the same shape — **an oracle that did not reach the thing that could be wrong**: first a branch no
+fixture entered, then a constant no assertion touched. Final: **25 mutations, 25 killed**
+(19 + 6 branch mutations), applied counts full on every run.
+
 ## [0.79.0] - 2026-11-23
 
 ### Added — tranche 77, the 3/2-model variance swap (two routes to one number, and `src/` stays scipy-free)
