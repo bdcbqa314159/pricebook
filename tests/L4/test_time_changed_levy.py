@@ -19,6 +19,7 @@ discrete decomposition), §4.4.4 (Prop 4.8 — the `O(1/N)` rate), §1.5.3.
 
 import math
 from datetime import date, timedelta
+from decimal import Decimal, getcontext
 
 import numpy
 import pytest
@@ -225,25 +226,95 @@ def test_the_clock_increment_variance_is_ORDER_step_SQUARED_which_is_4_4_4s_cond
     assert abs(ratios[0] / s2 - 1.0) > 0.05          # the premise: the coarse end is NOT converged
 
 
-def test_the_clock_variance_is_STABLE_where_the_NAIVE_bracket_cancels_to_zero():
-    """`κD − 1 + e^{−κD}` is `O((κD)²/2)` — catastrophic cancellation as `κ → 0`.
+def _exact_decay_bracket(x: float) -> float:
+    """`x − 1 + e^{−x}` at 60 significant digits, via `decimal` — the test's own reference.
 
-    **This lands in PRODUCTION, not in a reference.** The spec scoped the κ→0 watch to references
-    (T77's landed there); here the clock's own variance carries it, so it is measured for THIS
-    model rather than inherited (T67). Not a removable singularity: `s² = σ_v²/(2κ)` diverges, so
-    the variance genuinely blows up — the defect is the bracket's arithmetic, and `expm1` fixes it.
+    A genuinely independent high-precision reference for a cancelling expression (T20a's move,
+    reached for with the standard library rather than scipy). Both of production's branches are
+    measured against *this*, not against each other and not against a series that is itself the
+    weaker side above a few thousandths — which is the trap that hid the branch below.
     """
-    for kappa in (1e-5, 1e-7, 1e-9):
-        clock = ActivityRateParams(kappa=kappa, vol_of_vol=0.5)
-        naive_bracket = kappa * 0.25 - 1.0 + math.exp(-kappa * 0.25)
-        series = (kappa * 0.25) ** 2 / 2.0 - (kappa * 0.25) ** 3 / 6.0
-        stationary = 0.5**2 / (2.0 * kappa)
-        expected = 2.0 * stationary * series / (kappa * kappa)
-        assert clock_increment_variance(clock, 0.25) == pytest.approx(expected, rel=1e-12, abs=0.0)
-        if kappa <= 1e-7:                            # the naive form is measurably broken here
-            assert abs(naive_bracket / series - 1.0) > 0.2
-    # and it returns EXACTLY zero at the far end, which a relative band would call a 100% error
-    assert 1e-9 * 0.25 - 1.0 + math.exp(-1e-9 * 0.25) == 0.0
+    getcontext().prec = 60
+    value = Decimal(repr(x))
+    return float(value - 1 + (-value).exp())
+
+
+@pytest.mark.parametrize(
+    "x, tolerance",
+    [
+        (1e-9, 1e-14),       # deep in the series branch, where `expm1` itself is 1.5e-07 wrong
+        (1e-6, 1e-14),
+        (1e-4, 1e-14),
+        # The point that discriminates the CROSSOVER itself: here the series is 70x more accurate
+        # than `expm1` (2.78e-15 against 1.95e-13), so a tolerance between the two proves which
+        # branch production actually took. Reverting the threshold to the first draft's 1e-3 sends
+        # this point through `expm1` and fails -- which is how that mutation is killed.
+        (1e-3, 2e-14),
+        (1.9e-3, 1e-13),     # the last point BELOW the crossover
+        (3e-3, 1e-13),       # the first point above it -- the `expm1` branch, naive is 6.1e-12
+        (0.05, 1e-14),
+        (1.0, 1e-15),
+    ],
+)
+def test_the_decay_BRACKET_is_accurate_in_BOTH_branches_against_60_digits(x, tolerance):
+    """The oracle must reach into **both** branches, which is what a first version did not.
+
+    Every `κ` the first version probed put `x = κ·Δ` **below** the crossover, so the whole
+    `expm1` branch was unexercised and substituting the naive cancelling form **survived the
+    sweep**. The branch boundary is a guard like any other: it has to be tested on both sides
+    (§4's reachability rule, here on an arithmetic branch rather than a refusal).
+    """
+    clock = ActivityRateParams(kappa=x / 0.25, vol_of_vol=0.5)
+    stationary = 0.5**2 / (2.0 * clock.kappa)
+    expected = 2.0 * stationary * _exact_decay_bracket(x) / (clock.kappa * clock.kappa)
+    assert clock_increment_variance(clock, 0.25) == pytest.approx(expected, rel=tolerance, abs=0.0)
+
+
+def test_the_NAIVE_bracket_would_FAIL_the_oracle_above_the_crossover():
+    """The companion that proves the test above has power — the T15 shape.
+
+    Asserting that production is accurate says nothing unless the rejected form is shown to be
+    **in**accurate at the same point. The naive bracket is 6.1e-12 off at `x = 3e-3` (200× worse),
+    8.9e-05 off at `1e-6`, and **100% wrong** by `1e-9` where it returns a value of the wrong
+    order entirely.
+    """
+    for x, floor in ((3e-3, 1e-12), (1e-6, 1e-5), (1e-9, 0.5)):
+        naive = x - 1.0 + math.exp(-x)
+        exact = _exact_decay_bracket(x)
+        assert abs(naive / exact - 1.0) > floor, (x, naive, exact)
+    # and at 1e-9 it is not merely inaccurate -- it has lost every significant digit
+    assert 1e-9 - 1.0 + math.exp(-1e-9) == 0.0
+
+
+def test_the_CROSSOVER_sits_where_the_two_errors_actually_cross():
+    """`2e-3`, measured — and a first draft had `1e-3`, where the series is 70× better.
+
+    **This is the PREMISE, not the oracle, and the distinction cost a mutation survivor.** A first
+    version of this test compared the two *forms* to each other and never called production at
+    all, so it held whatever threshold the code used — a tautology with respect to the code under
+    test. It is kept because it documents *why* the boundary is where it is; what pins production
+    to it is the `1e-3` row of the parametrised test above, where the two forms are separable.
+    """
+    for x in (1e-4, 1e-3):
+        exact = _exact_decay_bracket(x)
+        series = x * x * (1 / 2 + x * (-1 / 6 + x * (1 / 24 - x / 120)))
+        assert abs(series / exact - 1.0) < abs((x + math.expm1(-x)) / exact - 1.0)
+    for x in (3e-3, 1e-2):
+        exact = _exact_decay_bracket(x)
+        series = x * x * (1 / 2 + x * (-1 / 6 + x * (1 / 24 - x / 120)))
+        assert abs((x + math.expm1(-x)) / exact - 1.0) < abs(series / exact - 1.0)
+    # and production agrees with the BETTER form on each side -- the part that touches the code
+    for x, use_series in ((1e-3, True), (3e-3, False)):
+        better = (
+            x * x * (1 / 2 + x * (-1 / 6 + x * (1 / 24 - x / 120)))
+            if use_series
+            else x + math.expm1(-x)
+        )
+        clock = ActivityRateParams(kappa=x / 0.25, vol_of_vol=0.5)
+        stationary = 0.5**2 / (2.0 * clock.kappa)
+        assert clock_increment_variance(clock, 0.25) == pytest.approx(
+            2.0 * stationary * better / (clock.kappa * clock.kappa), rel=1e-15, abs=0.0
+        )
 
 
 def test_a_deterministic_clock_has_ZERO_increment_variance():

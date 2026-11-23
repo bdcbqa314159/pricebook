@@ -126,19 +126,26 @@ def clock_increment_variance(clock: ActivityRateParams, step: float) -> float:
 def _decay_bracket(x: float) -> float:
     """`x − 1 + e^{−x}`, which is `x²/2 + O(x³)` and cancels to nothing if written that way.
 
-    Two regimes, with the crossover **measured** rather than chosen by eye (T67 — a prior
-    tranche's boundary is not this one's):
+    Two regimes, with the crossover **measured against a 60-digit reference** rather than reasoned
+    about — the measurement corrected the first guess, which is why it is quoted here (T67: a
+    boundary is measured per model, never inherited, and that applies to one's own first draft):
 
-    - `x ≥ 1e-3`: `x + expm1(−x)`. `expm1` is relative-accurate in its own result, but the sum
-      still cancels, losing about `2ε/x` — 4.4e-13 at the crossover and worse below it, which is
-      why there is a crossover at all rather than `expm1` everywhere.
-    - `x < 1e-3`: the series `x²/2 − x³/6 + x⁴/24 − x⁵/120`, whose truncation is `x⁴/360`
-      relative — 2.8e-15 at the crossover. The two errors meet there, which is what picks it.
+    - `x ≥ 2e-3`: `x + expm1(−x)`. `expm1` is relative-accurate in its own result, but the sum
+      still cancels, losing about `2ε/x`: 3e-14 at the crossover, 1.6e-10 by `x = 1e-6` and
+      **1.5e-7** by `1e-9`. So `expm1` everywhere would not do either.
+    - `x < 2e-3`: the series `x²/2 − x³/6 + x⁴/24 − x⁵/120`, whose truncation is `x⁴/360`:
+      4.4e-14 at the crossover and 1e-16 or better below `1e-4`.
 
-    Written naively (`x - 1.0 + exp(-x)`) this is 29% wrong at `x = 2.5e-8` and returns **exactly
-    0.0** by `x = 2.5e-10`; both forms here stay accurate to 1e-12 relative throughout.
+    `2e-3` is where the two curves actually cross. A first draft put it at `1e-3`, where the series
+    is still **72× more accurate** than `expm1` (2.7e-15 against 1.95e-13) — accurate enough to
+    pass every oracle, and wrong about where the trade-off lies. Worst case across the whole
+    domain is now ~5e-14 relative.
+
+    Written naively (`x - 1.0 + exp(-x)`) this is 6.2e-11 at `x = 1e-3`, 8.9e-05 at `1e-6` and
+    **100% wrong** by `1e-9` — the form the mutation sweep substitutes, and the reason the oracle
+    reaches into both branches.
     """
-    if x >= 1e-3:
+    if x >= 2e-3:
         return x + math.expm1(-x)
     return x * x * (1.0 / 2.0 + x * (-1.0 / 6.0 + x * (1.0 / 24.0 - x / 120.0)))
 
