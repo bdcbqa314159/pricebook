@@ -618,7 +618,7 @@ pin was the §1.4-vs-ch-4.3 shape again.
   and the reciprocal map eq (4.35) were sound and held throughout — only the book's eq (3.30)
   rendering was defective.)*
 
-### `ZHAO-CUI-FLORESCU-2018` — `in-hand` (flips to `worked-from` at T77)
+### `ZHAO-CUI-FLORESCU-2018` — `worked-from`
 
 Zhao, Z., Cui, Z. & Florescu, I. (2018). *VIX derivatives valuation and estimation based on closed-form
 series expansions.* International Journal of Financial Engineering, 5(2), 1850020 (18 pp). Held at
@@ -633,6 +633,18 @@ book put the argument first. The paper's method is a **Hermite series expansion*
 general stochastic-vol models (Heston, mean-reverting CEV, 3/2); for T77 only **Proposition 3** (the 3/2
 transform) is load-bearing, used as the **oracle** transcription cross-check of the reciprocal-CIR route.
 *(The Hermite-series VIX-pricing method itself is a `to_go_deeper` candidate, not pulled.)*
+
+**Status `worked-from`** since tranche 77 (v0.79.0): **Proposition 3 / eq (19)** — the canonical
+Carr–Sun (2007) Laplace transform of the 3/2 model's realized variance — is transcribed as T77's
+**oracle** (`tests/L4/test_three_halves.py`), and `KWOK-ZHENG` §4.2.2 eq (4.35)'s reciprocal-CIR map
+carries production. **Acquired for a specific reason and it paid for itself immediately:** the book's
+eq (3.30) is a mis-rendering of this paper's eq (19) (argument order), and reading the paper is what
+turned an apparently irreparable source defect into a resolved one. Cited for eq (19) only; the
+paper's own Hermite-expansion method is not built against.
+
+**Note on the attribution chain.** Eq (19) is credited to **Carr and Sun (2007)**, which is *not*
+held — so it is this paper, the held one, that is cited (§7: no reference by inference). The
+`Carr–Sun` name appears in the provenance as the result's origin, never as a `source:` key.
 
 ### `OVERHAUS-2002` — `in-hand` (a second equity source; the weakest of the shelf)
 
