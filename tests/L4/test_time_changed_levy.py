@@ -29,13 +29,14 @@ from pricebook.engine.time_changed_levy import (
     discrete_monitoring_adjustment,
     levy_cumulant,
     levy_fair_variance,
+    levy_mean,
     levy_multiplier,
     levy_variance,
 )
 from pricebook.foundation import Currency, Money, PricingFailure, PricingResult
 from pricebook.foundation.day_count import DayCountConvention
 from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
-from pricebook.market.equity import EquityAsset
+from pricebook.market.equity import EquityAsset, EquityUnderlying
 from pricebook.models.time_changed_levy import (
     ActivityRateParams,
     LevyParams,
@@ -45,6 +46,7 @@ from pricebook.products import VarianceSwap
 from pricebook.products.discrete_variance_swap import DiscreteVarianceSwap
 
 VAL = date(2026, 1, 15)
+ACME = EquityAsset("ACME")
 YEARS = 2.0
 EXPIRY = VAL + timedelta(days=730)
 USD = Currency("USD")
@@ -62,14 +64,14 @@ RATE, DIVIDEND = 0.03, 0.01
 
 
 def _market(valuation: date = VAL) -> MarketSnapshot:
-    curve = DiscountCurve.flat(
-        valuation_date=valuation,
-        rate=RATE,
-        time_measure=DayCountConvention.ACT_365_FIXED,
-    )
+    curve = DiscountCurve.flat(valuation, RATE, DayCountConvention.ACT_365_FIXED)
     return MarketSnapshot(
         valuation_date=valuation,
-        curves=CurveSet({CurveKey(USD, CurveRole.DISCOUNT): curve}),
+        curves=CurveSet({CurveKey(CurveRole.DISCOUNT, USD): curve}),
+        # The repo/borrow rate enters the forward exactly as a yield does, so it IS the `q` of the
+        # `r − q` carry (see `market/equity.py`); a non-zero one keeps the carry from collapsing to
+        # the discount rate, where a dropped dividend leg would be invisible.
+        equities={ACME: EquityUnderlying(spot=100.0, repo_rate=DIVIDEND)},
     )
 
 
@@ -139,10 +141,18 @@ def test_the_multiplier_route_is_an_IDENTITY_so_it_buys_no_independence():
     0417 finding 3). The continuous strike's independent check is the MC companion below.
     """
     for params in (JUMPS, DIFFUSION):
-        gap = levy_cumulant(params, 1.0) - _mean(params)
+        gap = levy_cumulant(params, 1.0) - levy_mean(params)
+        # exact, not approximately: the identity holds in the arithmetic, which is the claim
         assert levy_multiplier(params) * gap == pytest.approx(
-            levy_variance(params), rel=1e-13, abs=0.0
+            levy_variance(params), rel=1e-15, abs=0.0
         )
+
+
+def test_the_MEAN_is_the_first_cumulant_derived_not_restated():
+    # `levy_mean` is a closed form; this checks it against a different computation (a central
+    # difference of the cumulant exponent), which is what the identity above cannot do.
+    assert levy_mean(JUMPS) == pytest.approx(_mean(JUMPS), rel=1e-7, abs=0.0)
+    assert levy_mean(DIFFUSION) == pytest.approx(0.0, abs=1e-15)
 
 
 def _mean(params: LevyParams) -> float:
@@ -163,7 +173,7 @@ def test_PROP_4_8s_PRINTED_form_disagrees_with_PROP_4_2_and_we_take_prop_4_2():
     (`[L,L]` ignores the drift), Prop 4.1's own proof says `E[L,L]₁ = var(L₁)`, and the Brownian
     case agrees both ways — which is exactly why a centred fixture cannot see the difference.
     """
-    second_moment = levy_variance(JUMPS) + _mean(JUMPS) ** 2
+    second_moment = levy_variance(JUMPS) + levy_mean(JUMPS) ** 2
     # what we compute
     assert levy_fair_variance(_model().levy, _model().clock, YEARS) == pytest.approx(
         levy_variance(JUMPS), rel=1e-13, abs=0.0
@@ -179,8 +189,8 @@ def test_a_CENTRED_levy_process_cannot_see_the_prop_4_8_discrepancy():
     catalogue's refrain, here on a source-discrepancy oracle (T13's shape).
     """
     # sigma-only is centred: E[L1] = 0 exactly.
-    assert _mean(DIFFUSION) == pytest.approx(0.0, abs=1e-9)
-    assert levy_variance(DIFFUSION) + _mean(DIFFUSION) ** 2 == pytest.approx(
+    assert levy_mean(DIFFUSION) == 0.0
+    assert levy_variance(DIFFUSION) + levy_mean(DIFFUSION) ** 2 == pytest.approx(
         levy_variance(DIFFUSION), rel=1e-12, abs=0.0
     )
 
@@ -227,8 +237,9 @@ def test_the_clock_variance_is_STABLE_where_the_NAIVE_bracket_cancels_to_zero():
         clock = ActivityRateParams(kappa=kappa, vol_of_vol=0.5)
         naive_bracket = kappa * 0.25 - 1.0 + math.exp(-kappa * 0.25)
         series = (kappa * 0.25) ** 2 / 2.0 - (kappa * 0.25) ** 3 / 6.0
-        ours = clock_increment_variance(clock, 0.25) * kappa**2 / (2.0 * 0.5**2 / (2.0 * kappa))
-        assert ours == pytest.approx(series, rel=1e-9, abs=0.0)
+        stationary = 0.5**2 / (2.0 * kappa)
+        expected = 2.0 * stationary * series / (kappa * kappa)
+        assert clock_increment_variance(clock, 0.25) == pytest.approx(expected, rel=1e-12, abs=0.0)
         if kappa <= 1e-7:                            # the naive form is measurably broken here
             assert abs(naive_bracket / series - 1.0) > 0.2
     # and it returns EXACTLY zero at the far end, which a relative band would call a 100% error
@@ -401,10 +412,12 @@ def test_simulation_RESOLVES_the_adjustment_it_is_asked_to_confirm():
     Otherwise "discrete ≈ continuous" asserts only that both are noisy — the spec's own degeneracy
     premise, and the reason the fixture uses `N = 4` here rather than the `N = 12` above.
     """
-    count, paths = 4, 60_000
+    count, paths = 4, 250_000
     adjustment = discrete_monitoring_adjustment(JUMPS, CLOCK, YEARS, count, RATE - DIVIDEND)
     mean, standard_error = _simulate_realized_variance(JUMPS, CLOCK, YEARS, count, paths, seed=5)
-    assert adjustment > 2.0 * standard_error, (adjustment, standard_error)
+    # Measured: 3.86 SE here. At 60k paths it is 1.92 SE -- NOT resolvable, so the path count is
+    # part of the claim and not a default (the band-resolution rule: state what a green rules out).
+    assert adjustment > 3.0 * standard_error, (adjustment, standard_error)
     continuous = levy_fair_variance(JUMPS, CLOCK, YEARS)
     assert abs(mean - continuous - adjustment) < abs(mean - continuous)
 
@@ -415,7 +428,7 @@ def test_simulation_RESOLVES_the_adjustment_it_is_asked_to_confirm():
 
 def _swap(strike: float = 0.05) -> VarianceSwap:
     return VarianceSwap(
-        asset=EquityAsset("ACME", USD),
+        asset=ACME,
         expiry=EXPIRY,
         variance_strike=strike,
         variance_notional=Money(1_000_000.0, USD),
@@ -424,7 +437,7 @@ def _swap(strike: float = 0.05) -> VarianceSwap:
 
 def _discrete_swap(strike: float = 0.05, count: int = 52) -> DiscreteVarianceSwap:
     return DiscreteVarianceSwap(
-        asset=EquityAsset("ACME", USD),
+        asset=ACME,
         expiry=EXPIRY,
         variance_strike=strike,
         variance_notional=Money(1_000_000.0, USD),
@@ -473,17 +486,17 @@ def test_the_discrete_swap_converges_to_the_continuous_PRICE_as_monitoring_densi
 def test_a_MATURED_swap_is_PV_ZERO_under_invariant_6():
     # The fixture STRADDLES: the valuation date sits after the expiry, so the filter is load-bearing
     # (the cross-tranche fixture-convention degeneracy, tenth shape -- asserted, not believed).
+    after = EXPIRY + timedelta(days=30)
     late = MarketSnapshot(
-        valuation_date=EXPIRY + timedelta(days=30),
+        valuation_date=after,
         curves=CurveSet(
             {
-                CurveKey(USD, CurveRole.DISCOUNT): DiscountCurve.flat(
-                    valuation_date=EXPIRY + timedelta(days=30),
-                    rate=RATE,
-                    time_measure=DayCountConvention.ACT_365_FIXED,
+                CurveKey(CurveRole.DISCOUNT, USD): DiscountCurve.flat(
+                    after, RATE, DayCountConvention.ACT_365_FIXED
                 )
             }
         ),
+        equities={ACME: EquityUnderlying(spot=100.0, repo_rate=DIVIDEND)},
     )
     model = TimeChangedLevyModel(market=late, levy=JUMPS, clock=CLOCK)
     for product in (_swap(), _discrete_swap()):
@@ -526,9 +539,22 @@ def test_M_GREATER_THAN_ONE_is_exactly_the_condition_for_a_FINITE_log_moment():
     Asserted rather than asserted-by-fiat — the refusal's reason is checked by watching the
     quantity blow up as the boundary is approached.
     """
-    moments = [levy_cumulant(LevyParams(0.2, 2.0, 5.0, m), 1.0) for m in (1.5, 1.1, 1.01, 1.001)]
+    moments = [
+        levy_cumulant(LevyParams(0.2, 2.0, 5.0, m), 1.0)
+        for m in (1.5, 1.1, 1.001, 1.0 + 1e-9, 1.0 + 1e-15)
+    ]
     assert moments == sorted(moments), moments
-    assert moments[-1] > 10.0 * moments[0]
+    # it diverges LOGARITHMICALLY (`C·ln(M/(M−1))`), so the right claim is unboundedness over a
+    # wide range of M, not a growth factor over a narrow one -- 1e-15 from the boundary is 20x 1.5's
+    assert moments[-1] > 20.0 * moments[0]
+    # and the RATE is the log -- the exact gap, not an approximation of it: the jump part of
+    # `kappa_L(1)` is `C*ln(M/(M-1))`, so moving M from 1.001 to 1+1e-9 adds exactly this.
+    near, far = 1.001, 1.0 + 1e-9
+    exact_gap = 2.0 * (
+        math.log(far / (far - 1.0)) - math.log(near / (near - 1.0))
+    )  # `far - 1.0` DERIVED, not the literal 1e-9: `1.0 + 1e-9` is not representable, so the
+    # value the code sees is 1.0000000827e-09 and a literal reference would be 6e-9 off (F-7.1)
+    assert moments[-2] - moments[-3] == pytest.approx(exact_gap, rel=1e-12, abs=0.0)
 
 
 @pytest.mark.parametrize("kappa, vol_of_vol", [(0.0, 0.5), (-1.0, 0.5), (2.0, -0.1)])
