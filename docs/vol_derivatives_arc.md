@@ -47,11 +47,21 @@ stochastic-vol model (3/2) and the time-changed-Lévy framework with the discret
   pointwise (cross-check vs T48's transform, and the second moment derived-as-theorem per T19 since the
   printed one was jump-extended + reflow-mangled); the moment approximation banded `k·SE + measured error`,
   resolution stated; `σ√T`-swept honest-negative; put–call parity.
-- **T76 — VIX derivatives** (ch 3). **VIX² is the forward variance-swap rate** (the model-free / Heston
-  relation, ch 3.1.1 under jumps); VIX futures and options price off the variance-swap rate + the Heston
-  transform. L2 product + L4 engine. **Oracles:** the VIX²/variance-swap-rate identity transcribed (a
-  **requirement** oracle — it is forced by the definition); VIX future = `E[VIX_T]` via the transform; the
-  convexity `E[VIX] ≤ √E[VIX²]` (Jensen, a requirement oracle); MC companion.
+- **T76 — VIX derivatives** *(Built & merged target v0.78.0, PR #97; sourcing corrected at 0404.)*
+  **VIX² is the variance-swap rate** — the identity is **§1.5.2 / eq (1.31)** (NOT §3.1.1, which is
+  Carr–Wu's *jumps* correction showing how VIX² and the variance-swap rate **differ** under jumps —
+  out of scope since Heston is pure-diffusion; the T74 §1.4-vs-ch-4.3 sourcing shape again, a Cowork
+  spec miss caught at build). The futures/options are **§3.1.2** (eqs 3.6/3.7a), the affine pricing
+  **§3.2.1**. Because eq (1.31) **is** T31's strip verbatim, the tranche collapses into reuse:
+  `vix_squared == heston_fair_variance`, model-free VIX² `== fair_variance`, with `VIX²_t`
+  **spot-starting** at `t` over `[t,t+τ]` (no forward-window arrangement — the affine
+  `a=(1−e^{−κτ})/(κτ)`, `b=θ(1−a)` fall out of T75's formula at 4.4e-16). VIX future/option as 1-D
+  integrals against the **non-central χ²** law of `V_T` (T72's primitive), reduced by integration-by-
+  parts to one integrand against the **survival** function (F-8.6's deep-tail work paying off). L2
+  products + L4 engine; **`SmileLike` protocol extracted at L1** (ruling 0401(2)). **Oracles:** the
+  VIX²/variance-swap-rate identity (a requirement oracle); the cross-method strip-vs-closed-form anchor
+  (T75 oracle-1 shape); VIX future `E[VIX_T]` + convexity `E[VIX] ≤ √E[VIX²]` (Jensen, requirement);
+  `σ_v→0` reductions; MC companion. **First `slow-test-exempt` of the arc (OI-8, accepted 0404).**
 - **T77 — the 3/2-model variance swap** (ch 4.2.2). A **new stochastic-vol model** (`dv = κv(θ−v)dt +
   σv^{3/2}dW`), under which the variance swap has a closed form. L3 model. **Oracles:** the 3/2 variance-swap
   closed form transcribed; the **reduction to a known limit** (the 3/2 model's relation to Heston/CIR under
@@ -106,7 +116,8 @@ Not built speculatively before T76; decided now so T76's spec carries it.
   than the normal one; a `to_go_deeper` refinement on T75 if the normal approximation's error is too wide.
 
 ## Status
-- **T74 merged** (v0.76.0); **T75 merged** (v0.77.0, PR #96 — ruled continuous at 0401).
-- **T76 specced** (`docs/tranches/76_vix_derivatives.md`); queue T76→T79.
+- **T74 merged** (v0.76.0); **T75 merged** (v0.77.0); **T76 merged target** (v0.78.0, PR #97 — ruled 0404;
+  first arc `slow-test-exempt`, OI-8).
+- **T77 specced** (`docs/tranches/77_three_halves_variance_swap.md`); queue T77→T79.
 - `KWOK-ZHENG` is `worked-from` (flipped at T74).
 - After T79: the checkpoint (`CP_vol_derivatives.md`) + re-audit #9.
