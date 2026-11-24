@@ -121,6 +121,9 @@ Not built speculatively before T76; decided now so T76's spec carries it.
 - **T74 merged** (v0.76.0); **T75 merged** (v0.77.0); **T76 merged** (v0.78.0, PR #97 — ruled 0404;
   first arc `slow-test-exempt`, OI-8).
 - **T77 merged** (v0.79.0, PR #98 — ruled 0411: oracle 5's `→ θ` corrected to the stationary mean
-  `θ/(1+ε²/(2κ))`, and `stationary_variance` ruled test-only under §6). Queue **T78 → T79**.
+  `θ/(1+ε²/(2κ))`, and `stationary_variance` ruled test-only under §6).
+- **T78 merged target** (v0.80.0, PR #99 — ruled 0419: oracle-2 anchor corrected to `(r−q−σ²/2)²T/N`, Prop
+  4.8 the arc's fourth source defect (`var(L₁)`, not the printed second moment), C17 `implied_carry` → #9).
+- **T79 specced** (`docs/tranches/79_timer_options.md`, the capstone). Queue **T79**.
 - `KWOK-ZHENG` is `worked-from` (flipped at T74).
-- After T79: the checkpoint (`CP_vol_derivatives.md`) + re-audit #9.
+- After T79: the checkpoint (`CP_vol_derivatives.md`) + re-audit #9 (its duplication pass picks up C17).
