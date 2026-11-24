@@ -6,7 +6,13 @@ per-push gates cannot — oracle power (a full-tree mutation sweep), cross-tranc
 duplication, register accuracy (`to_go_deeper`/`OPEN`/`references`/arc plans), and charter staleness.
 Findings are ruled by Cowork and become tranches or ledger entries.
 
-This file is the **counter**, so the trigger is mechanical, not remembered.
+This file is the **counter**, so the trigger is mechanical, not remembered. **The summary table below is
+the counter** — it carries every re-audit's `(version, tranche, findings-file)` row and is current through
+the latest. The per-re-audit **prose narratives** further down stop at #4 **by design**: from re-audit #5
+on, each re-audit's full write-up lives in its own `docs/audit/reaudit_0N_findings.md` (the row's pointer),
+not inline here. So the prose ending at #4 is **not** staleness — read the table, not the narrative tail,
+to compute the cadence. *(Recorded after two consecutive misreads, 0413/0414, both computing the counter
+from the narrative tail instead of the table.)*
 
 | re-audit | at version | tranche | findings | notes |
 |---|---|---|---|---|

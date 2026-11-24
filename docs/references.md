@@ -617,6 +617,23 @@ pin was the §1.4-vs-ch-4.3 shape again.
   Poisson-ladder** (route c) in production, the two agreeing (ruled 0409). *(The 3/2 SDE eq (2.75d)
   and the reciprocal map eq (4.35) were sound and held throughout — only the book's eq (3.30)
   rendering was defective.)*
+- **§4.4 Prop 4.8 — the `Kv(∞)` time-changed-Lévy fair strike prints the SECOND MOMENT where the
+  VARIANCE is required (the arc's fourth source defect, T78 step-1).** Prop 4.8 prints
+  `Kv(0,T;∞) = −(1/T)φ_L⁽²⁾(0)·E[Z_T−Z₀]`, and with the book's own (4.84) `−φ_L⁽²⁾(0) = E[L₁²]` — the
+  second moment. But **Prop 4.2 + Prop 4.1** give `Kv(∞) = Q_L(κ_L(1)−κ_L′(0)) = κ_L″(0) = var(L₁)`.
+  They differ by `(E[L₁])²` (measured 20% / 5% / 24,245% apart on three VG sets; equal only at
+  `E[L₁]=0`). **Ruled `var(L₁)` by requirement identity (T13 derivation-step-discrepancy rule):** a
+  variance-swap strike prices *quadratic variation*, which is **drift-free** (`[L,L]` ignores drift), so
+  the strike cannot depend on `E[L₁]`; Prop 4.1's proof says `E[L,L]₁ = var(L₁)`, Props 4.9/4.10 use
+  `ψ_L` not `φ`, Brownian agrees both ways — so Prop 4.8's `φ⁽²⁾` is the typo. **Production computes
+  `Kv(∞) = var(L₁)·E[Z_T]/T`** (T78, ruled 0419); Prop 4.8's printed form is not used. *(Note: the
+  "multiplier route" `Q_L(κ(1)−κ′(0))` and the `var(L₁) = κ″(0)` route are an **algebraic identity**,
+  not two independent computations — oracle 1's independence comes from the MC companion, not from
+  running both; the T17 "confirm two forms are different objects" lesson, 0417(3).)*
+- **Table 4.3 CGMY row — the multiplier printed with no `Y`/`Γ` is right only at `Y=0` (= Variance
+  Gamma); its generality claim is wrong (minor, T78 step-1).** Derived against the Lévy density: it
+  matches to machine precision at `Y=0`, and is off 2.8% at `Y=0.5`, 5.9% at `Y=1.2`. The formula is a
+  correct VG multiplier mislabelled as general CGMY; T78 builds the VG case, so no production impact.
 
 ### `ZHAO-CUI-FLORESCU-2018` — `worked-from`
 

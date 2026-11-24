@@ -78,6 +78,17 @@ from pricebook.engine.three_halves import (
     reciprocal_cir_law,
     three_halves_fair_variance,
 )
+from pricebook.engine.time_changed_levy import (
+    clock_increment_variance,
+    discrete_monitoring_adjustment,
+    levy_cumulant,
+    levy_fair_variance,
+    levy_mean,
+    levy_multiplier,
+    levy_variance,
+    price_discrete_levy_variance_swap,
+    price_levy_variance_swap,
+)
 from pricebook.engine.registry import dispatch as price
 from pricebook.engine.yoy import price_yoy_inflation_swap
 from pricebook.engine.mc_path_engine import PathGrid, mc_caplet_price, simulate_terminal_forwards
@@ -102,6 +113,9 @@ __all__ = [
     "price_vix_future", "price_vix_option",
     "reciprocal_cir_law", "expected_variance", "three_halves_fair_variance",
     "price_three_halves_variance_swap",
+    "levy_cumulant", "levy_variance", "levy_mean", "levy_multiplier",
+    "clock_increment_variance", "levy_fair_variance", "discrete_monitoring_adjustment",
+    "price_levy_variance_swap", "price_discrete_levy_variance_swap",
     "price_gamma_swap", "price_corridor_variance_swap",
     "price_variance_swap",
     "price_european_equity_option",

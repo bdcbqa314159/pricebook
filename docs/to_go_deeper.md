@@ -428,3 +428,10 @@ rulings, which is where §1 says a deferred-but-oracle-able route lives. See fin
   machinery exists, but **not load-bearing** (T74's gamma/corridor are already anchored by transcription,
   reduction and requirement). Pull only if a later tranche wants the §4.3.1/§4.3.2 MGF forms for their own
   sake. *(Ruled `to_go_deeper` by Cowork, 0401, closing T75 Ask 3.)*
+- **`implied_carry` consolidation (C17 — a 5-site duplication, remediate at re-audit #9's duplication pass).**
+  Five sites independently derive `carry = ln(F/S)/T`: `heston_fourier` (×2), `bates_fourier` (×2),
+  `heston_mc`, and T78's Lévy engine. One piece of knowledge written five times — and it **bit** at T78
+  (the first build read `r` off the discount curve and silently set `q=0`, caught by the oracle at 86.54 vs
+  56.78). The §6 fix is one `implied_carry` atom (the C9/C16 consolidation pattern). Recorded as a live
+  per-module convention (C17) and a **named re-audit #9 duplication target** (target #2), the path C16 took
+  at re-audit #8 — not a mid-arc tranche, since it touches modules the vol arc does not own. *(Ruled 0419.)*

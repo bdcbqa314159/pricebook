@@ -68,7 +68,9 @@ stochastic-vol model (3/2) and the time-changed-Lévy framework with the discret
   a parameter map — ruled at build whether exact); an MC companion; the `α→0`-type numerics watch (the T66
   rate-in-a-regime clause, if a removable singularity appears).
 - **T78 — time-changed Lévy variance swaps + the discrete-monitoring correction (a PRICING tranche)**
-  (ch 4.4, 1.5, 4.3.3). *(Scope set at 0401: T75 priced the continuous case, so T78 **carries the
+  (§2.4 framework; §4.4.1/§4.4.2/§4.4.4–5 pricing + convergence; §1.5.3 model-free discrete cross-check —
+  sourcing pinned from the TOC at T78 spec, the arc plan's earlier "4.3.3" was wrong). *(Scope set at 0401:
+  T75 priced the continuous case, so T78 **carries the
   discrete-monitoring adjustment as a priced deliverable** — it prices a discretely-monitored realized-variance
   claim as "the continuous counterpart **plus** the §5.2 adjustment", not only a convergence study.)* The
   variance swap under a time-changed Lévy process (a general framework), and the **discrete-monitoring
@@ -116,8 +118,12 @@ Not built speculatively before T76; decided now so T76's spec carries it.
   than the normal one; a `to_go_deeper` refinement on T75 if the normal approximation's error is too wide.
 
 ## Status
-- **T74 merged** (v0.76.0); **T75 merged** (v0.77.0); **T76 merged target** (v0.78.0, PR #97 — ruled 0404;
+- **T74 merged** (v0.76.0); **T75 merged** (v0.77.0); **T76 merged** (v0.78.0, PR #97 — ruled 0404;
   first arc `slow-test-exempt`, OI-8).
-- **T77 specced** (`docs/tranches/77_three_halves_variance_swap.md`); queue T77→T79.
+- **T77 merged** (v0.79.0, PR #98 — ruled 0411: oracle 5's `→ θ` corrected to the stationary mean
+  `θ/(1+ε²/(2κ))`, and `stationary_variance` ruled test-only under §6).
+- **T78 merged target** (v0.80.0, PR #99 — ruled 0419: oracle-2 anchor corrected to `(r−q−σ²/2)²T/N`, Prop
+  4.8 the arc's fourth source defect (`var(L₁)`, not the printed second moment), C17 `implied_carry` → #9).
+- **T79 specced** (`docs/tranches/79_timer_options.md`, the capstone). Queue **T79**.
 - `KWOK-ZHENG` is `worked-from` (flipped at T74).
-- After T79: the checkpoint (`CP_vol_derivatives.md`) + re-audit #9.
+- After T79: the checkpoint (`CP_vol_derivatives.md`) + re-audit #9 (its duplication pass picks up C17).
