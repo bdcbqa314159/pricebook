@@ -52,12 +52,16 @@ before building — the T77 pattern.
    to the pure-diffusion case** ⇒ T31's continuous variance swap when the jumps vanish (the Lévy measure → 0),
    and a **companion with genuine jumps** (T39 — the reduction zeroes exactly the jump part the whole tranche
    is about).
-2. **The discrete-monitoring adjustment (§4.4.2), transcribed — and anchored by its own reduction: the
-   adjustment VANISHES in the pure-diffusion limit.** This is the structural heart: for a *continuous* (no-jump)
-   process the discretely-sampled realized variance converges to the continuous with **no** finite adjustment,
-   so the jump part *is* the adjustment — a clean exact anchor (adjustment = 0 at zero jumps), with a genuine-jump
-   companion where it is nonzero. Cross-check §4.4.2's model-based adjustment against **§1.5.3's model-free**
-   discrete replication (different derivations, the T75 oracle-1 cross-method shape) where both apply.
+2. **The discrete-monitoring adjustment (§4.4.2), transcribed — anchored by its exact pure-diffusion value.**
+   **CORRECTED (0419): my original "the adjustment vanishes with jumps" was wrong** — it is a discrete-sampling
+   effect that exists with **no jumps at all**. Prop 4.3's correction is `(1/T)Σ(E[Δln S])² + (1/T)Σ
+   var(E[Δln S|F^Z])`, whose first term survives in the pure-diffusion case as **exactly `(r−q−σ²/2)²·T/N`**
+   (the classic discrete-variance drift bias; measured `adjustment × N` constant to 8 digits over `N=4…2520`).
+   So the anchor is **"pure-diffusion adjustment = `(r−q−σ²/2)²T/N` exactly"** — a nonzero closed form,
+   strictly stronger than a zero (which would also be the vacuous kind §4 warns of, satisfied by a no-op), and
+   it **is simultaneously oracle 3's O(1/N) rate constant**. The adjustment vanishes as **`N→∞`, not as
+   jumps→0.** Companion with **genuine jumps** (T39), where the extra Lévy term appears. Cross-check §4.4.2's
+   model-based adjustment against **§1.5.3's model-free** discrete replication where both apply.
 3. **The convergence RATE (§4.4.4/4.4.5) — how the adjustment is oracled, measured not plotted (the T25
    rate-detector).** The discrete strike → the continuous strike as `n → ∞`; assert the **rate** (O(1/n)
    expected — transcribe the order §4.4.4 states) by varying `n` and fitting, not a single flat band. A
