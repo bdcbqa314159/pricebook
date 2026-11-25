@@ -6,6 +6,126 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.81.0] - 2026-11-24
+
+### Added — tranche 79, perpetual timer options (the vol-derivatives arc capstone)
+
+- **`products/timer_option.py` (L2)** — `TimerOption`: a call or put that exercises when accumulated
+  variance `∫V dt` first reaches a **variance budget**. **Perpetual, so there is no expiry field** —
+  the exercise date is a random first-passage time, and a `None` expiry would be a field whose
+  absence carried meaning (§6).
+- **`engine/timer_option.py` (L4)** — `simulate_timer_first_passage` (the variance clock, with the
+  hitting time **interpolated within its step** rather than rounded to the boundary — an `O(dt)`
+  bias in the same direction on every path otherwise), `timer_option_estimate`, and
+  `@register(TimerOption, HestonModel)` returning a `PricingResult` with its SE (§3.7).
+
+#### Scope: the MC is the production pricer, and it is MC-NOT-SOLE
+
+§6.2.2 carries a closed-form integral price and it is **not** built here. Step 1 established it needs
+three primitives the single-underlying arcs never required: a **complex-argument Bessel `I_ν`** (the
+Bromwich contour in eq (6.25) makes `λ` complex, so the real-argument `noncentral_chisquare` ladder
+cannot supply it — the "it may reduce to the ladder" hope is false structurally, not numerically), a
+**Laplace inversion to a density** (distinct from the tree's Gil-Pelaez CDF inverter), and a **2-D
+quadrature**. The book itself opens §6.2.3 by calling that route *"quite daunting"*. Ruled 0424:
+deferred to the numerical track as its **first concrete customer**, come-back-same-method debt rather
+than out-of-method, and it **retro-anchors this MC** when it lands (the T74←T75 pattern). Eq (6.23)'s
+transcription is settled and recorded for then — the two renderings leave the `√` grouping ambiguous
+and eq (6.24) supplies the discriminator (`∫∫q dx dt` must be **exactly 1**: the `√(2λ)`-alone
+reading gives 1.0000 across three `(ν,R₀)` pairs and three `λ`, the other 0.51–0.90), which is the
+first time this arc a requirement oracle resolved a *rendering ambiguity* rather than caught a defect.
+
+So the MC is the quoted price, pinned by **two independent non-MC oracles**:
+
+1. the **exact reduction** at `ρ = 0` *and* `r = q = 0`, where `µ_τB = (r−q)τ_B − B/2` collapses to
+   the deterministic `−B/2` and eq (6.10) is exactly Black–Scholes at total variance `B`. **Both
+   conditions bind** — `(r−q)τ_B` is random because `τ_B` is — which the spec flagged as conditional
+   and the build confirmed;
+2. the **§6.2.3 perturbation** at small vol-of-vol, whose `T₀` comes via **Lambert W** (scipy,
+   test-only — the T20a arrangement; production needs no special function). Run at `r = q`, where
+   eq (6.50)'s `G` term vanishes identically and `Σ² = B` is exact, so no second PDE is needed. The
+   source's **two printed forms of `T₀`** (eqs 6.56 and 6.57) agree **bit-identically** at three
+   parameter sets — §4's derivation-step cross-check, available because the source derived it twice.
+
+#### The finding that changed the oracle set: the PRICE cannot see `ρ`
+
+The spec assumed oracle 2 would cover what oracle 1 is blind to, since oracle 1 fixes `ρ = 0`. At the
+price level that is **false**: turning `ρ` from 0 to **−0.9** moves the price by **0.23 SE**, and
+1.04 SE even at `σ_v = 0.9`. No path count rescues it — **T34's shape**, a parameter whose
+first-order effect on the chosen observable is structurally negligible.
+
+And the cause is the contract's defining feature: `ln S` has instantaneous variance `V`, so its
+quadratic variation at `τ_B` is **exactly the budget `B`, by construction, whatever `ρ` is**. Fixing
+the variance is the whole point of a timer, so `ρ` reaches the price only through how that fixed
+variance splits into drift and diffusion — second order.
+
+`ρ` is therefore pinned by the **joint law** instead, at 100–500 SE where the price gives under one:
+`corr(ln S_τB, τ_B)` is **+0.824** at `ρ=−0.9`, **+0.457** at `−0.5`, **+0.004** at `0`, and
+sign-flipped and antisymmetric for positive `ρ`. The sign is forced by the finance — with `ρ < 0` a
+high variance pushes the spot **down** and runs the clock **fast**, so a falling spot coincides with
+early exercise. The antisymmetry is asserted too, since a magnitude-only check would pass for
+`ρ → −ρ`. And the suite now **states** the price insensitivity rather than letting a band appear to
+cover it.
+
+#### Three bands were wrong, and the measurements corrected them
+
+- **`T₀` is not `E[τ_B]`.** Eq (6.53)'s PDE carries **no second-derivative term**, so `T₀` is the
+  hitting time of the *deterministic* variance path — the `σ_v → 0` limit of the mean, not the mean.
+  A 5% band failed at 6.8%; replaced by the T25 **rate**: the gap quarters as `σ_v` halves (measured
+  0.4168 → 0.1190 → 0.0317, ratios 3.50 and 3.76 against 4), with the sweep stopping where the gap
+  sinks under its own MC noise rather than chasing the limit.
+- **`T₀ → B/v₀` for a small budget**, not `B/θ` — the clock starts at `v₀`. A loose `T₀ < 10·B` bound
+  was replaced by the derived reference (ratio 1.0000056 at `B = 1e-6`).
+- **The unreachable-budget refusal was not reachable by its first fixture.** A uniformly tiny
+  variance is *not* unreachable, because the step scales as `B/max(θ,v₀)` — the clock simply takes
+  tiny steps and still arrives. It takes a variance starved far **below** a large `θ` with almost no
+  mean reversion. T33b: supply the input the guard exists to reject, and check that it fires.
+
+#### `slow` — an honest exemption, after three lossless passes (OI-9)
+
+**142.7s locally against the 10.0s ceiling**, reduced from 222.1s by sharing simulations where the
+quantity is simulation-independent (oracle 1's three strikes; parity's forward side; the two `ρ`
+tests merged onto one module-scoped sweep, OI-8's move). A **coarser step grid was measured and
+refused**: the single-seed bias was **non-monotone** in step count (1.05, 1.43, 2.01, 0.21, 1.04 SE
+at 50/100/150/300/600), which is sampling noise rather than a convergence curve — T21's rule is that
+a small effect needs averaging over seeds, so no reduction is *establishable* from one seed, and
+trading measured bias for clock would be the timing gate shrinking an oracle. Removal trigger:
+**live-path compaction**, raised as its own unit per OI-5's precedent.
+
+#### The sweep found a real hole: every anchor needs `r = q`, so the CARRY was untested
+
+**18 mutations: 17 applied (one mis-addressed — and per §9 a mutation that did not apply is not a
+mutant that died, so it was re-addressed and re-run), 11 killed, 6 survived.** Three survivors shared
+one cause, and it was structural rather than careless: **oracle 1 requires `r = q = 0` and oracle 2
+requires `r = q`**, so both anchors pin the price with the carry **identically zero**. Dropping the
+`(r−q)` restoration entirely, and applying it at the *mean* exercise time rather than each path's own,
+both sailed through. §4 names it exactly — *an oracle made sharp by a quantity being exactly zero is,
+for that very reason, blind to that quantity*. Closed by an `r ≠ q` fixture with an independently
+transcribed reference, plus the **exponential-martingale identity** `E[e^{−carry·τ}S_τ] = S₀` (exact
+by optional stopping, 68 SE sensitivity, and it forms no payoff so it survives a payoff transcription
+error too).
+
+The other three, each its own shape:
+
+- **the within-step interpolation**, and the first killer for it *could not work*: `step` is defined
+  as `(B/θ)/steps`, so with a **constant** variance the budget is reached at exactly `steps` steps
+  however `B` and `θ` are chosen — the hit always lands on a grid boundary, the crossing fraction is
+  always 1.0, and rounding to the boundary is *identical* to interpolating. The grid is built from the
+  budget, so no "off-grid" budget escapes it. It needs `v₀ ≠ θ` — deterministic but not constant —
+  which puts the hit at grid index **527.206** and supplies an **exact** reference, since with no
+  vol-of-vol `T₀` *is* the hitting time: 4.9e-05 against the rounded form's 1.46e-03, a 30× gap;
+- **the final partial step's diffusion scaling** (`√fraction`, not `fraction`), killed by
+  `var(ln S_τ) = B` on a deliberately **coarse** 4-step grid, where that step is 25% of the clock and
+  the error is ~3.2% against a 0.70% SE. On a fine grid it is invisible, so the coarse grid is the
+  oracle rather than a shortcut;
+- **the discrete-dividend refusal**, which survived because every fixture supplies a repo/borrow
+  yield and none a discrete schedule — T33b's input-population degeneracy, closed by supplying one.
+
+**Final: 18 mutations, 17 killed, 1 a PROVED equivalent mutant.** The exception is `advanced >= budget`
+→ `>`, and it is proved rather than assumed (§4): at an exact boundary hit `>` defers one step, where
+`fraction = (B−B)/(V·dt) = 0.0`, so the hitting time and the spot are identical — measured
+**bit-identical** on a power-of-two fixture where `clock == budget` holds with no rounding at all, and
+on a 500-path stochastic one.
+
 ## [0.80.0] - 2026-11-23
 
 ### Added — tranche 78, variance swaps under time-changed Lévy processes (the arc's jump pillar, and the discrete-monitoring adjustment as a priced deliverable)
