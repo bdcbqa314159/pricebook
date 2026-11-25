@@ -67,6 +67,7 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
+from pricebook.foundation.time_grid import checked_positive_horizon
 from pricebook.engine.registry import register
 from pricebook.foundation.money import Money
 from pricebook.foundation.results import PricingFailure, PricingResult
@@ -89,8 +90,7 @@ def integrated_bond_variance(kappa: float, sigma_r: float, years: float) -> floa
     and what the cross term below must be consistent with; the caller divides by `t` once, in one
     place, rather than each piece doing it differently.
     """
-    if years <= 0.0:
-        raise ValueError(f"the integrated variance needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the integrated variance")
     if kappa <= 0.0:
         raise ValueError(f"the mean reversion must be positive, got {kappa}")
     decay = math.exp(-kappa * years)
@@ -114,8 +114,7 @@ def integrated_cross_covariance(
     `= rho*sigma*sigma_r/k * [ t - (1 - e^-kt)/k ]`. It carries the sign of `rho`, which is the
     whole reason a hybrid price is not symmetric in the correlation.
     """
-    if years <= 0.0:
-        raise ValueError(f"the cross covariance needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the cross covariance")
     if kappa <= 0.0:
         raise ValueError(f"the mean reversion must be positive, got {kappa}")
     return (
@@ -148,8 +147,7 @@ def hybrid_black_inputs(
 ) -> HybridBlackInputs:
     """Assemble (11.2)'s total volatility and (11.1)'s `d+/-` shift."""
     years = discount.time_measure.year_fraction(expiry)
-    if years <= 0.0:
-        raise ValueError(f"the hybrid inputs need a positive horizon, got {years}")
+    checked_positive_horizon(years, "the hybrid inputs")
     kappa, sigma_r = model.rate_params.kappa, model.rate_params.sigma
     equity_vol = model.equity_vol
 

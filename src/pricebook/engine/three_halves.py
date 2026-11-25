@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import math
 
+from pricebook.foundation.time_grid import checked_positive_horizon
 from pricebook.engine.registry import register
 from pricebook.foundation.money import Money
 from pricebook.foundation.noncentral_chisquare import poisson_weighted_sum
@@ -130,8 +131,7 @@ def three_halves_fair_variance(params: ThreeHalvesParams, years: float) -> float
     `heston_fair_variance`: the same quantity under a third route, which is what lets the same
     `VarianceSwap` price against any of them.
     """
-    if years <= 0.0:
-        raise ValueError(f"the fair variance needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the fair variance")
     step = years / _NODES
     total = math.fsum(
         expected_variance(params, (index + 0.5) * step) for index in range(_NODES)

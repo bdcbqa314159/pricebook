@@ -54,6 +54,7 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from pricebook.foundation.time_grid import checked_positive_horizon
 from pricebook.foundation.distributions import norm_pdf
 from pricebook.foundation.solvers import least_squares_fit
 
@@ -161,8 +162,7 @@ def annualised_vol(params: SviParams, log_strike: float, years: float) -> float:
 
     The clock appears here and nowhere else in this module, which is the honest shape of C14: the
     conversion is a boundary concern, not a property of the slice."""
-    if years <= 0.0:
-        raise ValueError(f"an annualised vol needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "an annualised vol")
     return math.sqrt(params.total_variance(log_strike) / years)
 
 

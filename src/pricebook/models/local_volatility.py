@@ -46,6 +46,7 @@ import math
 from dataclasses import dataclass
 from datetime import date
 
+from pricebook.foundation.time_grid import checked_positive_horizon
 from pricebook.foundation.distributions import norm_cdf, norm_pdf
 from pricebook.market.curve import CurveHandle
 from pricebook.market.equity import EquityUnderlying, dividend_forward
@@ -193,8 +194,7 @@ def dupire_local_variance(
             "forward non-smooth in T, so dC/dT is undefined at an ex-date (deferred, not approximated)"
         )
     years = discount.time_measure.year_fraction(expiry)
-    if years <= 0.0:
-        raise ValueError(f"the local volatility needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the local volatility")
 
     df = discount.df(expiry)
     forward = dividend_forward(underlying, expiry, discount)

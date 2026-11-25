@@ -46,6 +46,7 @@ import cmath
 import math
 from dataclasses import dataclass
 
+from pricebook.foundation.time_grid import checked_positive_horizon
 from pricebook.market.snapshot import MarketSnapshot
 
 
@@ -112,8 +113,7 @@ def heston_characteristic_function(
     `g = (beta - d)/(beta + d)` with `e^{-dT}`: the formulation that stays on one branch of the
     complex logarithm for every maturity. See the module docstring for why the other one does not.
     """
-    if years <= 0.0:
-        raise ValueError(f"the characteristic function needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the characteristic function")
     if params.sigma_v == 0.0:
         return _deterministic_variance_cf(params, u, years, carry)
 

@@ -39,6 +39,7 @@ from datetime import date, timedelta
 
 import numpy as np
 
+from pricebook.foundation.time_grid import checked_positive_horizon
 from pricebook.foundation.mc_estimator import MonteCarloEstimate, estimate
 from pricebook.foundation.rng import UniformSource
 from pricebook.foundation.variates import standard_normals
@@ -71,8 +72,7 @@ def simulate_local_vol_spots(
     if steps < 1:
         raise ValueError(f"the simulation needs at least one step, got {steps}")
     years = discount.time_measure.year_fraction(expiry)
-    if years <= 0.0:
-        raise ValueError(f"the simulation needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the simulation")
 
     rate = -math.log(discount.df(expiry)) / years
     carry = rate - underlying.dividends.continuous_yield - underlying.repo_rate
