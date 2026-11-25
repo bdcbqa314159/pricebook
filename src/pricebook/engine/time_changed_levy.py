@@ -41,11 +41,12 @@ from __future__ import annotations
 
 import math
 
+from pricebook.foundation.time_grid import checked_positive_horizon
 from pricebook.engine.registry import register
 from pricebook.foundation.money import Money
 from pricebook.foundation.results import PricingFailure, PricingResult
 from pricebook.foundation.time_measure import is_historical
-from pricebook.market.equity import dividend_forward
+from pricebook.market.equity import dividend_forward, implied_carry
 from pricebook.models.time_changed_levy import (
     ActivityRateParams,
     LevyParams,
@@ -157,8 +158,7 @@ def levy_fair_variance(params: LevyParams, clock: ActivityRateParams, years: flo
     result: Prop 4.2 says the continuous strike is independent of the time change, and a signature
     that could not express the clock could not express the claim either.
     """
-    if years <= 0.0:
-        raise ValueError(f"the fair variance needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the fair variance")
     del clock  # Prop 4.2: the continuous strike does not depend on the time change.
     return levy_variance(params)
 
@@ -180,8 +180,7 @@ def discrete_monitoring_adjustment(
     - `(c²/T)Σvar(ΔZ_k)` with `c = E[L₁] − κ_L(1)`, the time change's own contribution, which is
       `O(Δ²)` per interval and so `O(1/N)` in total — the same order as the first.
     """
-    if years <= 0.0:
-        raise ValueError(f"the adjustment needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the adjustment")
     if monitoring_count <= 0:
         raise ValueError(f"the adjustment needs a positive monitoring count, got {monitoring_count}")
     step = years / monitoring_count
@@ -225,7 +224,9 @@ def _price_variance(
             return PricingFailure(f"no equity data for {product.asset.ticker} in the snapshot")
         # r - q, from the dividend forward -- the same carry every equity engine in the tree uses,
         # rather than a second definition of the same quantity (§6).
-        carry = math.log(dividend_forward(underlying, expiry, discount) / underlying.spot) / years
+        carry = implied_carry(
+            dividend_forward(underlying, expiry, discount), underlying.spot, years
+        )
         fair += discrete_monitoring_adjustment(
             model.levy, model.clock, years, monitoring_count, carry
         )

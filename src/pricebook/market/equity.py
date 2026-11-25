@@ -98,6 +98,26 @@ class EquityUnderlying:
             raise ValueError(f"the repo rate must be finite, got {self.repo_rate}")
 
 
+def implied_carry(forward: float, spot: float, years: float) -> float:
+    """`r − q = ln(F/S)/T` — the carry a forward implies, and the ONE place it is derived.
+
+    **Consolidated at re-audit #9 (C17/F-9.2), after seven sites had written it out.** The rule it
+    enforces is the one the duplication kept re-discovering: the discount curve supplies `r` **only**,
+    and the yield side — dividends *and* the repo/borrow rate, which enters exactly like a yield —
+    lives on the underlying. A pricer that reads `r` off the curve and stops has silently set `q = 0`,
+    which is precisely the bug T78's first build shipped into its own oracle (86.54 against 56.78).
+
+    It takes the **forward** rather than the underlying because five of the seven call sites have
+    already computed it for their own pricing and would otherwise walk the dividend schedule twice;
+    the two that have not pass `dividend_forward(...)` inline. Same arithmetic, same order, so the
+    consolidation is **bit-identical** at every site — proved rather than assumed (§4).
+
+    It lives at **L1 beside `dividend_forward`**, not at L0: it is the inverse of that construction,
+    and a carry implied by market data is market data. L0 is finance-free (§2).
+    """
+    return math.log(forward / spot) / years
+
+
 def dividend_forward(underlying: EquityUnderlying, expiry: date, discount: CurveHandle) -> float:
     """`F(T)` - the forward a spot-plus-financing strategy delivers at `expiry`.
 

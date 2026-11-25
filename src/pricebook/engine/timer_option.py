@@ -48,7 +48,7 @@ from pricebook.engine.registry import register
 from pricebook.foundation.mc_estimator import MonteCarloEstimate, estimate
 from pricebook.foundation.money import Money
 from pricebook.foundation.results import PricingFailure, PricingResult
-from pricebook.market.equity import EquityUnderlying, dividend_forward
+from pricebook.market.equity import EquityUnderlying, dividend_forward, implied_carry
 from pricebook.models.black_mc import MonteCarloConfig
 from pricebook.models.heston import HestonModel, HestonParams
 from pricebook.products.equity_option import EquityOptionKind
@@ -186,7 +186,9 @@ def timer_option_estimate(
         )
     reference = market.valuation_date + timedelta(days=365)
     years = discount.time_measure.year_fraction(reference)
-    carry = math.log(dividend_forward(underlying, reference, discount) / underlying.spot) / years
+    carry = implied_carry(
+        dividend_forward(underlying, reference, discount), underlying.spot, years
+    )
     spots = martingale_spots * np.exp(carry * times)
 
     intrinsic = (
