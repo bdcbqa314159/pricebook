@@ -13,6 +13,50 @@ exists in `src/` or `tests/` (verified at v0.6.0).
 
 ## Other open items
 
+### OI-9 · `tests/L4/test_timer_option.py` is `slow-test-exempt` — OPEN (taken at tranche 79, 2026-11-24)
+
+**The exemption.** The file carries `# slow-test-exempt:` with its reason. Measured **142.7s locally**
+against the 10.0s ceiling — an order of magnitude over, not a marginal miss, and §9's "CI is the
+measurement" means the runner figure will be worse again.
+
+**Why it cannot be reduced to the ceiling.** The perpetual timer's price *is* a first-passage
+expectation, and §6.2.2's closed form is deferred to the numerical track (ruled 0424: it needs a
+complex-argument Bessel, a Bromwich density-inversion and a 2-D quadrature). So **both** non-MC pins —
+the exact `ρ=0`/zero-carry Black–Scholes reduction and the §6.2.3 perturbation — are comparisons
+*against* the simulation rather than substitutes for it. There is no closed form to price with until
+§6.2.2 lands; the MC is the product.
+
+**What was tried first, because an exemption is the last resort and not the first (§9).** Three
+lossless passes, **222.1s → 175.3s → 142.7s**:
+
+1. **oracle 1's three strikes share one simulation** — the first-passage law does not depend on the
+   strike, so simulating per strike computed the same paths three times (one strike still goes through
+   `timer_option_estimate`, so the production path stays pinned, not merely the payoff algebra);
+2. **put-call parity's forward side read off the same paths** as its call and put rather than a third
+   run — the paths are a deterministic function of the sampling, so they were identical anyway;
+3. **the two `ρ` tests merged onto one module-scoped sweep** (OI-8's first move): the price question
+   ("is the price `ρ`-blind?") and the joint-law question ("does `corr(ln S_τB, τ_B)` pin `ρ`?") are
+   different questions about the **same** paths. Run at `σ_v = 0.4`, which *amplifies* `ρ`'s price
+   effect and so makes the insensitivity claim harder rather than easier; and at 12k paths, where the
+   correlation margin is still ~280 SE against the ~10 the claims need.
+
+**What was declined, and why.** A **coarser step grid** was measured and refused: the single-seed bias
+reading was **non-monotone** in step count (1.05, 1.43, 2.01, 0.21, 1.04 SE at 50/100/150/300/600
+steps), which is sampling noise rather than a convergence curve — T21's rule is that a small effect
+needs averaging over seeds, so no lossless step reduction is *establishable* from one seed, and
+trading measured bias for clock would be §9's "timing gate shrinking an oracle". **Fewer paths** was
+refused for the band-based oracles for the same reason in reverse: a larger SE *widens* every `k·SE`
+band, which weakens resolution rather than preserving it. A **subject-seam split** (the clock's law
+versus the option's value) was considered and declined because both halves would still exceed the
+ceiling, so it would be §9's named over-splitting-to-fit-a-clock without avoiding the exemption.
+
+**Removal trigger (named, and real).** **Live-path compaction in `simulate_timer_first_passage`.** The
+loop advances the full path array every step even once most paths have reached the budget, so the tail
+of the run is mostly dead width; compacting to the live subset is a genuine production speedup, not a
+test trick. Per **OI-5's precedent** it is raised as **its own unit** rather than smuggled into a
+correctness tranche. The exemption also retires naturally if §6.2.2's closed form lands, since the MC
+then becomes a cross-check rather than the price.
+
 ### OI-8 · The two VIX test files are `slow-test-exempt` — OPEN (taken at tranche 76, 2026-11-22)
 
 **The exemption.** `tests/L4/test_vix.py` and `tests/L4/test_vix_quadrature.py` each carry
