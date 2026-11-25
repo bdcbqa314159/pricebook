@@ -122,8 +122,12 @@ Not built speculatively before T76; decided now so T76's spec carries it.
   first arc `slow-test-exempt`, OI-8).
 - **T77 merged** (v0.79.0, PR #98 — ruled 0411: oracle 5's `→ θ` corrected to the stationary mean
   `θ/(1+ε²/(2κ))`, and `stationary_variance` ruled test-only under §6).
-- **T78 merged target** (v0.80.0, PR #99 — ruled 0419: oracle-2 anchor corrected to `(r−q−σ²/2)²T/N`, Prop
+- **T78 merged** (v0.80.0, PR #99 — ruled 0419: oracle-2 anchor corrected to `(r−q−σ²/2)²T/N`, Prop
   4.8 the arc's fourth source defect (`var(L₁)`, not the printed second moment), C17 `implied_carry` → #9).
-- **T79 specced** (`docs/tranches/79_timer_options.md`, the capstone). Queue **T79**.
+- **T79 built** (v0.81.0, PR #100 — ruled scope (C) at 0424/0428: MC first-passage timer; §6.2.2 closed form
+  → `to_go_deeper` as the numerical track's first pull). **Arc COMPLETE on #100 merge.**
 - `KWOK-ZHENG` is `worked-from` (flipped at T74).
-- After T79: the checkpoint (`CP_vol_derivatives.md`) + re-audit #9 (its duplication pass picks up C17).
+- **Checkpoint written** (`CP_vol_derivatives.md`); **re-audit #9 scope set** (thread 0429) — fires on #100
+  merge; its (4) charter pass carries the two-track + 1.0-purpose evolution for Bernardo's ruling.
+- **Next after #9:** the first structural arc, **R1 — representation & mark-to-market** (the direction set
+  2026-11-24). FX is the literature arc after R1.

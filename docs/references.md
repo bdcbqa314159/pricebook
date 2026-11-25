@@ -501,6 +501,21 @@ derivation-step rule, available three tranches running.
 
 ---
 
+### `PAGES-2018` — `in-hand`
+
+Pagès, G., *Numerical Probability: An Introduction with Applications to Finance*, Springer Universitext, 2018.
+~579 pp. Held by Bernardo (gitignored if added to `_stock`; only this record is tracked).
+
+**The probabilistic-numerics reference for the structural / numerical track (Bernardo, 2026-11-24).** SDE
+discretisation schemes with weak/strong error **rates** (Euler, Milstein), variance reduction and quasi-MC,
+**American/Bermudan pricing by Longstaff–Schwartz and optimal quantization**, stochastic approximation
+(Robbins–Monro) for calibration, and MC **Greeks** (pathwise / likelihood-ratio / Malliavin). Its content is
+convergence rates and error bounds — the native language of the oracle gate (reduce-to-closed-form + rate,
+the T25 detector) — so it is the strongest oracle-fit of the numerical-methods candidates. Held, not yet
+built against; flips to `worked-from` at the first structural-track tranche that cites it (MC Greeks /
+American-MC / the §6.2.2 timer primitives are the likely first pulls). *(Registered at 0425 so the held-ness
+is gate-visible per §7, rather than asserted in prose in `docs/STATUS.md`.)*
+
 ### `KROESE-TAIMRE-2011` — `in-hand`
 
 Kroese, D. P., Taimre, T. & Botev, Z. I., *Handbook of Monte Carlo Methods*, Wiley Series in Probability

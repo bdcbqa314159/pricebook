@@ -89,6 +89,11 @@ from pricebook.engine.time_changed_levy import (
     price_discrete_levy_variance_swap,
     price_levy_variance_swap,
 )
+from pricebook.engine.timer_option import (
+    price_timer_option,
+    simulate_timer_first_passage,
+    timer_option_estimate,
+)
 from pricebook.engine.registry import dispatch as price
 from pricebook.engine.yoy import price_yoy_inflation_swap
 from pricebook.engine.mc_path_engine import PathGrid, mc_caplet_price, simulate_terminal_forwards
@@ -116,6 +121,7 @@ __all__ = [
     "levy_cumulant", "levy_variance", "levy_mean", "levy_multiplier",
     "clock_increment_variance", "levy_fair_variance", "discrete_monitoring_adjustment",
     "price_levy_variance_swap", "price_discrete_levy_variance_swap",
+    "simulate_timer_first_passage", "timer_option_estimate", "price_timer_option",
     "price_gamma_swap", "price_corridor_variance_swap",
     "price_variance_swap",
     "price_european_equity_option",

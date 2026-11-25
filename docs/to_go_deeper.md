@@ -435,3 +435,13 @@ rulings, which is where §1 says a deferred-but-oracle-able route lives. See fin
   56.78). The §6 fix is one `implied_carry` atom (the C9/C16 consolidation pattern). Recorded as a live
   per-module convention (C17) and a **named re-audit #9 duplication target** (target #2), the path C16 took
   at re-audit #8 — not a mid-arc tranche, since it touches modules the vol arc does not own. *(Ruled 0419.)*
+- **The §6.2.2 perpetual-timer CLOSED-FORM integral price (the numerical track's first pull).** T79 prices
+  the perpetual timer by MC (first-passage of `∫V dt` to the budget), anchored by the exact `ρ=0,r=q=0`
+  reduction + the §6.2.3 perturbation + parity/monotonicity. The Kwok–Zheng §6.2.2 closed form exists and is
+  oracle-able (come-back-same-method debt, NOT out_of_method), but needs three production primitives the
+  single-underlying arcs never required: a **complex-argument Bessel `I_ν`**, a **Bromwich/Laplace inversion
+  to a density** (distinct from the Gil-Pelaez CDF inversion we have), and a **2-D `(x,t)` quadrature**. These
+  are exactly what the structural/numerical track (Pagès / Seydel) will build — so §6.2.2 is deferred as that
+  track's **first concrete customer**, and when built it retro-anchors T79's MC exactly (the T74←T75 pattern).
+  Eq (6.23)'s transcription is settled (the `√(2λ)`-alone reading, pinned by the density-integrates-to-1
+  requirement — T79 step-1). *(Ruled 0424.)*
