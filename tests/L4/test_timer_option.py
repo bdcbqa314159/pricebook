@@ -14,6 +14,14 @@ independent non-MC oracles*, which is what keeps it in-method (§1's oracle gate
    assumed, and which is non-degenerate in `ρ` — so it covers exactly what oracle 1 is blind to.
 """
 
+# slow-test-exempt: the first-passage simulation is irreducibly the cost here -- every oracle needs
+# paths run until their variance clock reaches the budget, and the two non-MC pins (the exact
+# rho=0/zero-carry reduction and the §6.2.3 perturbation) are both comparisons AGAINST that
+# simulation, so there is no closed form to substitute while §6.2.2 is deferred. Measured 142.7s
+# locally after three lossless passes (222.1 -> 175.3 -> 142.7). Ledgered as OI-9 with the removal
+# trigger: live-path COMPACTION in `simulate_timer_first_passage`, raised as its own unit per OI-5's
+# precedent rather than smuggled into a correctness tranche.
+
 import math
 from datetime import date, timedelta
 
@@ -28,7 +36,7 @@ from pricebook.engine.timer_option import (
 from pricebook.foundation import Currency, Money, PricingFailure, PricingResult
 from pricebook.foundation.day_count import DayCountConvention
 from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
-from pricebook.market.equity import EquityAsset, EquityUnderlying
+from pricebook.market.equity import EquityAsset, EquityUnderlying, dividend_forward
 from pricebook.models.black_mc import MonteCarloConfig
 from pricebook.models.heston import HestonModel, HestonParams
 from pricebook.products.equity_option import EquityOptionKind
@@ -98,23 +106,39 @@ def test_every_path_REACHES_the_budget_so_nothing_is_scored_as_a_silent_zero():
     assert tau.std(ddof=1) / tau.mean() > 0.05, tau.std(ddof=1) / tau.mean()
 
 
-def test_the_MEAN_hitting_time_matches_the_PERTURBATION_maturity_function():
-    """`E[τ_B]` against `T₀(V₀,0)` — eq (6.56), an independent non-MC reference for the clock.
+def test_the_mean_hitting_time_CONVERGES_to_T0_at_rate_sigma_v_SQUARED():
+    """`E[τ_B] → T₀` as `σ_v → 0`, at `O(σ_v²)` — a RATE, because a flat band would be wrong.
 
-    This pins the *first-passage law* on its own, before any payoff: a hitting-time bias would
-    otherwise hide inside the price, where the discount factor and the payoff could offset it.
+    **`T₀` is not `E[τ_B]`, and the reason is structural:** eq (6.53)'s PDE for `T₀` carries **no
+    second-derivative term**, so `T₀` is the hitting time of the *deterministic* variance path
+    `dV = κ(θ−V)dt` — the `σ_v → 0` limit of the mean hitting time, not the mean itself. A first
+    version of this test banded them at 5% and failed at 6.8% (`σ_v = 0.2`), which was the band
+    being wrong rather than either quantity.
+
+    So the oracle is the T25 rate-detector: the gap must **quarter** when `σ_v` halves. Measured
+    0.4168 → 0.1190 → 0.0317 over `σ_v = 0.4, 0.2, 0.1`, i.e. ratios 3.50 and 3.76 against the 4
+    that `O(σ_v²)` predicts. Below `σ_v ≈ 0.05` the gap sinks under its own MC noise, which is why
+    the sweep stops where it does rather than chasing the limit.
     """
-    model = _model(PARAMS)
-    tau, _ = simulate_timer_first_passage(
-        PARAMS, model.market.equities[ACME], BUDGET, (MonteCarloConfig(paths=20000, seed=5), 400)
-    )
     reference = _maturity_function(PARAMS.v0, PARAMS.kappa, PARAMS.theta, BUDGET)
-    standard_error = tau.std(ddof=1) / math.sqrt(len(tau))
-    # T0 is the ZEROTH-order function, so it carries its own O(sigma_v^2) error -- banded by the
-    # SE plus that measured error, never by one flat percentage (§4).
-    assert abs(tau.mean() - reference) < 4.0 * standard_error + 0.05 * reference, (
-        tau.mean(), reference, standard_error
-    )
+    gaps = []
+    for sigma_v in (0.4, 0.2, 0.1):
+        params = HestonParams(v0=0.06, kappa=2.0, theta=0.04, sigma_v=sigma_v, rho=-0.5)
+        times, _ = simulate_timer_first_passage(
+            params,
+            _market(0.0, 0.0).equities[ACME],
+            BUDGET,
+            (MonteCarloConfig(paths=20000, seed=5), 400),
+        )
+        gap = times.mean() - reference
+        # the gap is POSITIVE: a stochastic variance hits the budget later on average (Jensen)
+        assert gap > 0.0, (sigma_v, gap)
+        gaps.append(gap)
+    for coarse, fine in zip(gaps, gaps[1:]):
+        assert 3.0 < coarse / fine < 5.0, gaps
+    # and the premise: the gap is RESOLVABLE at every point of the sweep, so the rate is measured
+    # rather than fitted through noise
+    assert gaps[-1] > 0.01, gaps
 
 
 def test_the_hitting_time_is_EXACTLY_B_over_theta_when_the_variance_cannot_move():
@@ -127,7 +151,209 @@ def test_the_hitting_time_is_EXACTLY_B_over_theta_when_the_variance_cannot_move(
         frozen, model.market.equities[ACME], BUDGET, (MonteCarloConfig(paths=64, seed=1), 400)
     )
     assert tau == pytest.approx(BUDGET / frozen.theta, rel=1e-3, abs=0.0)
-    assert tau.std(ddof=1) == 0.0
+    # A TOLERANCE, not `== 0.0`: every path follows the identical deterministic variance, so the
+    # spread is pure floating-point lane noise (measured 2.2e-16, about one ULP of 2.0), and
+    # committing an exact zero would promote an in-process bit-identity to a cross-platform claim
+    # (T49).
+    assert tau.std(ddof=1) < 1e-12
+
+
+def test_a_DETERMINISTIC_variance_hits_the_budget_at_EXACTLY_T0_mid_step():
+    """`σ_v = 0` with `v₀ ≠ θ` ⇒ `τ_B = T₀` **exactly**, and the hit lands **between** grid steps.
+
+    This is the oracle that pins the within-step **interpolation**, and it took two attempts to
+    find — the first one could not work, for a structural reason worth recording. With `v₀ = θ` the
+    variance is constant, and the step size is *defined* as `(B/θ)/steps`, so the budget is reached
+    at exactly `steps` steps **however** `B` and `θ` are chosen: the hit always lands on a grid
+    boundary, the crossing fraction is always 1.0, and rounding to the boundary is **identical** to
+    interpolating. Choosing an "off-grid" budget does not help, because the grid is built from the
+    budget. Only `v₀ ≠ θ` — a variance that is deterministic but not constant — puts the hit
+    mid-step.
+
+    And then the reference is exact rather than approximate: with no vol-of-vol, eq (6.53)'s `T₀`
+    *is* the hitting time (that PDE has no second-derivative term, which is the same fact that
+    makes `T₀` the `σ_v → 0` limit elsewhere in this file). Measured: the hit falls at grid index
+    **527.206** at 400 steps, `τ` agrees with `T₀` to **4.9e-05**, and rounding up to the boundary
+    would give **1.46e-03** — a 30× separation, which is what gives this test its power.
+    """
+    deterministic = HestonParams(v0=0.06, kappa=2.0, theta=0.04, sigma_v=0.0, rho=-0.5)
+    reference = _maturity_function(0.06, 2.0, 0.04, BUDGET)
+    underlying = _market(0.0, 0.0).equities[ACME]
+
+    times, _ = simulate_timer_first_passage(
+        deterministic, underlying, BUDGET, (MonteCarloConfig(paths=16, seed=1), 400)
+    )
+    # deterministic: every path is the same path
+    assert times.std(ddof=1) == 0.0
+    assert times[0] == pytest.approx(reference, rel=2e-4, abs=0.0)
+
+    # the premise that makes this an interpolation test: the hit is NOT on a grid boundary
+    step = (BUDGET / max(deterministic.theta, deterministic.v0)) / 400
+    position = times[0] / step
+    assert 0.1 < position % 1.0 < 0.9, position
+
+    # and it converges as O(dt): halving the step must shrink the error, which rounding to the
+    # boundary would NOT do (the rounded value is pinned to the grid, not to the truth)
+    coarse, _ = simulate_timer_first_passage(
+        deterministic, underlying, BUDGET, (MonteCarloConfig(paths=16, seed=1), 100)
+    )
+    assert abs(coarse[0] - reference) > 2.0 * abs(times[0] - reference)
+
+
+def test_the_TOTAL_realised_variance_is_the_BUDGET_even_on_a_coarse_grid():
+    """`var(ln S_τ) = B` exactly — which pins the **final partial step's diffusion scaling**.
+
+    `ln S` accumulates variance `∫V dt`, and the contract stops that integral at `B`, so the
+    terminal log-spot variance **is** the budget, with no model dependence at all. Run on a
+    deliberately **coarse** grid (4 steps) because that is where the final partial step is a large
+    share of the total: its crossing fraction is 0.253 here, so a diffusion scaled by the fraction
+    instead of its square root loses ~3.2% of the total variance, against a 0.70% SE. On a fine
+    grid the same error is invisible — which is why the coarse grid is the oracle and not a
+    shortcut.
+    """
+    deterministic = HestonParams(v0=0.06, kappa=2.0, theta=0.04, sigma_v=0.0, rho=-0.5)
+    _, spots = simulate_timer_first_passage(
+        deterministic,
+        _market(0.0, 0.0).equities[ACME],
+        BUDGET,
+        (MonteCarloConfig(paths=40000, seed=21), 4),
+    )
+    realised = float(np.log(spots).var(ddof=1))
+    assert realised == pytest.approx(BUDGET, rel=0.02, abs=0.0), realised
+
+
+def test_an_EXACT_boundary_hit_is_handled_identically_either_way():
+    """The budget reached **exactly** on a step boundary — a *proved equivalent mutant*, recorded.
+
+    Flipping `advanced >= budget` to `advanced > budget` survived the sweep, and it is not a hole:
+    it is **behaviour-identical even on the boundary**, which is stronger than unreachable. With
+    `>=` the crossing fires now and `fraction = (B−clocks)/(advanced−clocks) = 1.0`. With `>` it
+    defers one step, `clocks` becomes exactly `B`, and the next step fires with
+    `fraction = (B−B)/(V·dt) = 0.0` — so `hitting = (i+1)·step` either way, and the spot likewise
+    takes one full step and then a zero-width one. §4 requires the exception to be **proved**:
+    measured **bit-identical** outputs (hitting times and spots) under the mutation, on this
+    fixture and on a 500-path stochastic one.
+
+    The fixture makes the boundary genuinely exact rather than nearly so: `θ = v₀ = 0.5`,
+    `B = 2.0`, 8 steps gives `step = 0.5` and `V·step = 0.25`, all power-of-two multiples, so the
+    clock accumulates to `2.0 == B` with no rounding at all (verified: `clock == budget` is True).
+    """
+    exact = HestonParams(v0=0.5, kappa=1.0, theta=0.5, sigma_v=0.0, rho=0.0)
+    budget, steps = 2.0, 8
+    # the premise: the clock really does land on the budget with NO floating-point slack
+    step = (budget / max(exact.theta, exact.v0)) / steps
+    clock = 0.0
+    for _ in range(steps):
+        clock = clock + exact.theta * step
+    assert clock == budget
+
+    times, _ = simulate_timer_first_passage(
+        exact, _market(0.0, 0.0).equities[ACME], budget, (MonteCarloConfig(paths=8, seed=1), steps)
+    )
+    assert times[0] == budget / exact.theta        # 4.0, exactly -- not approximately
+    assert times.std(ddof=1) == 0.0
+
+
+# ============================================================================================
+# 2b. The CARRY — every anchor above needs `r = q`, so the carry needs its own fixture.
+# ============================================================================================
+
+def test_the_CARRY_is_restored_at_each_paths_OWN_exercise_time():
+    """**The hole the mutation sweep found: every other fixture in this file has `r = q`.**
+
+    Oracle 1 requires `r = q = 0` and oracle 2 requires `r = q` (so that eq (6.50)'s `G` term
+    vanishes). Both anchors therefore pin the price with the carry **identically zero**, and three
+    mutations survived on that: dropping the `(r−q)` restoration entirely, and applying it at the
+    *mean* exercise time instead of each path's own. §4 names this exactly — *an oracle made sharp
+    by a quantity being exactly zero is, for that very reason, blind to that quantity*.
+
+    So this fixture has `r ≠ q`, and the reference is transcribed independently of the engine: the
+    test derives the carry from `dividend_forward` (C17's definition) and composes the payoff
+    itself. Measured, the dropped-carry variant lands **68 SE** from the correct value.
+    """
+    rate, dividend = 0.05, 0.01
+    model = _model(PARAMS, rate=rate, dividend=dividend)
+    sampling = (MonteCarloConfig(paths=20000, seed=13), 300)
+
+    times, martingale = simulate_timer_first_passage(
+        PARAMS, model.market.equities[ACME], BUDGET, sampling
+    )
+    underlying = model.market.equities[ACME]
+    discount = model.market.curves.discount(USD)
+    reference_date = model.market.valuation_date + timedelta(days=365)
+    years = discount.time_measure.year_fraction(reference_date)
+    carry = (
+        math.log(dividend_forward(underlying, reference_date, discount) / underlying.spot) / years
+    )
+    # the premise: this fixture has a MATERIAL carry, unlike every other one in this file
+    assert abs(carry) > 0.03, carry
+
+    spots = martingale * np.exp(carry * times)
+    factors = np.array([discount.df_at(float(t)) for t in times])
+    samples = factors * np.maximum(spots - STRIKE, 0.0)
+    expected = float(samples.mean())
+
+    through_engine = timer_option_estimate(_option(), model, sampling)
+    assert through_engine.mean == pytest.approx(expected, rel=1e-12, abs=0.0)
+
+    # and the carry must ride each path's OWN time: applying it at the mean instead changes the
+    # answer, because `exp` is convex and the exercise times genuinely spread
+    at_mean = factors * np.maximum(martingale * math.exp(carry * times.mean()) - STRIKE, 0.0)
+    standard_error = float(samples.std(ddof=1) / math.sqrt(len(samples)))
+    assert abs(float(at_mean.mean()) - expected) > 3.0 * standard_error
+
+
+def test_the_EXPONENTIAL_MARTINGALE_identity_pins_the_carry_without_a_transcription():
+    """`E[e^{−carry·τ}·S_τ] = S₀` — exact, and carry-sensitive at 68 SE.
+
+    `S_t·e^{−(r−q)t}` is an exponential martingale, so optional stopping at `τ_B` gives `S₀` on the
+    nose. This is the requirement-oracle companion to the transcription above: it survives a
+    transcription error in the payoff composition, because it never forms a payoff at all.
+    """
+    rate, dividend = 0.05, 0.01
+    model = _model(PARAMS, rate=rate, dividend=dividend)
+    times, martingale = simulate_timer_first_passage(
+        PARAMS, model.market.equities[ACME], BUDGET, (MonteCarloConfig(paths=40000, seed=13), 300)
+    )
+    standard_error = float(martingale.std(ddof=1) / math.sqrt(len(martingale)))
+    assert float(martingale.mean()) == pytest.approx(SPOT, abs=4.0 * standard_error)
+    # the premise: WITHOUT the discounting at each path's own time the identity fails badly, so it
+    # is the pairing of `exp(-carry*tau)` with `exp(+carry*tau)` that is being asserted
+    underlying = model.market.equities[ACME]
+    discount = model.market.curves.discount(USD)
+    reference_date = model.market.valuation_date + timedelta(days=365)
+    years = discount.time_measure.year_fraction(reference_date)
+    carry = (
+        math.log(dividend_forward(underlying, reference_date, discount) / underlying.spot) / years
+    )
+    undiscounted = float((martingale * np.exp(carry * times)).mean())
+    assert abs(undiscounted - SPOT) > 20.0 * standard_error
+
+
+def test_a_DISCRETE_dividend_schedule_is_REFUSED_not_silently_averaged():
+    """Eq (6.13) assumes a constant continuous carry, so a discrete schedule is out of its domain.
+
+    The guard existed from the start and **survived the sweep** — because every fixture in the file
+    supplies a repo/borrow yield and none supplies a discrete dividend, so the rejecting branch was
+    never in the test population (T33b's input-population degeneracy). Supplying it is the fix.
+    """
+    from pricebook.market.equity import DividendSchedule
+
+    lumpy = EquityUnderlying(
+        spot=SPOT,
+        repo_rate=0.0,
+        dividends=DividendSchedule(cash=((VAL + timedelta(days=200), 2.5),)),
+    )
+    market = MarketSnapshot(
+        valuation_date=VAL,
+        curves=CurveSet({CurveKey(CurveRole.DISCOUNT, USD): DiscountCurve.flat(VAL, 0.03, DC)}),
+        equities={ACME: lumpy},
+    )
+    model = HestonModel(market=market, params=PARAMS)
+    with pytest.raises(ValueError, match="dividend"):
+        timer_option_estimate(_option(), model, (MonteCarloConfig(paths=64, seed=1), 100))
+    # and through the registry it becomes a FAILURE value, never an escaping exception (§3.4)
+    assert isinstance(price(_option(), model), PricingFailure)
 
 
 # ============================================================================================
@@ -143,37 +369,122 @@ def _black_call(spot: float, strike: float, total_variance: float) -> float:
     return spot * normal(d_plus) - strike * normal(d_minus)
 
 
-@pytest.mark.parametrize("strike", [80.0, 100.0, 130.0])
-def test_at_rho_ZERO_and_zero_carry_the_timer_is_BLACK_SCHOLES_at_variance_B(strike):
+def test_at_rho_ZERO_and_zero_carry_the_timer_is_BLACK_SCHOLES_at_variance_B():
     """**Oracle 1, and `r=q=0` is required, not cosmetic.**
 
     `µ_τB = (r−q)τ_B − B/2` (eq 6.14 at `ρ=0`). The `(r−q)τ_B` term is **random**, because `τ_B`
     is, so only at `r=q=0` does the drift become the deterministic `−B/2` — whereupon `ln(S_τB/S₀)
     ~ N(−B/2, B)` with no model dependence left at all, and eq (6.10) is exact. Confirmed at step 1
     (thread 0422): the spec flagged this as conditional and the condition **binds**.
+
+    Three strikes share **one** simulation, which is lossless rather than a saving: the
+    first-passage law does not depend on the strike, so simulating per strike would be computing
+    the same paths three times. One strike also goes through `timer_option_estimate` itself, so the
+    production path is pinned and not merely the payoff algebra.
     """
     model = _model(FLAT, rate=0.0, dividend=0.0)
-    estimate = timer_option_estimate(
-        _option(strike=strike), model, (MonteCarloConfig(paths=40000, seed=7), 300)
-    )
-    expected = _black_call(SPOT, strike, BUDGET)
-    assert abs(estimate.mean - expected) < 4.0 * estimate.standard_error, (
-        estimate.mean, expected, estimate.standard_error
-    )
-
-
-def test_the_reduction_is_BLIND_to_rho_which_is_why_it_needs_the_perturbation_companion():
-    """The T39 premise, stated as a measurement rather than a remark.
-
-    Oracle 1 holds `ρ=0`; the whole first-passage drift `(ρ/ε)(V_τB − V₀ − κθτ_B + κB)` lives in
-    `ρ`. So the reduction cannot see it, and a mutation to the `ρ` term would survive oracle 1
-    alone. Measured here: turning `ρ` on moves the price materially at the same budget.
-    """
     sampling = (MonteCarloConfig(paths=40000, seed=7), 300)
-    flat = timer_option_estimate(_option(), _model(FLAT, 0.0, 0.0), sampling)
-    skewed = timer_option_estimate(_option(), _model(PARAMS, 0.0, 0.0), sampling)
-    gap = abs(skewed.mean - flat.mean)
-    assert gap > 4.0 * (flat.standard_error + skewed.standard_error), (gap, flat, skewed)
+    times, spots = simulate_timer_first_passage(
+        FLAT, model.market.equities[ACME], BUDGET, sampling
+    )
+    discount = model.market.curves.discount(USD)
+    factors = np.array([discount.df_at(float(t)) for t in times])
+
+    for strike in (80.0, 100.0, 130.0):
+        # the payoff definition, transcribed independently of the engine
+        samples = factors * np.maximum(spots - strike, 0.0)
+        mean = float(samples.mean())
+        standard_error = float(samples.std(ddof=1) / math.sqrt(len(samples)))
+        expected = _black_call(SPOT, strike, BUDGET)
+        assert abs(mean - expected) < 4.0 * standard_error, (strike, mean, expected)
+
+    # and the production path itself, on the same fixture, so this is not only a payoff check
+    through_engine = timer_option_estimate(_option(), model, sampling)
+    assert abs(through_engine.mean - _black_call(SPOT, STRIKE, BUDGET)) < (
+        4.0 * through_engine.standard_error
+    )
+
+
+#: `ρ` sweep simulated ONCE and read by both tests below — the price question and the joint-law
+#: question are different questions about the **same** paths, so simulating twice would compute the
+#: same thing twice (OI-8's first lossless move). `σ_v = 0.4` rather than 0.2 because a larger
+#: vol-of-vol *amplifies* `ρ`'s effect on the price, which makes the insensitivity claim harder,
+#: not easier.
+_RHO_SWEEP = (-0.9, -0.5, 0.0, 0.5, 0.9)
+
+
+@pytest.fixture(scope="module")
+def rho_sweep():
+    """`{ρ: (times, martingale_spots)}` at `σ_v = 0.4`, zero carry, one simulation per `ρ`."""
+    underlying = _market(0.0, 0.0).equities[ACME]
+    sampling = (MonteCarloConfig(paths=12000, seed=5), 300)
+    paths = {}
+    for rho in _RHO_SWEEP:
+        params = HestonParams(v0=0.06, kappa=2.0, theta=0.04, sigma_v=0.4, rho=rho)
+        paths[rho] = simulate_timer_first_passage(params, underlying, BUDGET, sampling)
+    return paths
+
+
+def test_the_PRICE_is_almost_BLIND_to_rho_so_no_price_oracle_can_pin_it(rho_sweep):
+    """**A finding, not a premise — and it changes what the oracle set must do (T34's shape).**
+
+    The spec assumed oracle 2 would cover what oracle 1 is blind to, because oracle 1 fixes `ρ=0`.
+    Measured, that assumption is wrong at the *price* level: at zero carry, turning `ρ` from 0 to
+    **−0.9** moves the price by **0.23 SE** (at `σ_v = 0.2`; 1.04 SE even at `σ_v = 0.9`). No path
+    count rescues that — it is T34 exactly: a parameter whose first-order effect on the chosen
+    observable is structurally negligible cannot be pinned by that observable at any precision.
+
+    And the reason is the timer's defining feature: `ln S` has instantaneous variance `V`, so its
+    quadratic variation at `τ_B` is **exactly the budget `B`, by construction, whatever `ρ` is**.
+    Fixing the variance is the whole point of the contract, so `ρ` can only reach the price through
+    the *decomposition* of that fixed variance into drift and diffusion — a second-order effect.
+
+    This test records the insensitivity so the suite **states** it, rather than letting a
+    `ρ`-mutation survive silently while a band appears to cover it. `ρ` is pinned below instead.
+    """
+    discount = _market(0.0, 0.0).curves.discount(USD)
+    prices = {}
+    for rho, (times, spots) in rho_sweep.items():
+        factors = np.array([discount.df_at(float(t)) for t in times])
+        samples = factors * np.maximum(spots - STRIKE, 0.0)
+        prices[rho] = (
+            float(samples.mean()),
+            float(samples.std(ddof=1) / math.sqrt(len(samples))),
+        )
+    base, base_error = prices[0.0]
+    for rho in (-0.9, -0.5, 0.5, 0.9):
+        value, error = prices[rho]
+        assert abs(value - base) < 3.0 * (base_error + error), (rho, value, base)
+
+
+def test_rho_IS_pinned_by_the_JOINT_LAW_of_the_exercise_time_and_the_spot(rho_sweep):
+    """The pin the price cannot provide — `corr(ln S_τB, τ_B)`, at 100–500 SE (the T17 move).
+
+    `ρ` enters the *joint* law of `(S_τB, τ_B)` at first order even though it barely enters the
+    price: with `ρ < 0` a high variance both pushes the spot **down** and makes the clock run
+    **fast** (small `τ`), so a falling spot coincides with early exercise and the correlation is
+    **positive**. Measured `+0.824` at `ρ=−0.9`, `+0.457` at `−0.5`, `+0.004` at `0`, and
+    sign-flipped and symmetric for positive `ρ` — 513 SE from zero at 40k paths, against a price
+    effect of under one SE. Run at **12k** here, where the margin is still ~280 SE and these claims
+    need about ten: a reduction in an unused margin, not in the oracle's domain, and stated so the
+    choice is measured rather than default.
+
+    The **sign relation and the antisymmetry** are asserted, not only the magnitude: a
+    magnitude-only check would pass for `ρ → −ρ`, which is T43's presence-and-sign-versus-magnitude
+    trap with the roles reversed.
+    """
+    measured = {
+        rho: float(np.corrcoef(np.log(spots), times)[0, 1])
+        for rho, (times, spots) in rho_sweep.items()
+    }
+    assert measured[0.0] == pytest.approx(0.0, abs=0.02), measured
+    for rho in (-0.9, -0.5):
+        assert measured[rho] > 0.3, measured
+        assert measured[-rho] < -0.3, measured
+    ordered = [measured[rho] for rho in _RHO_SWEEP]
+    assert ordered == sorted(ordered, reverse=True), measured
+    for rho in (0.5, 0.9):
+        assert measured[rho] == pytest.approx(-measured[-rho], rel=0.05, abs=0.0), measured
 
 
 # ============================================================================================
@@ -226,9 +537,13 @@ def test_the_sources_TWO_printed_forms_of_T0_agree_which_is_the_derivation_step_
 
 
 def test_T0_satisfies_its_own_BOUNDARY_condition_and_its_frozen_variance_value():
-    # T0(V,B) = 0 at I = B, i.e. a vanishing budget is hit immediately.
+    # T0(V,B) = 0 at I = B, and the APPROACH is `B/v0` -- the clock starts at `v0`, not at
+    # `theta`, so the reference is derived rather than bounded loosely. A first version asserted
+    # `T0 < 10*B`, which is false and was false for a reason: at `v0 = 0.06` the ratio is `1/0.06`.
     for budget in (1e-6, 1e-4):
-        assert _maturity_function(0.06, 2.0, 0.04, budget) < 10.0 * budget
+        assert _maturity_function(0.06, 2.0, 0.04, budget) == pytest.approx(
+            budget / 0.06, rel=1e-3, abs=0.0
+        )
     # and at v0 = theta the variance sits at its long-run level, so the clock runs at exactly theta
     assert _maturity_function(0.04, 2.0, 0.04, 0.08) == pytest.approx(2.0, rel=1e-14, abs=0.0)
 
@@ -314,11 +629,18 @@ def test_PUT_CALL_PARITY_holds_PATHWISE_so_it_is_a_guard_not_an_anchor():
     sampling = (MonteCarloConfig(paths=20000, seed=9), 300)
     call = timer_option_estimate(_option(kind=EquityOptionKind.CALL), model, sampling)
     put = timer_option_estimate(_option(kind=EquityOptionKind.PUT), model, sampling)
-    tau, spots = simulate_timer_first_passage(
+    # The forward side is read off the SAME simulation rather than a third run -- lossless, since
+    # the paths are a deterministic function of the sampling and would be identical anyway.
+    times, martingale = simulate_timer_first_passage(
         PARAMS, model.market.equities[ACME], BUDGET, sampling
     )
+    underlying = model.market.equities[ACME]
     discount = model.market.curves.discount(USD)
-    factors = np.array([discount.df_at(float(t)) for t in tau])
+    reference = model.market.valuation_date + timedelta(days=365)
+    years = discount.time_measure.year_fraction(reference)
+    carry = math.log(dividend_forward(underlying, reference, discount) / underlying.spot) / years
+    spots = martingale * np.exp(carry * times)
+    factors = np.array([discount.df_at(float(t)) for t in times])
     expected = float(np.mean(factors * (spots - STRIKE)))
     assert call.mean - put.mean == pytest.approx(expected, rel=1e-12, abs=0.0)
 
@@ -421,9 +743,15 @@ def test_the_simulation_REFUSES_rather_than_TRUNCATING_when_a_path_cannot_reach_
     suffices. The engine must say so rather than return paths scored at zero — which is the input
     this guard exists to reject, supplied here rather than assumed unreachable (T33b).
     """
-    dead = HestonParams(v0=1e-300, kappa=1e-300, theta=1e-300, sigma_v=0.0, rho=0.0)
-    model = _model(dead)
+    # The step size scales as `B/max(theta, v0)`, so a uniformly tiny variance is NOT unreachable
+    # -- the clock just takes tiny steps and still arrives. What is genuinely unreachable is a
+    # variance that starts far BELOW a large `theta` with almost no mean reversion to lift it: the
+    # step is sized by `theta` while the clock advances at `v0`. Supplying that input is what makes
+    # the guard reachable at all (T33b), and a first fixture that merely set everything to 1e-300
+    # did not fire it.
+    starved = HestonParams(v0=1e-8, kappa=1e-6, theta=100.0, sigma_v=0.0, rho=0.0)
+    model = _model(starved)
     with pytest.raises(ValueError, match="budget"):
         simulate_timer_first_passage(
-            dead, model.market.equities[ACME], BUDGET, (MonteCarloConfig(paths=16, seed=1), 50)
+            starved, model.market.equities[ACME], BUDGET, (MonteCarloConfig(paths=16, seed=1), 50)
         )
