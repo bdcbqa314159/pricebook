@@ -6,6 +6,92 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.82.0] - 2026-11-26
+
+### Changed — tranche 80, re-audit #9's remediation (test/tooling/hygiene; zero `src` defects)
+
+Re-audit #9 closed the vol-derivatives arc with **108 mutations applied / 106 killed / 2 survived /
+0 errored / 0 single-killers**: the proactive invariant-6 run clean at **76/76** (double #8's 32,
+because discovery was generated from the tree and found three guard shapes a hand list missed), the
+oldest tree T1–T37 clean, **OI-3 provably not re-introducible** (restoring `norm_cdf`'s cancelling
+form dies — the defect F-8.6 once hid), and every standing single-killer row holding. One blind
+oracle, two duplication consolidations, one lint gate.
+
+#### F-9.5 — the VIX quadrature span's CENTRE was unpinned (a blind oracle, production correct)
+
+Both arc survivors were in `_survival_integral`'s span. Its **width** is a deliberate margin and a
+T76 test already rules narrowing it acceptable; its **centre** is a formula, and nothing pinned it
+because every fixture sat at `nc = 2…34`, where a 12-σ span absorbs a mis-centred grid. **Measured
+by applying the real mutation across the regime:** 1.08e-04 at `nc = 195`, 8.31e-04 at 438,
+**1.49e-01 at 1100**, 3.7e-01 at 3722, 5.5e-01 at 14328.
+
+Two false starts are worth recording. A fixture at `nc = 195` was chosen on a **coverage** argument
+(a span failing to bracket the mass at 8σ) and the mutation **survived** — at 5σ above the true mean
+the surviving tail is worth ~1e-6 of the integral, so coverage was the wrong criterion and the
+integral's own sensitivity is the right one. And a 96% figure from an early emulation was an
+artefact: patching the whole terminal-variance law changes the *integrand* too, not just the span.
+
+Pinning the centre through a price would have needed an `nc ≈ 1100` integral **pair** (~9s on an
+already-exempt file). §4's reachability rule gave a better answer: **`quadrature_span` is extracted
+as named surface** (bit-identical across 7 values), and the oracle asserts the property the formula
+exists to deliver — `sf(stop) < 1e-9` and `stop > mean` — for free. The sweep then flagged that kill
+as a **single-killer**, which is re-audit #8's **F-8.3** exactly (five shipped holes each closed with
+one test), so a second, independent killer was added: at 6% relative spread the **Jensen** bound
+`√(a·E[V]+b)` is tight, the correct future sits **0.045% under** it on the concave side, and the
+mutant is **14.95%** off. The centre now dies to **2** killers.
+
+#### C17 — `implied_carry` single-homed, and the count was wrong in the register *and* in the audit's own scope
+
+`market/equity.implied_carry(forward, spot, years)` at L1 beside `dividend_forward`, consumed by all
+**seven** sites. The register row said "five sites in four modules" while enumerating six, and T79
+had added a seventh — so re-audit #9's scope document inherited the bad count. The consolidation is
+**bit-identical across 63 values** (27 Heston Fourier prices over three dividend conventions × three
+maturities × three strikes, plus 12 simulated spots). C17 is now **guarded**: one definition, seven
+consumers. The convention bit at T78, whose first build read `r` off the curve and shipped `q = 0`
+into its own oracle.
+
+#### F-9.3 — the positive-horizon guard: **23 sites**, not the 4 first reported
+
+`foundation/time_grid.checked_positive_horizon(years, subject)`, the F-7.2 sibling. The reported "4×
+byte-identical" was **one cluster mistaken for the family**: derived mechanically, the shape appears
+**23 times across 16 modules and two layers** in 14 message forms — four "the inversion", four "the
+fair variance", three "the simulation", two "the characteristic function", ten one-offs. §6's
+rule-of-two had fired eleven times over. `subject` is kept because *which* quantity refused is the
+one genuinely per-site part; the knowledge, the exception type and the phrasing are single-homed, so
+every existing `match="positive horizon"` still holds. *(The migration script's own regex matched the
+helper it had just written, making it recursively call itself — caught because the applied count read
+24 where 23 were expected.)*
+
+#### F-9.1 — `F401` gated, zero exemptions
+
+`ruff.toml` deferred it "until those modules carry `__all__`", and **that precondition was already
+met**: `engine/__init__.py` has carried `__all__` for arcs, with 11 of 78 imported names simply
+absent from it, and one pricer imported as a *module* behind an `assert ... is not None` to quiet the
+linter instead of by name like its siblings. Completing `__all__` and importing that pricer by name
+left nothing to exempt. The deferral had let **5 dead imports** accumulate in engine modules — two of
+them `is_historical`, left by T73's C16 consolidation, which **misrepresented where the invariant-6
+guard lives** and misled the re-audit itself. The gate is verified to fail on a dead import.
+
+#### F-9.6 — the standing single-killer row pinned by PATH, after the prose misdirected the audit
+
+The T26 Leg B row was re-measured against `engine/swaption_mc.py:139` — an unrelated division with
+11 killers — and reported as "no longer single-by-design" **before the identification was checked**.
+The real site is `risk/mc_exposure.py:259`, and it measures **1**, so the row's "single by design" was
+right all along. That is re-audit #6's T3-linker/YoY conflation reproduced live, which is the
+strongest possible argument for the fix Cowork ruled: the row now names its path, its expression and
+its killer.
+
+#### F-9.2 — the practice adopted: a count that enters a finding is parser-derived
+
+**Four counts reported during this re-audit were wrong, every one read off a grep**: the invariant-6
+site count (24 quoted throughout, actually **38** — the 24 came from a superseded pattern that
+matched only guard statements), F-9.1's missing-name count (9, actually 11) plus a **fabricated
+duplicate import** that was an `as`-alias misread from ruff's output, C17's row (5 vs 7), and F-9.3's
+(4 vs 23). Three propagated into Cowork's rulings. Ruled no charter clause — it is a dynamic property
+and not statically gateable (§9's boundary) — so it stands as a practice with the sweep and `ast` as
+the backstop that caught it, like `τ=1`. **F-9.4** is recorded in `SmileLike`'s docstring:
+`@runtime_checkable` there is load-bearing for the tests only, so T33b's hazard cannot apply.
+
 ## [0.81.0] - 2026-11-24
 
 ### Added — tranche 79, perpetual timer options (the vol-derivatives arc capstone)
