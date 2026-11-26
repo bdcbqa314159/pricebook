@@ -66,6 +66,26 @@ one test), with second killers that are independent by construction: they assert
 — both currency codes, and the underlying reason preserved verbatim — rather than that a failure merely
 occurred.
 
+#### Ruled at review: `units` is DIMENSIONLESS, and `acyclic` now fails on an unmapped package
+
+**The notional became `units: float`** (ruled 0446), and the ruling is forced rather than stylistic:
+every engine returns a **money** PV, so `trade_value = multiplier · pv` requires a **dimensionless**
+multiplier. Typing it `Money` makes the product money² — and the symptom was having to call the amount
+"the real multiplier" while the currency rode along "as the checkable part": one field doing two jobs
+because neither fit. The product carries its contract size and currency; the trade carries *how many*.
+The currency-mismatch guard the earlier shape needed is **gone rather than fixed**, and two tests went
+with it. This is the first representation type and `Position`/`PricingRequest`/MtM inherit its shape,
+which is where the dimensional honesty is worth most.
+
+**`verify.py acyclic` now FAILS on a `src/` package absent from its `LAYER` map**, where it previously
+`.get()`-ed and `continue`d — the §9 empty-gate shape, and one about to matter, since the structural
+track adds packages and any of them would have been exempt from the gate that enforces §2's direction.
+Proven to fail on a planted `representation/` package and to return green when removed (F-9.1's
+discipline) — and the proving took **two wrong attempts worth recording**: the first ran `verify.py
+layers`, but the layer-*direction* check lives in `acyclic()` (`layers` is the separate semantic check);
+the second planted an `__init__.py`, which `_src_modules()` excludes. Both are a gate reporting "ok"
+because it never examined the thing — the very hazard being closed.
+
 #### The status instrument earned its keep on the very next tranche, twice
 
 T81's drift gate **fired immediately**: T82 added a product and an engine, so `docs/STATUS.md` went
