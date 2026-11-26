@@ -44,11 +44,22 @@ by an **exact** engine, so `standard_error` is always `None` and the line never 
 Not a degenerate value or schedule — a degenerate **population of pricers** (T33b, one coordinate over).
 Closed with the only registry-dispatchable pair that carries an SE (`TimerOption` under Heston).
 
-The first version cost **10.56s** and pushed the file over the `slow` ceiling. §9's lossless reduction
-came before any exemption and produced a **better** test: comparing a **short** trade's band against a
-*positive* reference proves the scaling **and** the sign-independence in one assertion, because a signed
-`scale` would return a negative band and fail the equality. One call instead of three, **7.31s**, and
-strictly more asserted per call.
+**And then the fixture itself was wrong, which CI had to tell me.** The first version dispatched a
+`TimerOption` under Heston — the only registry-dispatchable pair carrying an SE — at 10.56s, reduced to
+**7.31s** by asserting against a *short* trade (one call instead of three: a signed `scale` would return a
+negative band, so scaling and sign-independence fall out of one equality). Declared green on that local
+re-time, it **failed `slow` on both CI runners at 16.0s and 17.9s** — §9's own rule that *for a file with
+real numerical cost CI is the reading and a local re-time is not*, missed a **third** time after T42 and
+T44a.
+
+The fix is lossless and strictly better: a **registered test-only pricer returning a known estimate** (the
+`tests/tooling/test_engine_registry.py` pattern, long established) takes the file to **0.37s**, makes the
+assertion **exact** rather than banded, and tests the **wrapper's** arithmetic — which is what T82 owns —
+instead of incidentally re-testing Heston MC. It also made hardening free, so the two SE mutations now die
+to **2** killers each rather than being recorded as single-killers: the second is the scale- and
+direction-invariance of `SE/|PV|`, a finance requirement rather than a restatement. The audit-log row that
+recorded them is retracted, because its stated reason — that a second killer would cost a `slow`
+exemption — was an artefact of the wrong fixture.
 
 Two **single-killers** were also closed (the currency guard and the failure pass-through, each dying to
 one test), with second killers that are independent by construction: they assert the failure's *content*

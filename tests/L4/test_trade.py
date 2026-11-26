@@ -15,12 +15,13 @@ the test; what does the testing is the set of companions, each reported with its
 
 from __future__ import annotations
 
-import math
+from dataclasses import dataclass
 from datetime import date, timedelta
 
 import pytest
 
 from pricebook.engine import price
+from pricebook.engine.registry import register
 from pricebook.engine.trade import trade_value
 from pricebook.foundation import Currency, Money, PricingFailure, PricingResult
 from pricebook.foundation.day_count import DayCountConvention
@@ -223,58 +224,119 @@ def test_a_MATURED_product_keeps_its_PV_ZERO_through_the_wrapper():
 # 4b. The STANDARD ERROR — the §3.7 invariant, and the hole the sweep found.
 # ============================================================================================
 
+@dataclass(frozen=True)
+class _EstimatedProduct:
+    """A private product whose pricer returns an ESTIMATE — the fixture population's missing half."""
+
+    currency: Currency
+
+
+@dataclass(frozen=True)
+class _EstimatingModel:
+    """A private model, so registering this pair collides with nothing real."""
+
+    market: MarketSnapshot
+
+
+#: A known, exact standard error. Registering a test-only pricer is the established pattern in this
+#: tree (`tests/tooling/test_engine_registry.py` does it with private `_ProductA`/`_ModelOne` types).
+_ESTIMATE_PV = 12.5
+_ESTIMATE_SE = 0.25
+
+
+@register(_EstimatedProduct, _EstimatingModel)
+def _price_estimated(
+    product: _EstimatedProduct, model: _EstimatingModel
+) -> PricingResult | PricingFailure:
+    del model
+    return PricingResult(
+        pv=Money(_ESTIMATE_PV, product.currency), standard_error=_ESTIMATE_SE
+    )
+
+
 def test_the_STANDARD_ERROR_scales_with_the_notional_and_ignores_the_direction():
     """**The sweep's one survivor, and its cause was my fixture POPULATION.**
 
     Dropping `abs(scale) * priced.standard_error` to a bare pass-through survived all 3314 tests,
-    because every product in this file is priced by an **exact** engine — so `standard_error` is
-    always `None` and the scaling line never executes with a real value. Not a degenerate *value*
-    and not a degenerate schedule: a degenerate **population of pricers** (T33b's input-population
-    shape, one coordinate over). The only registry-dispatchable pair that returns an SE is
-    `TimerOption` under Heston, so that is the fixture — ~2.3s a call, and the §3.7 invariant is
-    worth it.
+    because every *real* product in this file is priced by an **exact** engine — so
+    `standard_error` is always `None` and the scaling line never executed with a real value. Not a
+    degenerate value and not a degenerate schedule: a degenerate **population of pricers** (T33b's
+    input-population shape, one coordinate over). Expect it again at R1.2, R1.4 and R2.
 
-    Two claims in one assertion: the band **scales** with the notional (an estimate ten times the
-    size has a band ten times as wide) and is **sign-independent** — an error bar has no direction,
-    so `abs(scale)` is load-bearing. Comparing a **short** trade's band against a positive reference
-    tests both at once, because a signed `scale` would return a negative band and fail the equality.
+    **The fixture is a registered test-only pricer returning a KNOWN estimate, not a real MC
+    engine, and that is the second lesson.** The first version dispatched a `TimerOption` under
+    Heston — the only registry-dispatchable pair that carries an SE — which cost 7.31s locally and
+    **16.0s / 17.9s on the two CI runners**, breaking the 10s ceiling. §9 says plainly that for a
+    file with real numerical cost **CI is the reading and a local re-time is not**, and this is the
+    third time the project has made that mistake (T42, T44a). The fix is lossless *and* better: a
+    known SE makes the assertion **exact** rather than banded, costs nothing, and tests the
+    **wrapper's** arithmetic — which is what T82 owns — instead of incidentally re-testing Heston.
+
+    Two claims in one assertion: the band **scales** with the units, and is **sign-independent** —
+    an error bar has no direction, so `abs(scale)` is load-bearing. A **short** trade's band
+    compared against a *positive* reference tests both at once, since a signed `scale` would return
+    a negative band and fail the equality.
     """
-    from pricebook.models.heston import HestonModel, HestonParams
-    from pricebook.products.timer_option import TimerOption
+    product = _EstimatedProduct(currency=USD)
+    model = _EstimatingModel(market=_market())
 
-    market = _market()
-    model = HestonModel(
-        market=market,
-        params=HestonParams(v0=0.06, kappa=2.0, theta=0.04, sigma_v=0.3, rho=-0.5),
-    )
-    option = TimerOption(
-        asset=ACME,
-        strike=100.0,
-        variance_budget=0.08,
-        notional=Money(1.0, USD),
-        kind=EquityOptionKind.CALL,
-    )
-
-    bare = price(option, model)
+    bare = price(product, model)
     assert isinstance(bare, PricingResult)
     # the premise: this pricer DOES carry an error bar, unlike every other fixture in this file
-    assert bare.standard_error is not None and bare.standard_error > 0.0
+    assert bare.standard_error == _ESTIMATE_SE
 
-    # ONE trade call, not two, and it is the stronger one: a SHORT trade's band compared against a
-    # POSITIVE reference proves the scaling and the sign-independence together, because a signed
-    # `scale` would make the band negative and fail the equality. Two calls (long and short) cost
-    # ~3.5s more and assert strictly less per call -- the lossless reduction §9 asks for before any
-    # exemption. The PV's own sign flip is covered by the asymmetry oracle above, on a cheap pricer.
     short_trade = trade_value(
-        Trade(product=option, notional=Money(NOTIONAL, USD), direction=TradeDirection.SHORT), model
+        Trade(product=product, notional=Money(NOTIONAL, USD), direction=TradeDirection.SHORT),
+        model,
     )
     assert isinstance(short_trade, PricingResult)
     assert short_trade.standard_error == pytest.approx(
-        NOTIONAL * bare.standard_error, rel=1e-15, abs=0.0
+        NOTIONAL * _ESTIMATE_SE, rel=1e-15, abs=0.0
     )
     # the premise that makes the above a SIGN claim and not only a scaling one: this really is a
     # short, so a signed band would have come back negative.
-    assert short_trade.pv.amount < 0.0, short_trade.pv.amount
+    assert short_trade.pv.amount == pytest.approx(-NOTIONAL * _ESTIMATE_PV, rel=1e-15, abs=0.0)
+    assert short_trade.pv.amount < 0.0
+
+
+def test_the_RELATIVE_error_is_invariant_under_size_and_direction():
+    """The independent second killer for the SE's scaling — and now it is cheap enough to have.
+
+    Scaling a position does not change how *uncertain* it is: the coefficient of variation
+    `SE/|PV|` is invariant under both the size and the direction. That is a finance requirement
+    rather than a restatement of `abs(scale) * se`, so it is independent of the assertion above —
+    and it kills both defects for structural reasons: if the band fails to scale while the value
+    does, the ratio moves; if the band carries the sign, the ratio goes negative.
+
+    Recorded in the audit log as a single-killer when the fixture was a 7s Monte-Carlo dispatch and
+    a second killer would have cost a `slow` exemption. The registered known-estimate fixture made
+    hardening free, so §9's *ceiling* applies instead of its floor and the log row is retracted.
+    """
+    product = _EstimatedProduct(currency=USD)
+    model = _EstimatingModel(market=_market())
+    reference = _ESTIMATE_SE / abs(_ESTIMATE_PV)
+
+    for direction in (TradeDirection.LONG, TradeDirection.SHORT):
+        for units in (1.0, NOTIONAL, 3.0 * NOTIONAL):
+            outcome = trade_value(
+                Trade(product=product, notional=Money(units, USD), direction=direction), model
+            )
+            assert isinstance(outcome, PricingResult)
+            assert outcome.standard_error is not None
+            ratio = outcome.standard_error / abs(outcome.pv.amount)
+            assert ratio == pytest.approx(reference, rel=1e-14, abs=0.0), (direction, units, ratio)
+
+
+def test_an_EXACT_pricer_keeps_a_None_band_through_the_wrapper():
+    """The other branch, and the reason the test above needed a new fixture at all.
+
+    An exact pricer has no error bar, and the wrapper must not invent one — `None` in, `None` out.
+    This is the branch every *other* fixture in the file exercises, which is exactly why none of
+    them could see the scaling defect.
+    """
+    outcome = trade_value(_trade(), _model())
+    assert isinstance(outcome, PricingResult)
+    assert outcome.standard_error is None
 
 
 # ============================================================================================
