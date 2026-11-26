@@ -1,7 +1,9 @@
-# Proposed charter amendment — two-track arcs, audit-as-switch, and 1.0 as purpose
+# Charter amendment — two-track arcs, audit-as-switch, and 1.0 as purpose — ADOPTED
 
-**Cowork, re-audit #9 (4) charter pass, 2026-11-26. A PROPOSAL for Bernardo's §1/§9 ruling — not yet charter.**
-Nothing here is adopted until Bernardo rules; §1 and §9 are his and he may veto. Worked out in the
+**ADOPTED by Bernardo, 2026-11-26.** Folded into `CLAUDE.md` §1 (two arc types + the 1.0 purpose) and §9
+(the re-audit as track switch). This doc is retained as the rationale record; the charter is the law.
+The structural track opens now (re-audit #9 was the boundary); the live status page (`docs/STATUS.md`) is
+set up first as the scoreboard, then R1. *(Original proposal text below, unchanged.)* Worked out in the
 2026-11-24 direction conversation, brought here because re-audit #9 is the arc boundary §1 reserves for the
 1.0 question ("the question returns when it is ripe, from a ruling, not a guess now").
 

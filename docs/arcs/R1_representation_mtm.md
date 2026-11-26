@@ -1,7 +1,9 @@
 # Arc plan — R1: representation & mark-to-market (the first STRUCTURAL arc)
 
-**Cowork draft, 2026-11-26. Opens after re-audit #9 remediation, IF the two-track amendment is ruled
-(`docs/proposals/two_track_and_1_0_purpose.md`).** The first structural arc — architecture-first, not
+**Cowork, 2026-11-26. ADOPTED — the two-track amendment is ruled; the structural track is open.**
+**The track opens with T81 — the live status instrument** (`docs/tranches/81_status_instrument.md`): a
+tooling-emitted `docs/STATUS.md` scoreboard (the `mutation_sweep.py` instrument pattern) that the structural
+track then fills column by column, R1→R5. **R1 proper begins at T82** (the `Trade` type below). The first structural arc — architecture-first, not
 book-grounded: it builds the §0-promised representation layer *above* the existing pricers and does not
 rewrite any of the 45 engines. Oracle set = the existing verified catalogue (reduce a position's value to
 `price(product, model)` and its sum).

@@ -32,11 +32,39 @@ name a product  →  plan what it needs (method, model, core pieces)
                 →  reflect it into the library
 ```
 
-Interest picks the target; the discipline is the constant; the books and papers are the oracle.
-Top-down: the product drags in exactly the core it needs and nothing it does not. The library grows
-by interest; `0.x` holds through the build. **What `1.0.0` will mean is deliberately left open — it
-is too early to fix a finish line** — except that it will not be a module count (the migration bar
-is retired). The question returns when it is ripe, from a ruling, not a guess now.
+Interest picks the target; the discipline is the constant; the oracle is the held source **or, for a
+structural arc, the verified catalogue itself** (see the two-track rule below). Top-down: the unit drags
+in exactly the core it needs and nothing it does not. The library grows by interest; `0.x` holds through
+the build.
+
+**Two arc TYPES, one gate (ruled by Bernardo, 2026-11-26, at the re-audit-#9 boundary).** The oracle gate
+and the arc/tranche discipline are the method's asset and are selector-agnostic; what feeds them can be a
+book or a coverage gap. So there are two kinds of arc, and both pass the same gates (§2–§9):
+- **Literature arcs** — book-grounded; add pricing capability for a model or asset class; oracle = the held
+  source's closed forms. The ten arcs T1–T80 are these.
+- **Structural arcs** — library-level, cross-cutting, pluggable with any asset/model: representation,
+  mark-to-market, greeks, scenario/P&L, lifecycle, XVA-on-position, time-series/estimation.
+  **Architecture-first, not transcription-first.** Oracle = the *existing verified catalogue* (an analytic
+  greek as the exact target; FD → analytic at a measured rate, the T25 detector; a scenario = reprice under
+  a shocked snapshot; P&L = a decomposition identity against a full reval). The rigour does not drop — it
+  anchors against the catalogue rather than a book. The time-series/VaR end presses on the statistical-
+  oracle tier §1/`out_of_method` hold open; that tier becomes a real §4 ruling when a structural arc reaches
+  it (R5), not before.
+The **re-audit is the track switch** (§9): it already assesses the whole tree at each arc close, and now
+also picks the next track — default a swing (literature ⇄ structural), free to repeat a track when the
+coverage map says one side is starving. The structural track's plan and order are in
+`docs/arcs/` (R1 representation & MtM → R2 greeks → R3 scenario/P&L → R4 lifecycle/XVA-on-position →
+R5 time-series; FX is the literature arc after R1, the test the representation is currency-general). A
+**live status page** (`docs/STATUS.md`, tooling-emitted — the `mutation_sweep.py` instrument pattern,
+regenerated at each re-audit) is the scoreboard the structural track fills column by column.
+
+**What `1.0.0` means — ruled now that it is ripe (Bernardo, 2026-11-26), and it is a PURPOSE, not a module
+count:** the library can **represent, value, and risk a *position*** — price + greeks + calibration +
+scenario/P&L — for the asset classes a target desk trades, ingesting any market provider through the §0
+representation contract. The provider-agnostic half is already met by design (§0); the open columns —
+representation, greeks, book-level risk — are what the structural track fills. The migration bar stays
+retired; this replaces "grows by interest with no finish line" with a destination for the interest to grow
+toward, the gate and arc-closing still forbidding infinite listing. *(Bernardo owns §1 and may revise.)*
 
 **What enters the spine, and where the rest goes.** A capability is *built* — enters the spine — only
 if it passes three gates, all already in this charter: the **oracle gate** (§4 — a named green oracle
@@ -778,7 +806,11 @@ unconditionally only for the fraction.)*
   caught `OKANE-2008` at `in-hand` only because Code ran `verify.py all` by hand. Twelve tranches a cited
   key could have merged green. Now in `ci.yml`; the §7 boast was true of a local run, not a CI run, until
   here.)*
-- **Periodic whole-tree re-audit — every 11 tranches, and at each arc close.** The gates above run on
+- **Periodic whole-tree re-audit — every 11 tranches, and at each arc close. It is also the TRACK SWITCH
+  (§1's two-track rule, ruled 2026-11-26):** since the re-audit already assesses the whole tree at each arc
+  close, its (4) charter pass also picks the next track — default a swing (literature ⇄ structural), free to
+  repeat a track when the coverage map (`docs/STATUS.md`) says one side is starving — and regenerates the
+  live status page. The gates above run on
   every push and catch *structural* drift (layering, fields, debt balance, provenance), so the
   re-audit targets only what they cannot: **(1) oracle power** — a full-tree mutation sweep, because
   mutation is per-tranche and never re-run, so an oracle strong at T4 can be silently weakened by a
