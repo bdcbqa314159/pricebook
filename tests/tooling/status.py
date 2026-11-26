@@ -55,7 +55,22 @@ ASSET_CLASSES: dict[str, str] = {
     "commodity_vanilla": "commodity", "commodity_asian": "commodity",
     "commodity_spread": "commodity", "schwartz": "commodity",
     "fourier_inversion": "shared", "mc_path_engine": "shared", "registry": "shared",
+    # Representation is cross-asset BY DESIGN, so it is not an asset class and must not be reported
+    # as "unclassified" either -- the first draft did exactly that for T82's `trade`, which read as
+    # an anomaly when it is the structural track's whole point. It gets its own roster below.
+    "trade": "representation",
 }
+
+#: The R1 representation roster, in build order — the scoreboard column the structural track fills.
+#: **Detected by presence, not curated** (the 0440 ruling: if it can be detected, it must be), so it
+#: self-corrects as R1.2–R1.5 land rather than needing a hand edit per tranche.
+REPRESENTATION_ROSTER: tuple[tuple[str, str], ...] = (
+    ("Trade", "a holding: product + units + direction (R1.1)"),
+    ("Position", "trades in one product, netted (R1.2)"),
+    ("Portfolio", "positions across products (R1.2)"),
+    ("PricingRequest", "what to value, as of when, against which market (R1.3)"),
+    ("MarkToMarket", "the valuation procedure over a book (R1.4)"),
+)
 
 #: Risk-layer module stem → the asset class whose *book-level risk* it covers. Same explicit-map
 #: discipline as `ASSET_CLASSES`, and unmapped modules are reported rather than dropped. Moved to
@@ -102,6 +117,8 @@ class Inventory:
     #: asset class → the risk modules covering it, by name, so the cell cannot be vaguely right.
     risk_by_class: dict[str, tuple[str, ...]] = field(default_factory=dict)
     unclassified_risk: tuple[str, ...] = ()
+    #: representation roster entry → whether that type exists in the tree yet.
+    representation: dict[str, bool] = field(default_factory=dict)
 
 
 def _modules(directory: Path) -> list[Path]:
@@ -136,7 +153,7 @@ def survey(
         asset_class = (classes if classes is not None else ASSET_CLASSES).get(stem)
         if asset_class is None:
             unclassified.append(stem)
-        elif asset_class != "shared":
+        elif asset_class not in ("shared", "representation"):
             by_class[asset_class] += 1
 
     prefixes = greek_prefixes if greek_prefixes is not None else GREEK_PREFIXES
@@ -158,6 +175,11 @@ def survey(
         else:
             risk.setdefault(covered, []).append(module.stem)
 
+    declared = {
+        match.group(1)
+        for module in root.rglob("*.py")
+        for match in re.finditer(r"^class (\w+)", module.read_text(), re.M)
+    }
     return Inventory(
         models=len(_modules(root / "models")),
         engines=len(engines),
@@ -169,6 +191,7 @@ def survey(
         greek_functions=dict(sorted(greek_counts.items())),
         risk_by_class={k: tuple(sorted(v)) for k, v in sorted(risk.items())},
         unclassified_risk=tuple(sorted(unclassified_risk)),
+        representation={name: name in declared for name, _ in REPRESENTATION_ROSTER},
     )
 
 
@@ -207,6 +230,18 @@ def mechanical_rows(
         modules = inventory.risk_by_class.get(asset_class, ())
         risk_cell = ", ".join(f"`{m}`" for m in modules) if modules else "—"
         lines.append(f"| {asset_class} | {count} | {greek_cell} | {risk_cell} |")
+    built = sum(inventory.representation.values())
+    lines += [
+        "",
+        f"**Representation (R1) — {built} of {len(REPRESENTATION_ROSTER)} built.** Detected by "
+        "presence, so this column fills itself as the structural track proceeds.",
+        "",
+        "| Piece | Built | What it is |",
+        "|---|---|---|",
+    ]
+    for name, description in REPRESENTATION_ROSTER:
+        mark = "**yes**" if inventory.representation.get(name) else "—"
+        lines.append(f"| `{name}` | {mark} | {description} |")
     if inventory.unclassified_risk:
         lines += [
             "",

@@ -51,6 +51,22 @@ stateful shell). Dependencies point DOWN into the existing pricers; the engines 
 day engine — is its own arc, R-track, after R1: MtM runs on the existing per-product schedules, so it is not
 blocked on the rework. Recorded so R1 stays scoped to representation, not foundation-tidying.)*
 
+## Standing structural-track premises (ruled 0446, T82 — they recur at R1.2, R1.4, R2 and beyond)
+- **The default fixture is a REGISTERED TEST-ONLY PRICER with a KNOWN estimate** (the
+  `tests/tooling/test_engine_registry.py` private-type pattern), not a real MC dispatch. It tests the
+  **wrapper/aggregation/greek arithmetic the unit owns** — not a model's MC, which has its own oracles — so
+  the assertion is **exact** (a known PV and a known SE), fast, and hardening is free. T82's SE oracle went
+  from a 17.9s-CI banded MC to a 0.37s exact check this way.
+- **The fixture POPULATION must include an estimate (an MC-type pricer), not only exact pricers.** T82's sole
+  sweep survivor was the SE's `abs(scale)` scaling, unexercised because every fixture product priced by an
+  *exact* engine leaves `standard_error = None` — the T33b degenerate-population shape one coordinate over
+  (degenerate in the *pricer type*). As the track wraps more engines, "all fixtures exact" keeps hiding
+  SE/estimate invariants (SE aggregation at R1.2/R1.4, greeks-of-an-estimate at R2). The known-estimate
+  test-pricer above *is* this estimate, so the two premises are one move.
+- **Notional is a DIMENSIONLESS quantity** (`units: float`), never `Money` — `price().pv` is money, so the
+  trade multiplier must be dimensionless or `trade_value` is money² (T82(a)). The product carries the
+  currency; the trade carries how many.
+
 ## Reuse / what it does NOT do
 - Reuses the **registry** (dispatch is already `(product, model) → pricer`), every existing engine, the
   `MarketSnapshot`, `PricingResult`, invariant-6. The new code is representation types + an orchestration

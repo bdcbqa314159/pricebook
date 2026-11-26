@@ -92,6 +92,7 @@ from pricebook.engine.timer_option import (
     simulate_timer_first_passage,
     timer_option_estimate,
 )
+from pricebook.engine.trade import trade_value
 from pricebook.engine.registry import dispatch as price
 from pricebook.engine.yoy import price_yoy_inflation_swap
 from pricebook.engine.mc_path_engine import PathGrid, mc_caplet_price, simulate_terminal_forwards
@@ -131,6 +132,7 @@ __all__ = [
     "clock_increment_variance", "levy_fair_variance", "discrete_monitoring_adjustment",
     "price_levy_variance_swap", "price_discrete_levy_variance_swap",
     "simulate_timer_first_passage", "timer_option_estimate", "price_timer_option",
+    "trade_value",
     "price_gamma_swap", "price_corridor_variance_swap",
     "price_variance_swap",
     "price_european_equity_option",

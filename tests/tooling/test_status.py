@@ -139,6 +139,29 @@ def test_an_UNCLASSIFIED_engine_is_reported_not_silently_dropped(tmp_path):
     assert sum(inventory.engines_by_class.values()) == 2
 
 
+def test_the_REPRESENTATION_roster_is_detected_and_DISCRIMINATES(tmp_path):
+    """R1's column fills itself — and the detector must be able to say "no".
+
+    Added at T82, when `trade` first appeared and the generator reported it as an **unclassified
+    engine** — correct behaviour (reported, not dropped) with the wrong framing: representation is
+    cross-asset by design, not an asset class that failed to classify. It gets a roster instead,
+    **detected by presence** per the 0440 ruling (if it can be detected, it must be), so R1.2–R1.5
+    fill it without a hand edit.
+
+    The discriminating half: the fixture tree declares **none** of the roster, so a detector that
+    returned `True` by default would fail here. The real tree has exactly one.
+    """
+    _fixture_tree(tmp_path / "pricebook")
+    empty = survey(tmp_path / "pricebook", FIXTURE_CLASSES, FIXTURE_GREEKS, FIXTURE_RISK)
+    assert set(empty.representation.values()) == {False}, empty.representation
+
+    # and it flips on presence, not on the roster merely naming the type
+    (tmp_path / "pricebook" / "products" / "trade.py").write_text("class Trade: ...\n")
+    with_trade = survey(tmp_path / "pricebook", FIXTURE_CLASSES, FIXTURE_GREEKS, FIXTURE_RISK)
+    assert with_trade.representation["Trade"] is True
+    assert with_trade.representation["Position"] is False
+
+
 # ============================================================================================
 # 2. The drift gate — the anti-folklore guarantee.
 # ============================================================================================
