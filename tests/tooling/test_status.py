@@ -11,27 +11,25 @@ it unable to lie.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
+from status import CURATED_END, CURATED_START, mechanical_rows, render, survey
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "tests" / "tooling"))
-
-from status import (  # noqa: E402  (the tooling dir is not a package)
-    CURATED_END,
-    CURATED_START,
-    Inventory,
-    mechanical_rows,
-    render,
-    survey,
-)
 
 
 # ============================================================================================
 # 1. The known-answer test — a fixture tree whose counts are true by construction.
 # ============================================================================================
+
+#: The fixture's own maps, passed explicitly. The generator takes them as arguments rather than
+#: falling back to a name heuristic for tests: the first draft kept both paths live and on the REAL
+#: tree the fixture fallback fired alongside the production map and invented two asset classes that
+#: do not exist. A convenience kept only for the tests had corrupted production's answer.
+FIXTURE_CLASSES = {"alpha_swap": "alpha", "beta_option": "beta", "shared_helper": "shared"}
+FIXTURE_GREEKS = {"beta_mc_": "beta"}
+
 
 def _fixture_tree(root: Path) -> None:
     """A miniature `src/pricebook` with answers known by construction.
@@ -71,7 +69,7 @@ def _fixture_tree(root: Path) -> None:
 def test_the_generator_counts_a_FIXTURE_tree_correctly(tmp_path):
     """Counts derived by the tool, against counts true by construction."""
     _fixture_tree(tmp_path / "pricebook")
-    inventory = survey(tmp_path / "pricebook")
+    inventory = survey(tmp_path / "pricebook", FIXTURE_CLASSES, FIXTURE_GREEKS)
 
     assert inventory.models == 2, inventory
     assert inventory.products == 2, inventory
@@ -86,7 +84,7 @@ def test_the_generator_DISCRIMINATES_between_asset_classes_and_greeks(tmp_path):
     a single-class fixture. So the fixture has two classes and exactly one of them has greeks.
     """
     _fixture_tree(tmp_path / "pricebook")
-    inventory = survey(tmp_path / "pricebook")
+    inventory = survey(tmp_path / "pricebook", FIXTURE_CLASSES, FIXTURE_GREEKS)
 
     assert set(inventory.engines_by_class) == {"alpha", "beta"}, inventory.engines_by_class
     assert inventory.engines_by_class["alpha"] == 1
@@ -105,7 +103,7 @@ def test_an_UNCLASSIFIED_engine_is_reported_not_silently_dropped(tmp_path):
     (tmp_path / "pricebook" / "engine" / "zeta_widget.py").write_text(
         "@register(ZetaWidget, ZetaModel)\ndef price_zeta_widget(): ...\n"
     )
-    inventory = survey(tmp_path / "pricebook")
+    inventory = survey(tmp_path / "pricebook", FIXTURE_CLASSES, FIXTURE_GREEKS)
 
     assert inventory.engines == 4
     assert "zeta_widget" in inventory.unclassified, inventory.unclassified
@@ -139,15 +137,15 @@ def test_the_drift_gate_FAILS_on_a_planted_divergence(tmp_path):
     comparison must redden: a committed page whose mechanical rows disagree with the tree is caught.
     """
     _fixture_tree(tmp_path / "pricebook")
-    page = render(tmp_path / "pricebook", _seed_template())
+    page = render(tmp_path / "pricebook", _seed_template(), FIXTURE_CLASSES, FIXTURE_GREEKS)
 
     # the tree gains a model; the committed page does not know
     (tmp_path / "pricebook" / "models" / "gamma_model.py").write_text("class GammaParams: ...\n")
-    assert render(tmp_path / "pricebook", _seed_template()) != page
+    assert render(tmp_path / "pricebook", _seed_template(), FIXTURE_CLASSES, FIXTURE_GREEKS) != page
 
     # and the real page's own comparison would redden the same way
     corrupted = page.replace("models", "moduls", 1)
-    assert corrupted != render(tmp_path / "pricebook", _seed_template())
+    assert corrupted != render(tmp_path / "pricebook", _seed_template(), FIXTURE_CLASSES, FIXTURE_GREEKS)
 
 
 def test_the_CURATED_region_is_preserved_VERBATIM(tmp_path):
@@ -160,7 +158,7 @@ def test_the_CURATED_region_is_preserved_VERBATIM(tmp_path):
     _fixture_tree(tmp_path / "pricebook")
     curated = "## Hand-written\n\nA judgement the tool cannot derive: **●●● deep**.\n"
     template = f"{CURATED_START}\n{curated}{CURATED_END}\n"
-    out = render(tmp_path / "pricebook", template)
+    out = render(tmp_path / "pricebook", template, FIXTURE_CLASSES, FIXTURE_GREEKS)
     assert curated in out, out
 
 
@@ -171,8 +169,8 @@ def test_the_CURATED_region_is_preserved_VERBATIM(tmp_path):
 def test_generating_TWICE_is_byte_identical(tmp_path):
     """No timestamp churn: a page that changed on every run would make the drift gate meaningless."""
     _fixture_tree(tmp_path / "pricebook")
-    first = render(tmp_path / "pricebook", _seed_template())
-    second = render(tmp_path / "pricebook", first)
+    first = render(tmp_path / "pricebook", _seed_template(), FIXTURE_CLASSES, FIXTURE_GREEKS)
+    second = render(tmp_path / "pricebook", first, FIXTURE_CLASSES, FIXTURE_GREEKS)
     assert first == second
 
 
