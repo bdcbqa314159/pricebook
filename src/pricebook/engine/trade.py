@@ -1,0 +1,62 @@
+"""`trade_value` — a trade priced through the registry (L4). The structural track's first function.
+
+`trade_value(trade, model) = direction · notional · price(trade.product, model)`.
+
+**What this tranche demonstrates, and the reason the structural track is worth a second arc type:** it
+adds a capability over **46 existing engines without touching one of them**. The registry's
+`(product, model)` dispatch is what makes that possible — a trade does not know what it holds, and the
+engines do not know they are held.
+
+**The oracle is the catalogue, not a source.** `trade_value` is *defined* by its reduction to `price`,
+which makes the headline identity close to a tautology (§4's self-consistency-telescopes shape): a
+wrapper that delegates and multiplies satisfies it by construction, and it cannot see a wrong direction
+sign or a notional applied to the wrong side. The companions carry the test — see the oracle module.
+
+Provenance:
+  stock:  none — architecture-first
+  source: CLAUDE.md §0/§1 — the representation contract and the purpose-defined 1.0
+  oracle: tests/L4/test_trade.py — the bit-identical reduction for a long unit trade, the long/short
+          asymmetry on a non-symmetric payoff, the notional's absolute level against an
+          independently composed reference (T43), and the §3 failure contract riding through
+  crosscheck: none — no library prices an abstract trade wrapper; the underlying engines carry theirs
+  slice:  tranche 82 — R1.1, the Trade type
+"""
+
+from __future__ import annotations
+
+from pricebook.engine.registry import dispatch
+from pricebook.foundation.money import Money
+from pricebook.foundation.results import PricingFailure, PricingResult
+from pricebook.products.trade import Trade
+
+
+def trade_value(trade: Trade, model: object) -> PricingResult | PricingFailure:
+    """The trade's value, or the failure the underlying pricer returned — faithfully.
+
+    **The `PricingFailure` rides through untouched** (§3.4). A wrapper that turned a failure into a
+    raise would break the contract one layer up, and one that scored it zero would be worse: a zero is
+    a *price*, and an unpriceable trade is not worth nothing.
+
+    The standard error scales with the notional where the underlying pricer supplies one (§3.7): for
+    an estimate the band is part of the result, so a trade ten times the size has a band ten times as
+    wide. The direction does **not** scale it — an error bar has no sign.
+    """
+    priced = dispatch(trade.product, model)
+    if isinstance(priced, PricingFailure):
+        return priced
+
+    if priced.pv.currency != trade.notional.currency:
+        # The one checkable thing about the notional's currency, and the reason it is a `Money`.
+        return PricingFailure(
+            f"the trade's notional is in {trade.notional.currency.code} but the product pays "
+            f"{priced.pv.currency.code} — a currency mismatch cannot be netted"
+        )
+
+    scale = trade.direction.sign * trade.notional.amount
+    standard_error = (
+        None if priced.standard_error is None else abs(scale) * priced.standard_error
+    )
+    return PricingResult(
+        pv=Money(scale * priced.pv.amount, priced.pv.currency),
+        standard_error=standard_error,
+    )

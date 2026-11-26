@@ -220,6 +220,64 @@ def test_a_MATURED_product_keeps_its_PV_ZERO_through_the_wrapper():
 
 
 # ============================================================================================
+# 4b. The STANDARD ERROR — the §3.7 invariant, and the hole the sweep found.
+# ============================================================================================
+
+def test_the_STANDARD_ERROR_scales_with_the_notional_and_ignores_the_direction():
+    """**The sweep's one survivor, and its cause was my fixture POPULATION.**
+
+    Dropping `abs(scale) * priced.standard_error` to a bare pass-through survived all 3314 tests,
+    because every product in this file is priced by an **exact** engine — so `standard_error` is
+    always `None` and the scaling line never executes with a real value. Not a degenerate *value*
+    and not a degenerate schedule: a degenerate **population of pricers** (T33b's input-population
+    shape, one coordinate over). The only registry-dispatchable pair that returns an SE is
+    `TimerOption` under Heston, so that is the fixture — ~2.3s a call, and the §3.7 invariant is
+    worth it.
+
+    Two claims in one assertion: the band **scales** with the notional (an estimate ten times the
+    size has a band ten times as wide) and is **sign-independent** — an error bar has no direction,
+    so `abs(scale)` is load-bearing. Comparing a **short** trade's band against a positive reference
+    tests both at once, because a signed `scale` would return a negative band and fail the equality.
+    """
+    from pricebook.models.heston import HestonModel, HestonParams
+    from pricebook.products.timer_option import TimerOption
+
+    market = _market()
+    model = HestonModel(
+        market=market,
+        params=HestonParams(v0=0.06, kappa=2.0, theta=0.04, sigma_v=0.3, rho=-0.5),
+    )
+    option = TimerOption(
+        asset=ACME,
+        strike=100.0,
+        variance_budget=0.08,
+        notional=Money(1.0, USD),
+        kind=EquityOptionKind.CALL,
+    )
+
+    bare = price(option, model)
+    assert isinstance(bare, PricingResult)
+    # the premise: this pricer DOES carry an error bar, unlike every other fixture in this file
+    assert bare.standard_error is not None and bare.standard_error > 0.0
+
+    # ONE trade call, not two, and it is the stronger one: a SHORT trade's band compared against a
+    # POSITIVE reference proves the scaling and the sign-independence together, because a signed
+    # `scale` would make the band negative and fail the equality. Two calls (long and short) cost
+    # ~3.5s more and assert strictly less per call -- the lossless reduction §9 asks for before any
+    # exemption. The PV's own sign flip is covered by the asymmetry oracle above, on a cheap pricer.
+    short_trade = trade_value(
+        Trade(product=option, notional=Money(NOTIONAL, USD), direction=TradeDirection.SHORT), model
+    )
+    assert isinstance(short_trade, PricingResult)
+    assert short_trade.standard_error == pytest.approx(
+        NOTIONAL * bare.standard_error, rel=1e-15, abs=0.0
+    )
+    # the premise that makes the above a SIGN claim and not only a scaling one: this really is a
+    # short, so a signed band would have come back negative.
+    assert short_trade.pv.amount < 0.0, short_trade.pv.amount
+
+
+# ============================================================================================
 # 5. Refusals — supplying the input each guard exists to reject (T33b).
 # ============================================================================================
 
@@ -238,6 +296,48 @@ def test_a_notional_in_the_WRONG_CURRENCY_is_refused():
     outcome = trade_value(mismatched, model)
     assert isinstance(outcome, PricingFailure)
     assert "currenc" in outcome.reason.lower(), outcome.reason
+
+
+def test_the_currency_failure_NAMES_BOTH_currencies_a_second_killer():
+    """The second killer for the currency guard, which the sweep measured at **one**.
+
+    §9 prefers two for anything load-bearing: with a single killer, deleting that one test reopens
+    the hole silently. This one is independent of the first — it asserts the failure's *content*
+    (both currency codes, so a reader can see which way the mismatch runs) rather than merely that
+    a failure occurred.
+    """
+    outcome = trade_value(
+        Trade(product=_call(), notional=Money(NOTIONAL, EUR), direction=TradeDirection.LONG),
+        _model(),
+    )
+    assert isinstance(outcome, PricingFailure)
+    assert "EUR" in outcome.reason and "USD" in outcome.reason, outcome.reason
+
+
+def test_an_underlying_failures_REASON_is_preserved_verbatim_a_second_killer():
+    """The second killer for the failure pass-through, also measured at **one**.
+
+    Independent of the `isinstance` check: it asserts the underlying engine's own reason survives
+    unwrapped. A wrapper that caught the failure and re-worded it would pass the first test and lose
+    the diagnostic that says *why* the trade could not be priced.
+    """
+
+    class UnpriceableWidget:
+        pass
+
+    direct = price(UnpriceableWidget(), _model())
+    assert isinstance(direct, PricingFailure)
+
+    through_trade = trade_value(
+        Trade(
+            product=UnpriceableWidget(),
+            notional=Money(NOTIONAL, USD),
+            direction=TradeDirection.LONG,
+        ),
+        _model(),
+    )
+    assert isinstance(through_trade, PricingFailure)
+    assert through_trade.reason == direct.reason, (through_trade.reason, direct.reason)
 
 
 @pytest.mark.parametrize("notional", [0.0, -1.0, float("nan"), float("inf")])
