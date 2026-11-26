@@ -50,6 +50,21 @@ column is still near-empty; it was near-empty by the wrong number. That is the *
 this re-audit cycle to be corrected by a parser (F-9.2), and the first corrected by an instrument built
 *because* of the previous five.
 
+#### Greeks and book-level risk are GENERATED, not curated (ruled at review)
+
+The first draft left the coverage matrix's greeks and risk columns in the curated region. Ruled out at
+review, and the argument is a measurement rather than a preference: **a hand-curated greeks cell drifted
+the moment it was written** — it read "● (Black MC only)" and was already wrong. Presence is *detectable*,
+so it is detected: the generated table now carries a **greek-function count** per class (equity: 4) and
+names the **risk modules** covering each class, so neither can drift again. The curated region keeps only
+what needs judgement — the price/calibrate depth ratings, the narrative, the bibliography, the 1.0
+scorecard — and the one annotation the generator cannot know: equity's greeks are **Monte-Carlo only,
+with no analytic greeks anywhere yet**, which is R2's subject. A curated note may *annotate* the generated
+fact; it may not *restate* it, which would re-create the second source of truth.
+
+Unmapped risk modules are **reported** like unclassified engines — a risk table that silently omits what
+it cannot place reads as "no risk here".
+
 #### One design defect caught in the building
 
 The generator's first draft classified engines by an explicit map **with a name-prefix fallback for the

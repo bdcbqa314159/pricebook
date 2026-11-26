@@ -57,6 +57,23 @@ ASSET_CLASSES: dict[str, str] = {
     "fourier_inversion": "shared", "mc_path_engine": "shared", "registry": "shared",
 }
 
+#: Risk-layer module stem → the asset class whose *book-level risk* it covers. Same explicit-map
+#: discipline as `ASSET_CLASSES`, and unmapped modules are reported rather than dropped. Moved to
+#: the **generated** side at T81's review (0440): a hand-curated risk cell is precisely the folklore
+#: this instrument exists to kill — the greeks cell drifted the moment it was written, and the
+#: detection already existed, so the column self-corrects instead.
+RISK_MODULES: dict[str, str] = {
+    "credit_valuation_adjustment": "credit",
+    "funding_valuation_adjustment": "credit",
+    "wrong_way_risk": "credit",
+    "wrong_way_mc": "credit",
+    "equity_cva": "equity",
+    "mc_exposure": "rates",
+    "collateral": "rates",
+    "collateralised_capstone": "rates",
+    "sensitivities": "equity",
+}
+
 #: Risk-layer function prefixes that indicate a greek, mapped to the asset class they cover.
 #: **Two entries, and finding the second one is why this is a tool.** The hand-drafted page said
 #: "Greeks are near-empty (Black MC only)", and re-audit #9's F-9.1 note said `sensitivities.py`
@@ -78,6 +95,13 @@ class Inventory:
     engines_by_class: dict[str, int] = field(default_factory=dict)
     greeks_by_class: frozenset[str] = frozenset()
     unclassified: tuple[str, ...] = ()
+    #: asset class → how many greek functions cover it. A COUNT, not a flag, because the claim
+    #: this instrument first falsified was a count ("Black MC only" — there are four functions over
+    #: two payoffs, `black_mc_delta/gamma/vega` and `digital_mc_delta`).
+    greek_functions: dict[str, int] = field(default_factory=dict)
+    #: asset class → the risk modules covering it, by name, so the cell cannot be vaguely right.
+    risk_by_class: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    unclassified_risk: tuple[str, ...] = ()
 
 
 def _modules(directory: Path) -> list[Path]:
@@ -90,6 +114,7 @@ def survey(
     root: Path,
     classes: dict[str, str] | None = None,
     greek_prefixes: dict[str, str] | None = None,
+    risk_modules: dict[str, str] | None = None,
 ) -> Inventory:
     """Walk `src/pricebook` (or a fixture tree) and count what is there.
 
@@ -115,12 +140,23 @@ def survey(
             by_class[asset_class] += 1
 
     prefixes = greek_prefixes if greek_prefixes is not None else GREEK_PREFIXES
+    risk_map = risk_modules if risk_modules is not None else RISK_MODULES
     greeks: set[str] = set()
+    greek_counts: Counter[str] = Counter()
+    risk: dict[str, list[str]] = {}
+    unclassified_risk: list[str] = []
     for module in _modules(root / "risk"):
         text = module.read_text()
         for prefix, asset_class in prefixes.items():
-            if re.search(rf"^def {re.escape(prefix)}", text, re.M):
+            found = len(re.findall(rf"^def {re.escape(prefix)}", text, re.M))
+            if found:
                 greeks.add(asset_class)
+                greek_counts[asset_class] += found
+        covered = risk_map.get(module.stem)
+        if covered is None:
+            unclassified_risk.append(module.stem)
+        else:
+            risk.setdefault(covered, []).append(module.stem)
 
     return Inventory(
         models=len(_modules(root / "models")),
@@ -130,6 +166,9 @@ def survey(
         engines_by_class=dict(sorted(by_class.items())),
         greeks_by_class=frozenset(greeks),
         unclassified=tuple(sorted(unclassified)),
+        greek_functions=dict(sorted(greek_counts.items())),
+        risk_by_class={k: tuple(sorted(v)) for k, v in sorted(risk.items())},
+        unclassified_risk=tuple(sorted(unclassified_risk)),
     )
 
 
@@ -137,9 +176,10 @@ def mechanical_rows(
     root: Path,
     classes: dict[str, str] | None = None,
     greek_prefixes: dict[str, str] | None = None,
+    risk_modules: dict[str, str] | None = None,
 ) -> list[str]:
     """The generated block: counts and inventories, no judgement and no source content."""
-    inventory = survey(root, classes, greek_prefixes)
+    inventory = survey(root, classes, greek_prefixes, risk_modules)
     lines = [
         "### Inventory — derived from the tree, regenerated and drift-gated",
         "",
@@ -148,14 +188,31 @@ def mechanical_rows(
         "`(product, model)` pairs",
         f"- **Products:** {inventory.products}",
         "",
-        "| Asset class | Engines | Greeks |",
-        "|---|---|---|",
+        "**Greeks and book-level risk are DETECTED, not asserted** — the columns below are derived "
+        "from the risk layer, so they cannot drift. A hand-curated greeks cell said \"Black MC "
+        "only\" and was wrong on this instrument's first run.",
+        "",
+        "| Asset class | Engines | Greek fns | Book-level risk |",
+        "|---|---|---|---|",
     ]
-    classes = sorted(set(inventory.engines_by_class) | inventory.greeks_by_class)
+    classes = sorted(
+        set(inventory.engines_by_class)
+        | inventory.greeks_by_class
+        | set(inventory.risk_by_class)
+    )
     for asset_class in classes:
         count = inventory.engines_by_class.get(asset_class, 0)
-        has_greeks = "yes" if asset_class in inventory.greeks_by_class else "—"
-        lines.append(f"| {asset_class} | {count} | {has_greeks} |")
+        greeks = inventory.greek_functions.get(asset_class, 0)
+        greek_cell = str(greeks) if greeks else "—"
+        modules = inventory.risk_by_class.get(asset_class, ())
+        risk_cell = ", ".join(f"`{m}`" for m in modules) if modules else "—"
+        lines.append(f"| {asset_class} | {count} | {greek_cell} | {risk_cell} |")
+    if inventory.unclassified_risk:
+        lines += [
+            "",
+            f"**Unclassified risk modules ({len(inventory.unclassified_risk)}):** "
+            + ", ".join(f"`{name}`" for name in inventory.unclassified_risk),
+        ]
     if inventory.unclassified:
         lines += [
             "",
@@ -171,13 +228,14 @@ def render(
     template: str,
     classes: dict[str, str] | None = None,
     greek_prefixes: dict[str, str] | None = None,
+    risk_modules: dict[str, str] | None = None,
 ) -> str:
     """The page: the template's curated region verbatim, the generated region regenerated.
 
     Idempotent by construction — there is no timestamp in the generated region, because a page that
     changed on every run would make the drift gate assert nothing.
     """
-    generated = "\n".join(mechanical_rows(root, classes, greek_prefixes))
+    generated = "\n".join(mechanical_rows(root, classes, greek_prefixes, risk_modules))
     block = f"{GENERATED_START}\n{generated}\n{GENERATED_END}"
     if GENERATED_START in template and GENERATED_END in template:
         head, rest = template.split(GENERATED_START, 1)

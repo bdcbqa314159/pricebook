@@ -16,14 +16,16 @@
 - **Engines:** 46, dispatching **36** `(product, model)` pairs
 - **Products:** 22
 
-| Asset class | Engines | Greeks |
-|---|---|---|
-| commodity | 4 | — |
-| credit | 8 | — |
-| equity | 7 | yes |
-| inflation | 5 | — |
-| rates | 12 | — |
-| volatility | 7 | — |
+**Greeks and book-level risk are DETECTED, not asserted** — the columns below are derived from the risk layer, so they cannot drift. A hand-curated greeks cell said "Black MC only" and was wrong on this instrument's first run.
+
+| Asset class | Engines | Greek fns | Book-level risk |
+|---|---|---|---|
+| commodity | 4 | — | — |
+| credit | 8 | — | `credit_valuation_adjustment`, `funding_valuation_adjustment`, `wrong_way_mc`, `wrong_way_risk` |
+| equity | 7 | 4 | `equity_cva`, `sensitivities` |
+| inflation | 5 | — | — |
+| rates | 12 | — | `collateral`, `collateralised_capstone`, `mc_exposure` |
+| volatility | 7 | — | — |
 <!-- generated:end -->
 
 <!-- curated:start -->
@@ -62,22 +64,30 @@ Every built capability is verified against a held source. `worked-from` = held a
 | KROESE-TAIMRE-2011 · MILLER-EDELMAN-APPLEBY-2007 · OVERHAUS-2002 | MC / numerical / equity | in-hand | shelved; mined when a topic pulls them |
 | *candidates (not yet held)* | Seydel · Savine · C. Alexander | — | trees+PDE, AAD, market risk — for the structural track |
 
-## Coverage — asset class × what a desk does with it
+## Coverage — asset class × depth (the JUDGEMENT half)
 `●●● deep · ●● solid · ● partial · — absent`
 
-| Asset class | Price | Calibrate | Greeks | Scenario / P&L / VaR |
-|---|---|---|---|---|
-| Rates | ●●● | ●● | — | — |
-| Credit | ●●● | ●● | — | ● (XVA only) |
-| Volatility / variance | ●●● | ●● | — | — |
-| Equity | ●● | ●● | ● (Black MC only) | — |
-| Inflation | ●● | ●● | — | — |
-| Commodity | ●● | ● | — | — |
-| **FX** | **—** | **—** | **—** | **—** |
-| Counterparty / XVA | ●● | — | — | ●● |
+**Greeks and book-level risk are NOT here** — they are *detectable*, so they live in the generated
+inventory above and cannot drift. This table carries only what needs a judgement: how deep the pricing
+and calibration go for each class. A hand-curated greeks cell read "Black MC only" and was wrong within
+the same re-audit that wrote it; the generator found the fourth function on its first run.
 
-**Reading:** pricing is broad and deep; calibration is broader than it looks (curves, SVI, Heston, HW, CEV,
-copula, JY). **Greeks are near-empty and book-level risk is empty.** FX is the one untouched asset class.
+| Asset class | Price | Calibrate |
+|---|---|---|
+| Rates | ●●● | ●● |
+| Credit | ●●● | ●● |
+| Volatility / variance | ●●● | ●● |
+| Equity | ●● | ●● |
+| Inflation | ●● | ●● |
+| Commodity | ●● | ● |
+| **FX** | **—** | **—** |
+| Counterparty / XVA | ●● | — |
+
+**Reading:** pricing is broad and deep; calibration is broader than it looks (curves, SVI, Heston, HW,
+CEV, copula, JY). **FX is the one untouched asset class** — and it is the literature arc after R1,
+deliberately, as the test that the representation is currency-general. For greeks and risk, read the
+generated table: the one annotation worth adding, which the generator cannot know, is that equity's greek
+functions are **Monte-Carlo only — there are no analytic greeks anywhere yet**, which is R2's subject.
 
 ## The representation layer — the known gap (why it can feel like a catalog)
 At the pricer level this is a genuine library: one dispatch spine, one `price` contract, a shared,

@@ -29,6 +29,9 @@ ROOT = Path(__file__).resolve().parents[2]
 #: do not exist. A convenience kept only for the tests had corrupted production's answer.
 FIXTURE_CLASSES = {"alpha_swap": "alpha", "beta_option": "beta", "shared_helper": "shared"}
 FIXTURE_GREEKS = {"beta_mc_": "beta"}
+#: The fixture's risk-module map. `beta_risk` covers beta; `orphan_risk` is deliberately absent so
+#: the unclassified-risk report is exercised rather than assumed empty.
+FIXTURE_RISK = {"sensitivities": "beta", "beta_risk": "beta"}
 
 
 def _fixture_tree(root: Path) -> None:
@@ -69,7 +72,7 @@ def _fixture_tree(root: Path) -> None:
 def test_the_generator_counts_a_FIXTURE_tree_correctly(tmp_path):
     """Counts derived by the tool, against counts true by construction."""
     _fixture_tree(tmp_path / "pricebook")
-    inventory = survey(tmp_path / "pricebook", FIXTURE_CLASSES, FIXTURE_GREEKS)
+    inventory = survey(tmp_path / "pricebook", FIXTURE_CLASSES, FIXTURE_GREEKS, FIXTURE_RISK)
 
     assert inventory.models == 2, inventory
     assert inventory.products == 2, inventory
@@ -84,13 +87,38 @@ def test_the_generator_DISCRIMINATES_between_asset_classes_and_greeks(tmp_path):
     a single-class fixture. So the fixture has two classes and exactly one of them has greeks.
     """
     _fixture_tree(tmp_path / "pricebook")
-    inventory = survey(tmp_path / "pricebook", FIXTURE_CLASSES, FIXTURE_GREEKS)
+    inventory = survey(tmp_path / "pricebook", FIXTURE_CLASSES, FIXTURE_GREEKS, FIXTURE_RISK)
 
     assert set(inventory.engines_by_class) == {"alpha", "beta"}, inventory.engines_by_class
     assert inventory.engines_by_class["alpha"] == 1
     assert inventory.engines_by_class["beta"] == 1
     # greeks exist for beta only -- the discriminating assertion
     assert inventory.greeks_by_class == {"beta"}, inventory.greeks_by_class
+    # and as a COUNT, because the claim this instrument first falsified was a count: the fixture
+    # plants two greek functions, so a detector returning a bare flag would pass and be wrong.
+    assert inventory.greek_functions == {"beta": 2}, inventory.greek_functions
+
+
+def test_book_level_RISK_is_detected_per_class_and_the_unmapped_is_REPORTED(tmp_path):
+    """Greeks and risk coverage are **generated, not curated** — ruled at T81's review (0440).
+
+    The reason is a measurement, not a preference: the hand-curated greeks cell read "Black MC only"
+    and was wrong on this instrument's first run against the tree (`digital_mc_delta` exists, so it
+    is four functions over two payoffs). A cell that *can* be detected and is instead typed in is
+    the folklore §7 draws its line against. So the risk column is derived from an explicit module
+    map, and — as with the engine classifier — **an unmapped module is reported, never dropped**,
+    because a risk table that silently omits what it cannot place reads as "no risk here".
+    """
+    _fixture_tree(tmp_path / "pricebook")
+    (tmp_path / "pricebook" / "risk" / "beta_risk.py").write_text("def beta_cva(): ...\n")
+    (tmp_path / "pricebook" / "risk" / "orphan_risk.py").write_text("def orphan(): ...\n")
+    inventory = survey(tmp_path / "pricebook", FIXTURE_CLASSES, FIXTURE_GREEKS, FIXTURE_RISK)
+
+    assert inventory.risk_by_class == {"beta": ("beta_risk", "sensitivities")}, inventory.risk_by_class
+    # the discriminating half: alpha has engines but NO risk, so the column is not trivially full
+    assert "alpha" not in inventory.risk_by_class, inventory.risk_by_class
+    # and the unmapped module surfaces rather than vanishing
+    assert inventory.unclassified_risk == ("orphan_risk",), inventory.unclassified_risk
 
 
 def test_an_UNCLASSIFIED_engine_is_reported_not_silently_dropped(tmp_path):
@@ -103,7 +131,7 @@ def test_an_UNCLASSIFIED_engine_is_reported_not_silently_dropped(tmp_path):
     (tmp_path / "pricebook" / "engine" / "zeta_widget.py").write_text(
         "@register(ZetaWidget, ZetaModel)\ndef price_zeta_widget(): ...\n"
     )
-    inventory = survey(tmp_path / "pricebook", FIXTURE_CLASSES, FIXTURE_GREEKS)
+    inventory = survey(tmp_path / "pricebook", FIXTURE_CLASSES, FIXTURE_GREEKS, FIXTURE_RISK)
 
     assert inventory.engines == 4
     assert "zeta_widget" in inventory.unclassified, inventory.unclassified
@@ -137,15 +165,15 @@ def test_the_drift_gate_FAILS_on_a_planted_divergence(tmp_path):
     comparison must redden: a committed page whose mechanical rows disagree with the tree is caught.
     """
     _fixture_tree(tmp_path / "pricebook")
-    page = render(tmp_path / "pricebook", _seed_template(), FIXTURE_CLASSES, FIXTURE_GREEKS)
+    page = render(tmp_path / "pricebook", _seed_template(), FIXTURE_CLASSES, FIXTURE_GREEKS, FIXTURE_RISK)
 
     # the tree gains a model; the committed page does not know
     (tmp_path / "pricebook" / "models" / "gamma_model.py").write_text("class GammaParams: ...\n")
-    assert render(tmp_path / "pricebook", _seed_template(), FIXTURE_CLASSES, FIXTURE_GREEKS) != page
+    assert render(tmp_path / "pricebook", _seed_template(), FIXTURE_CLASSES, FIXTURE_GREEKS, FIXTURE_RISK) != page
 
     # and the real page's own comparison would redden the same way
     corrupted = page.replace("models", "moduls", 1)
-    assert corrupted != render(tmp_path / "pricebook", _seed_template(), FIXTURE_CLASSES, FIXTURE_GREEKS)
+    assert corrupted != render(tmp_path / "pricebook", _seed_template(), FIXTURE_CLASSES, FIXTURE_GREEKS, FIXTURE_RISK)
 
 
 def test_the_CURATED_region_is_preserved_VERBATIM(tmp_path):
@@ -158,7 +186,7 @@ def test_the_CURATED_region_is_preserved_VERBATIM(tmp_path):
     _fixture_tree(tmp_path / "pricebook")
     curated = "## Hand-written\n\nA judgement the tool cannot derive: **●●● deep**.\n"
     template = f"{CURATED_START}\n{curated}{CURATED_END}\n"
-    out = render(tmp_path / "pricebook", template, FIXTURE_CLASSES, FIXTURE_GREEKS)
+    out = render(tmp_path / "pricebook", template, FIXTURE_CLASSES, FIXTURE_GREEKS, FIXTURE_RISK)
     assert curated in out, out
 
 
@@ -169,8 +197,8 @@ def test_the_CURATED_region_is_preserved_VERBATIM(tmp_path):
 def test_generating_TWICE_is_byte_identical(tmp_path):
     """No timestamp churn: a page that changed on every run would make the drift gate meaningless."""
     _fixture_tree(tmp_path / "pricebook")
-    first = render(tmp_path / "pricebook", _seed_template(), FIXTURE_CLASSES, FIXTURE_GREEKS)
-    second = render(tmp_path / "pricebook", first, FIXTURE_CLASSES, FIXTURE_GREEKS)
+    first = render(tmp_path / "pricebook", _seed_template(), FIXTURE_CLASSES, FIXTURE_GREEKS, FIXTURE_RISK)
+    second = render(tmp_path / "pricebook", first, FIXTURE_CLASSES, FIXTURE_GREEKS, FIXTURE_RISK)
     assert first == second
 
 
