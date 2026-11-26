@@ -1,6 +1,6 @@
 """`trade_value` — a trade priced through the registry (L4). The structural track's first function.
 
-`trade_value(trade, model) = direction · notional · price(trade.product, model)`.
+`trade_value(trade, model) = direction · units · price(trade.product, model)`.
 
 **What this tranche demonstrates, and the reason the structural track is worth a second arc type:** it
 adds a capability over **46 existing engines without touching one of them**. The registry's
@@ -37,22 +37,18 @@ def trade_value(trade: Trade, model: object) -> PricingResult | PricingFailure:
     raise would break the contract one layer up, and one that scored it zero would be worse: a zero is
     a *price*, and an unpriceable trade is not worth nothing.
 
-    The standard error scales with the notional where the underlying pricer supplies one (§3.7): for
+    The standard error scales with the **units** where the underlying pricer supplies one (§3.7): for
     an estimate the band is part of the result, so a trade ten times the size has a band ten times as
-    wide. The direction does **not** scale it — an error bar has no sign.
+    wide. The direction does **not** scale it — an error bar has no sign, hence `abs(scale)`.
     """
     priced = dispatch(trade.product, model)
     if isinstance(priced, PricingFailure):
         return priced
 
-    if priced.pv.currency != trade.notional.currency:
-        # The one checkable thing about the notional's currency, and the reason it is a `Money`.
-        return PricingFailure(
-            f"the trade's notional is in {trade.notional.currency.code} but the product pays "
-            f"{priced.pv.currency.code} — a currency mismatch cannot be netted"
-        )
-
-    scale = trade.direction.sign * trade.notional.amount
+    # No currency guard, and its absence is the point: `units` is dimensionless (ruled 0446), so the
+    # trade has no currency of its own to disagree with the product's. The earlier `Money` notional
+    # needed such a guard precisely because the field was carrying two jobs at once.
+    scale = trade.direction.sign * trade.units
     standard_error = (
         None if priced.standard_error is None else abs(scale) * priced.standard_error
     )

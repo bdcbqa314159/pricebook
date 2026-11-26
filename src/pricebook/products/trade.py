@@ -34,7 +34,6 @@ import math
 from dataclasses import dataclass
 from enum import Enum
 
-from pricebook.foundation.money import Money
 
 
 class TradeDirection(Enum):
@@ -57,30 +56,34 @@ class TradeDirection(Enum):
 
 @dataclass(frozen=True)
 class Trade:
-    """`direction · notional · price(product, model)` — a holding of one contract.
+    """`direction · units · price(product, model)` — a holding of one contract.
 
-    **`notional` is a count of units, carried as `Money` so its currency can be checked.** The amount
-    says how many units of `product` the trade holds; the product itself carries its own contract size
-    (an `EuropeanEquityOption`'s `notional`, a `VarianceSwap`'s `variance_notional`), so this
-    multiplies the contract rather than redefining it. The currency is the part that is *checkable* —
-    `trade_value` refuses a notional denominated differently from what the product pays in — and that
-    guard is why this is a `Money` and not a float. *(Raised at the T82 handoff: a count carried as
-    `Money` makes `notional × price` dimensionally money², and whether the field should become a plain
-    `units: float` plus a currency guard, or stay as specced, is Cowork's to rule. Built as specced.)*
+    **`units` is DIMENSIONLESS, and that is forced rather than chosen** (ruled 0446). Every engine
+    returns a **money** PV, and `trade_value = multiplier · pv` must also be money — so the
+    multiplier carries no units. The first draft typed this field `Money`, which makes the product
+    money², and the symptom was having to describe the amount as "the real multiplier" while the
+    currency rode along "as the part that is checkable": a field doing two jobs because neither fit.
+    The **product** already carries its own contract size and currency (a `$10M` swap is the product;
+    its PV is in dollars); the **trade** carries *how many of it*. The currency is read off the
+    `PricingResult`, never duplicated here — so there is nothing to disagree with, and the
+    currency-mismatch guard the earlier shape needed is gone rather than fixed.
+
+    This is the first representation type and `Position`, `PricingRequest` and the mark-to-market
+    procedure all inherit its shape, which is why the dimensional honesty is worth more here than
+    anywhere downstream.
     """
 
     product: object
-    notional: Money
+    units: float
     direction: TradeDirection
 
     def __post_init__(self) -> None:
-        amount = self.notional.amount
-        if not math.isfinite(amount):
-            raise ValueError(f"a trade's notional must be finite, got {amount}")
-        if amount <= 0.0:
-            # The SIZE is positive and the DIRECTION carries the sign. Allowing a negative notional
-            # would give two spellings of a short, and then a sign error and a size error could not
-            # be told apart -- which is what the long/short oracle is for.
+        if not math.isfinite(self.units):
+            raise ValueError(f"a trade's units must be finite, got {self.units}")
+        if self.units <= 0.0:
+            # The SIZE is positive and the DIRECTION carries the sign. Allowing negative units would
+            # give two spellings of a short, and then a sign error and a size error could not be told
+            # apart -- which is what the long/short oracle is for.
             raise ValueError(
-                f"a trade's notional must be positive — use the direction for a short, got {amount}"
+                f"a trade's units must be positive — use the direction for a short, got {self.units}"
             )

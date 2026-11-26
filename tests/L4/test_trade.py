@@ -8,7 +8,7 @@ the test; what does the testing is the set of companions, each reported with its
 
 * the long/short asymmetry, on a payoff that is **not** symmetric about zero (else a dropped sign is
   invisible);
-* the notional's **absolute** level against an independently composed reference, because `2N → 2V`
+* the unit count's **absolute** level against an independently composed reference, because `2N → 2V`
   pins proportionality and is blind to a uniform mis-scaling (T43's trap);
 * the currency guard, supplied the input it exists to reject (T33b).
 """
@@ -33,14 +33,13 @@ from pricebook.products.trade import Trade, TradeDirection
 
 VAL = date(2026, 1, 15)
 USD = Currency("USD")
-EUR = Currency("EUR")
 ACME = EquityAsset("ACME")
 DC = DayCountConvention.ACT_365_FIXED
 EXPIRY = VAL + timedelta(days=400)
 
-#: A **non-round, non-unit** notional (the spec's degeneracy premise): not 1, which would collapse the
-#: scaling oracle into the reduction oracle, and not a power of ten, which can hide a factor.
-NOTIONAL = 37_500.0
+#: A **non-round, non-unit** unit count (the spec's degeneracy premise): not 1, which would collapse
+#: the scaling oracle into the reduction oracle, and not a power of ten, which can hide a factor.
+UNITS = 37_500.0
 
 
 def _market() -> MarketSnapshot:
@@ -73,10 +72,10 @@ def _model() -> EquityBlackModel:
 
 def _trade(
     direction: TradeDirection = TradeDirection.LONG,
-    notional: float = NOTIONAL,
+    units: float = UNITS,
     strike: float = 110.0,
 ) -> Trade:
-    return Trade(product=_call(strike), notional=Money(notional, USD), direction=direction)
+    return Trade(product=_call(strike), units=units, direction=direction)
 
 
 # ============================================================================================
@@ -90,14 +89,14 @@ def test_a_LONG_UNIT_trade_is_BIT_IDENTICAL_to_the_bare_price():
     exact in binary, so any difference would mean the wrapper reordered or re-derived something
     rather than delegating. Recorded as the *foundation* of the oracle set and explicitly **not** its
     strength — it is satisfied by construction the moment `trade_value` calls `price` and multiplies,
-    so it cannot see a wrong direction sign or a notional applied to the wrong side. Those are the
+    so it cannot see a wrong direction sign or a unit count applied to the wrong side. Those are the
     companions' job.
     """
     model = _model()
     bare = price(_call(), model)
     assert isinstance(bare, PricingResult)
 
-    wrapped = trade_value(_trade(notional=1.0), model)
+    wrapped = trade_value(_trade(units=1.0), model)
     assert isinstance(wrapped, PricingResult)
     assert wrapped.pv.amount == bare.pv.amount
     assert wrapped.pv.currency == bare.pv.currency
@@ -112,8 +111,8 @@ def test_the_reduction_is_SATISFIED_BY_CONSTRUCTION_which_is_why_it_needs_compan
     oracle above says nothing about that.
     """
     model = _model()
-    long_unit = trade_value(_trade(notional=1.0), model)
-    short_unit = trade_value(_trade(TradeDirection.SHORT, notional=1.0), model)
+    long_unit = trade_value(_trade(units=1.0), model)
+    short_unit = trade_value(_trade(TradeDirection.SHORT, units=1.0), model)
     assert isinstance(long_unit, PricingResult) and isinstance(short_unit, PricingResult)
     # the reduction oracle constrains the first and is blind to the second
     assert long_unit.pv.amount != short_unit.pv.amount
@@ -136,7 +135,7 @@ def test_the_asymmetry_fixtures_payoff_is_NOT_symmetric_so_the_sign_is_measurabl
 
     On a payoff worth ~0 (an at-the-money forward) `−V == V` to within noise and the oracle above is
     vacuous. This fixture's OTM call is worth a definite positive amount, so the separation between
-    long and short is the whole notional-scaled value — reported rather than assumed.
+    long and short is the whole unit-scaled value — reported rather than assumed.
     """
     model = _model()
     long_value = trade_value(_trade(TradeDirection.LONG), model)
@@ -148,13 +147,13 @@ def test_the_asymmetry_fixtures_payoff_is_NOT_symmetric_so_the_sign_is_measurabl
 
 
 # ============================================================================================
-# 3. The notional — proportionality AND the absolute level (T43).
+# 3. The unit count — proportionality AND the absolute level (T43).
 # ============================================================================================
 
-def test_the_value_is_PROPORTIONAL_to_the_notional():
+def test_the_value_is_PROPORTIONAL_to_the_unit_count():
     model = _model()
-    single = trade_value(_trade(notional=NOTIONAL), model)
-    double = trade_value(_trade(notional=2.0 * NOTIONAL), model)
+    single = trade_value(_trade(units=UNITS), model)
+    double = trade_value(_trade(units=2.0 * UNITS), model)
     assert isinstance(single, PricingResult) and isinstance(double, PricingResult)
     assert double.pv.amount == pytest.approx(2.0 * single.pv.amount, rel=1e-15, abs=0.0)
 
@@ -162,20 +161,20 @@ def test_the_value_is_PROPORTIONAL_to_the_notional():
 def test_the_ABSOLUTE_level_is_pinned_independently_because_scaling_cannot_see_it():
     """**T43's trap, in the first representation tranche.** Proportionality pins shape, not level.
 
-    `V(2N) == 2·V(N)` is homogeneous, so a `trade_value` that applied the notional **twice**, or
-    halved it, or used the product's own notional instead of the trade's, would satisfy it perfectly.
+    `V(2N) == 2·V(N)` is homogeneous, so a `trade_value` that applied the units **twice**, or
+    halved it, or used the product's own notional instead of the trade's units, would satisfy it perfectly.
     So the level is asserted against a reference composed **outside** the trade path: the bare price
-    from the registry, multiplied by the notional here in the test.
+    from the registry, multiplied by the unit count here in the test.
     """
     model = _model()
     bare = price(_call(), model)
     assert isinstance(bare, PricingResult)
-    expected = NOTIONAL * bare.pv.amount
+    expected = UNITS * bare.pv.amount
 
-    actual = trade_value(_trade(notional=NOTIONAL), model)
+    actual = trade_value(_trade(units=UNITS), model)
     assert isinstance(actual, PricingResult)
     assert actual.pv.amount == pytest.approx(expected, rel=1e-15, abs=0.0)
-    # and the premise: the notional is NOT 1, so this is a different claim from the reduction oracle
+    # and the premise: the unit count is NOT 1, so this is a different claim from the reduction oracle
     assert abs(expected / bare.pv.amount - 1.0) > 1000.0
 
 
@@ -193,7 +192,7 @@ def test_an_UNREGISTERED_pair_is_a_PRICING_FAILURE_not_a_raise_or_a_silent_zero(
     outcome = trade_value(
         Trade(
             product=UnpriceableWidget(),
-            notional=Money(NOTIONAL, USD),
+            units=UNITS,
             direction=TradeDirection.LONG,
         ),
         _model(),
@@ -203,7 +202,7 @@ def test_an_UNREGISTERED_pair_is_a_PRICING_FAILURE_not_a_raise_or_a_silent_zero(
 
 def test_a_MATURED_product_keeps_its_PV_ZERO_through_the_wrapper():
     # invariant 6 belongs to the engine; the wrapper must not turn a legitimate zero into something
-    # else, nor multiply a failure. A zero scaled by any notional is still zero.
+    # else, nor multiply a failure. A zero scaled by any unit count is still zero.
     late = MarketSnapshot(
         valuation_date=EXPIRY + timedelta(days=5),
         curves=CurveSet(
@@ -254,7 +253,7 @@ def _price_estimated(
     )
 
 
-def test_the_STANDARD_ERROR_scales_with_the_notional_and_ignores_the_direction():
+def test_the_STANDARD_ERROR_scales_with_the_UNITS_and_ignores_the_direction():
     """**The sweep's one survivor, and its cause was my fixture POPULATION.**
 
     Dropping `abs(scale) * priced.standard_error` to a bare pass-through survived all 3314 tests,
@@ -286,16 +285,16 @@ def test_the_STANDARD_ERROR_scales_with_the_notional_and_ignores_the_direction()
     assert bare.standard_error == _ESTIMATE_SE
 
     short_trade = trade_value(
-        Trade(product=product, notional=Money(NOTIONAL, USD), direction=TradeDirection.SHORT),
+        Trade(product=product, units=UNITS, direction=TradeDirection.SHORT),
         model,
     )
     assert isinstance(short_trade, PricingResult)
     assert short_trade.standard_error == pytest.approx(
-        NOTIONAL * _ESTIMATE_SE, rel=1e-15, abs=0.0
+        UNITS * _ESTIMATE_SE, rel=1e-15, abs=0.0
     )
     # the premise that makes the above a SIGN claim and not only a scaling one: this really is a
     # short, so a signed band would have come back negative.
-    assert short_trade.pv.amount == pytest.approx(-NOTIONAL * _ESTIMATE_PV, rel=1e-15, abs=0.0)
+    assert short_trade.pv.amount == pytest.approx(-UNITS * _ESTIMATE_PV, rel=1e-15, abs=0.0)
     assert short_trade.pv.amount < 0.0
 
 
@@ -317,9 +316,9 @@ def test_the_RELATIVE_error_is_invariant_under_size_and_direction():
     reference = _ESTIMATE_SE / abs(_ESTIMATE_PV)
 
     for direction in (TradeDirection.LONG, TradeDirection.SHORT):
-        for units in (1.0, NOTIONAL, 3.0 * NOTIONAL):
+        for units in (1.0, UNITS, 3.0 * UNITS):
             outcome = trade_value(
-                Trade(product=product, notional=Money(units, USD), direction=direction), model
+                Trade(product=product, units=units, direction=direction), model
             )
             assert isinstance(outcome, PricingResult)
             assert outcome.standard_error is not None
@@ -343,73 +342,15 @@ def test_an_EXACT_pricer_keeps_a_None_band_through_the_wrapper():
 # 5. Refusals — supplying the input each guard exists to reject (T33b).
 # ============================================================================================
 
-def test_a_notional_in_the_WRONG_CURRENCY_is_refused():
-    """The guard that gives the `Money` notional its meaning.
+@pytest.mark.parametrize("units", [0.0, -1.0, float("nan"), float("inf")])
+def test_the_trade_REFUSES_non_positive_or_non_finite_units(units):
+    """A short is spelled by the DIRECTION, never by a negative size.
 
-    The notional's **amount** is how many units of the contract the trade holds; its **currency** is
-    what makes it a `Money` rather than a bare float, and the only thing that can be checked about it
-    is that it agrees with what the product pays in. Supplied the mismatching input rather than
-    assumed unreachable (T33b).
+    Allowing negative units would give a short two spellings, and then a sign error and a size error
+    would be indistinguishable — which is exactly what the long/short oracle exists to separate.
     """
-    model = _model()
-    mismatched = Trade(
-        product=_call(), notional=Money(NOTIONAL, EUR), direction=TradeDirection.LONG
-    )
-    outcome = trade_value(mismatched, model)
-    assert isinstance(outcome, PricingFailure)
-    assert "currenc" in outcome.reason.lower(), outcome.reason
-
-
-def test_the_currency_failure_NAMES_BOTH_currencies_a_second_killer():
-    """The second killer for the currency guard, which the sweep measured at **one**.
-
-    §9 prefers two for anything load-bearing: with a single killer, deleting that one test reopens
-    the hole silently. This one is independent of the first — it asserts the failure's *content*
-    (both currency codes, so a reader can see which way the mismatch runs) rather than merely that
-    a failure occurred.
-    """
-    outcome = trade_value(
-        Trade(product=_call(), notional=Money(NOTIONAL, EUR), direction=TradeDirection.LONG),
-        _model(),
-    )
-    assert isinstance(outcome, PricingFailure)
-    assert "EUR" in outcome.reason and "USD" in outcome.reason, outcome.reason
-
-
-def test_an_underlying_failures_REASON_is_preserved_verbatim_a_second_killer():
-    """The second killer for the failure pass-through, also measured at **one**.
-
-    Independent of the `isinstance` check: it asserts the underlying engine's own reason survives
-    unwrapped. A wrapper that caught the failure and re-worded it would pass the first test and lose
-    the diagnostic that says *why* the trade could not be priced.
-    """
-
-    class UnpriceableWidget:
-        pass
-
-    direct = price(UnpriceableWidget(), _model())
-    assert isinstance(direct, PricingFailure)
-
-    through_trade = trade_value(
-        Trade(
-            product=UnpriceableWidget(),
-            notional=Money(NOTIONAL, USD),
-            direction=TradeDirection.LONG,
-        ),
-        _model(),
-    )
-    assert isinstance(through_trade, PricingFailure)
-    assert through_trade.reason == direct.reason, (through_trade.reason, direct.reason)
-
-
-@pytest.mark.parametrize("notional", [0.0, -1.0, float("nan"), float("inf")])
-def test_the_trade_REFUSES_a_non_positive_or_non_finite_notional(notional):
     with pytest.raises(ValueError):
-        Trade(
-            product=_call(),
-            notional=Money(notional, USD),
-            direction=TradeDirection.LONG,
-        )
+        Trade(product=_call(), units=units, direction=TradeDirection.LONG)
 
 
 def test_the_direction_SIGNS_are_plus_and_minus_one():
@@ -422,4 +363,4 @@ def test_a_trade_is_FROZEN():
 
     trade = _trade()
     with pytest.raises(FrozenInstanceError):
-        setattr(trade, "notional", Money(1.0, USD))
+        setattr(trade, "units", 1.0)

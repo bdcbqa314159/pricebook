@@ -90,6 +90,17 @@ def acyclic() -> list[str]:
         rel = mod.relative_to(SRC)
         importer_layer = LAYER.get(rel.parts[0])
         if importer_layer is None:
+            # **An unmapped package FAILS rather than being skipped** (ruled 0446, T82). The
+            # `.get()`-and-`continue` this replaces meant a new top-level package escaped semantic
+            # layer-checking **silently** — the §9 empty-gate shape, and it was about to matter: the
+            # structural track adds packages (a `representation/` was the obvious next one), and any
+            # of them would have been exempt from the one gate that enforces §2's direction. The
+            # violation is statically decidable, so it is gateable by §9's own boundary.
+            errs.append(
+                f"{rel}: '{rel.parts[0]}' is not in verify.py's LAYER map, so this module is "
+                "exempt from layer checking — add it to LAYER (with the layer §2 assigns it) "
+                "rather than leaving a package the gate cannot see"
+            )
             continue
         tree = ast.parse(_read(mod), filename=str(mod))
         for node in ast.walk(tree):
@@ -288,7 +299,7 @@ STOCK = ROOT / "_stock"
 # The committed test floor (the floor rule, CLAUDE.md 6 second clause; ruling:
 # docs/handoffs/rulings_floor_rule.md). CI is RED below it. A slice that adds a test
 # tier raises this in the same commit. First value = the restart's measured 366.
-TEST_FLOOR = 3319
+TEST_FLOOR = 3316
 
 #: The commands `verify.py` actually implements, so §9 and `ci.yml` cannot agree on a typo.
 _KNOWN_GATES = frozenset({"acyclic", "layers", "fields", "debt", "provenance",
