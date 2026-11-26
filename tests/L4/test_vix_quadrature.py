@@ -31,12 +31,15 @@ import pytest
 from pricebook.engine import price
 from pricebook.engine.realized_variance_option import heston_fair_variance
 from pricebook.engine.vix import (
+    _terminal_variance_law,
+    quadrature_span,
     vix_affine_coefficients,
     vix_future_value,
     vix_option_value,
     vix_squared,
 )
 from pricebook.foundation import Currency, Money, PricingFailure, PricingResult
+from pricebook.foundation.noncentral_chisquare import noncentral_chisquare_sf
 from pricebook.foundation.day_count import DayCountConvention
 from pricebook.foundation.inflation import CapFloorKind
 from pricebook.market import CurveKey, CurveRole, CurveSet, DiscountCurve, MarketSnapshot
@@ -213,6 +216,87 @@ def test_the_quadrature_SPAN_is_a_MARGIN_and_is_coupled_to_the_node_count():
     finally:
         engine._SPREAD_SPANS = original
     assert abs(cut_off / shipped - 1.0) > 0.05, (cut_off, shipped)
+
+
+#: A HIGH-noncentrality fixture, every parameter load-bearing for the regime: `v0` far above `theta`
+#: (the initial condition dominates), low mean reversion and a short horizon (it has not decayed).
+#: `nc ~ 1100` against `dof ~ 0.6`. **The value is measured, not chosen for roundness** — see the
+#: test below: the span centre's defect costs 1.1e-04 at `nc = 195` and 8.3e-04 at `nc = 438`, inside
+#: any sane band, and only reaches **14.9% at nc ~ 1100**. The arc's other VIX fixtures reach `nc = 2…34`.
+HIGH_NC = HestonParams(v0=0.40, kappa=0.2, theta=0.01, sigma_v=0.12, rho=-0.5)
+HIGH_NC_YEARS = 0.1
+
+
+def test_the_span_CENTRE_is_a_FORMULA_where_its_width_is_a_margin():
+    """**Re-audit #9's F-9.5.** The span's *centre* is a formula; its *width* is a margin.
+
+    The margin test above records that narrowing the **width** survived mutation and rules that
+    correct — a margin's job is to be wide enough. The **centre** is a different kind of quantity,
+    and the two were indistinguishable from outside because the only observable was a price in which
+    a mis-centred grid stays invisible until the noncentrality is large.
+
+    **Measured, by applying the real mutation across the regime** (`mean = scale·(dof+nc)` →
+    `scale·dof`): 1.08e-04 at `nc = 195`, 8.31e-04 at `nc = 438`, **1.49e-01 at `nc = 1100`**,
+    3.7e-01 at 3722, 5.5e-01 at 14328. So the defect is real and the fixtures simply never reached
+    it. *(A first attempt put this fixture at `nc = 195` on a coverage argument — a span that fails
+    to bracket the mass at 8 sigma — and the mutation **survived**, because at 5 sigma above the
+    true mean the surviving tail is worth ~1e-6 of the integral. Coverage was the wrong criterion;
+    the integral's own sensitivity is the right one.)*
+
+    **The oracle is on the extracted span, not on a price**, which is §4's reachability rule: a
+    buried step gets named surface so a test can reach it. Pinning the centre through the price
+    would need an `nc ≈ 1100` integral **pair** (~9s on an already-exempt file); pinning it here is
+    free, and it is *stronger* — it asserts the property the formula exists to deliver (the grid
+    covers the mass) rather than a number the formula happens to produce.
+    """
+    scale, dof, noncentrality = _terminal_variance_law(HIGH_NC, HIGH_NC_YEARS)
+    # the premise: this is two orders of noncentrality above the rest of the suite's fixtures
+    assert noncentrality > 1000.0, noncentrality
+    assert noncentrality / dof > 1000.0, (noncentrality, dof)
+
+    start, stop = quadrature_span(HIGH_NC, HIGH_NC_YEARS, 0.0)
+
+    # The requirement, derived from the LAW and not from the span formula: beyond `stop` the
+    # survival must be negligible, or the integral is truncated. A centre that drops the
+    # noncentrality puts `stop` BELOW the law's own mean, where the survival is ~1 -- not small.
+    assert noncentral_chisquare_sf(stop / scale, dof, noncentrality) < 1e-9
+    # and `stop` must sit above the mean by many spreads, which the mis-centred version cannot
+    mean = scale * (dof + noncentrality)
+    assert stop > mean, (stop, mean)
+
+
+def test_the_high_nc_future_sits_just_UNDER_its_jensen_bound_a_SECOND_killer():
+    """The independent second killer for F-9.5, because one was not enough — and §9 says so.
+
+    The span assertion above kills the mis-centred grid, but the sweep flagged it as a
+    **single-killer**: one test, whose later deletion would silently reopen the hole. That is
+    re-audit #8's **F-8.3** exactly — five previously-shipped holes each closed with a single test,
+    §9's second-killer preference never applied. So this is the second, and it is independent by
+    construction: it is a **finance requirement on the price**, not a property of the span.
+
+    At `nc ≈ 1100` the terminal variance is concentrated (relative spread **6.0%**), so
+    `E[√(aV+b)] ≈ √(aE[V]+b)` — and by **Jensen**, with `√` concave, the true future must sit
+    *below* that bound. Measured: the bound is 0.623821, the future 0.623538, **0.045% under it**,
+    on the correct side. The mis-centred grid gives 0.530534 — **14.95%** off, failing by 15x.
+
+    Two different things are asserted, and the first is exact: the **direction** (Jensen, which no
+    band can fudge) and the **magnitude** (concentration, which is what makes the bound tight enough
+    to discriminate). Cost: ~2.3s, on OI-8's already-ledgered exemption — the price of a second
+    killer for a closed hole, which §9 prefers for exactly the reason F-8.3 records.
+    """
+    a, b = vix_affine_coefficients(HIGH_NC, WINDOW)
+    scale, dof, noncentrality = _terminal_variance_law(HIGH_NC, HIGH_NC_YEARS)
+    expected_variance = scale * (dof + noncentrality)
+    bound = math.sqrt(a * expected_variance + b)
+
+    future = vix_future_value(HIGH_NC, HIGH_NC_YEARS, WINDOW)
+
+    # Jensen, exactly: `sqrt` is concave, so E[sqrt(.)] <= sqrt(E[.]). No tolerance needed.
+    assert future <= bound, (future, bound)
+    # and the law is concentrated enough that the bound is TIGHT, which is what discriminates
+    relative_spread = math.sqrt(2.0 * (dof + 2.0 * noncentrality)) / (dof + noncentrality)
+    assert relative_spread < 0.08, relative_spread
+    assert future == pytest.approx(bound, rel=0.01, abs=0.0), (future, bound)
 
 
 def test_the_concentrated_law_also_prices_through_the_ENGINE_not_only_the_helper(

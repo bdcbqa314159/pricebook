@@ -61,3 +61,27 @@ def checked_ascending_times(times: Sequence[float]) -> None:
     """
     if any(b <= a for a, b in zip(times, times[1:])):
         raise ValueError("times must be strictly ascending")
+
+def checked_positive_horizon(years: float, subject: str) -> None:
+    """Refuse a non-positive year fraction — one home for a guard written **23 times**.
+
+    **Measured at re-audit #9 (F-9.3), and the count is the point.** The shape
+    `if years <= 0.0: raise ValueError(f"... needs a positive horizon, got {years}")` appeared in
+    **23 places across 16 modules and two layers**, in 14 distinct message forms — four spelling
+    "the inversion", four "the fair variance", three "the simulation", two "the characteristic
+    function", and ten one-offs. §6's rule-of-two had fired **eleven times over**. The first
+    measurement of this finding said "4x byte-identical", which was one cluster mistaken for the
+    family; deriving the population mechanically rather than reading a grep is what found the rest
+    (F-9.2's practice, adopted in the same re-audit that needed it three times).
+
+    `subject` is kept because it is the one part that is genuinely per-site: *which* quantity
+    refused tells a caller where they are, and collapsing it to a generic message would trade real
+    diagnostic value for uniformity. The **knowledge** — a horizon must be positive, and the
+    exception type and phrasing it refuses with — is what is single-homed. Same
+    `ValueError`, same message text, so every existing `pytest.raises(..., match="positive
+    horizon")` still holds.
+
+    Sibling of `checked_ascending_times` above, and here for the same reason (re-audit #7's F-7.2).
+    """
+    if years <= 0.0:
+        raise ValueError(f"{subject} needs a positive horizon, got {years}")

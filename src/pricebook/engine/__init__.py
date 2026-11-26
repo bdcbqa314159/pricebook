@@ -55,9 +55,7 @@ from pricebook.engine.smile_caplet import (
     price_displaced_cap,
 )
 from pricebook.engine.inflation import price_inflation_linked_bond, price_zc_inflation_swap
-from pricebook.engine import interest_rate_swap as _interest_rate_swap
-
-assert _interest_rate_swap is not None
+from pricebook.engine.interest_rate_swap import price_interest_rate_swap
 from pricebook.engine.realized_variance_option import (
     heston_fair_variance,
     integrated_variance_moments,
@@ -107,6 +105,17 @@ from pricebook.engine.loss_recursion import price_recursion_tranche
 from pricebook.engine.registry import register
 
 __all__ = [
+    "price_european_equity_option_hull_white",
+    "price_european_equity_option_defaultable",
+    "price_credit_default_swap",
+    "heston_call_estimate",
+    "heston_forward_estimate",
+    "price_interest_rate_swap",
+    "price_credit_default_swaption",
+    "price_forward_cds",
+    "price_first_to_default_basket",
+    "price_synthetic_cdo_tranche",
+    "price_recursion_tranche",
     "FourierGrid",
     "heston_call_price",
     "heston_probabilities",

@@ -43,6 +43,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from pricebook.foundation.time_grid import checked_positive_horizon
 from pricebook.engine.registry import register
 from pricebook.foundation.money import Money
 from pricebook.foundation.results import PricingFailure, PricingResult
@@ -81,8 +82,7 @@ def generalized_fair_variance(
     """
     forward = dividend_forward(underlying, expiry, discount)
     years = discount.time_measure.year_fraction(expiry)
-    if years <= 0.0:
-        raise ValueError(f"the fair variance needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the fair variance")
 
     strikes = strip.restricted(forward)
     weighted = []

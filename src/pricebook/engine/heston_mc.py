@@ -42,11 +42,12 @@ from datetime import date
 
 import numpy as np
 
+from pricebook.foundation.time_grid import checked_positive_horizon
 from pricebook.foundation.mc_estimator import MonteCarloEstimate, estimate
 from pricebook.foundation.rng import UniformSource
 from pricebook.foundation.variates import standard_normals
 from pricebook.market.curve import CurveHandle
-from pricebook.market.equity import EquityUnderlying, dividend_forward
+from pricebook.market.equity import EquityUnderlying, dividend_forward, implied_carry
 from pricebook.models.black_mc import MonteCarloConfig
 from pricebook.models.heston import HestonParams
 
@@ -68,11 +69,10 @@ def simulate_heston_spots(
     if steps < 1:
         raise ValueError(f"the simulation needs at least one step, got {steps}")
     years = discount.time_measure.year_fraction(expiry)
-    if years <= 0.0:
-        raise ValueError(f"the simulation needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the simulation")
 
     forward = dividend_forward(underlying, expiry, discount)
-    carry = math.log(forward / underlying.spot) / years
+    carry = implied_carry(forward, underlying.spot, years)
     dt = years / steps
     root_dt = math.sqrt(dt)
     orthogonal = math.sqrt(1.0 - params.rho * params.rho)

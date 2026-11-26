@@ -15,11 +15,20 @@ extend-exclude = ["_stock"]
 #   simulate a whole path set per call and discard it. Gated rather than merely cleaned because
 #   §9's test is met exactly: the violation is **statically decidable** and has no legitimate
 #   exception, so the gate cannot false-flag and cannot need an exemption list.
-#   `F401` (unused import) is deliberately NOT selected — the engine registry's `@register`
-#   imports are unused *by design*, so a wholesale select would need per-file-ignores, which is
-#   the exemption-list shape §9 declines. Routed to `to_go_deeper`: gate it once those modules
-#   carry `__all__` and no exemption is needed.
-select = ["PLR0913", "SLF001", "F841"]
+#   `F401` (unused import) is **gated as of re-audit #9 (F-9.1), with ZERO exemptions** — and the
+#   note it replaces is why. It read: "deliberately NOT selected — the engine registry's
+#   `@register` imports are unused *by design*, so a wholesale select would need per-file-ignores,
+#   which is the exemption-list shape §9 declines. Routed to `to_go_deeper`: gate it once those
+#   modules carry `__all__` and no exemption is needed." **That precondition was already met** —
+#   `engine/__init__.py` has carried `__all__` for arcs; 11 of its 78 imported names were simply
+#   absent from the list, and one pricer was imported as a *module* with an `assert ... is not
+#   None` to quiet the linter rather than by name like its siblings. Completing `__all__` and
+#   importing that pricer by name left nothing to exempt. The deferral had also let five genuinely
+#   dead imports accumulate in engine modules, two of them `is_historical` left behind by T73's
+#   C16 consolidation — which **misrepresented where the invariant-6 guard lives**, and misread
+#   that way during the re-audit itself. A named-but-ungated discipline is the §9 drift, and this
+#   one had a measurable cost, not just an aesthetic one.
+select = ["PLR0913", "SLF001", "F841", "F401"]
 
 [lint.pylint]
 max-args = 5

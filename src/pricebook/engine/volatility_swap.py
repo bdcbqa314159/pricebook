@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import math
 
+from pricebook.foundation.time_grid import checked_positive_horizon
 from pricebook.engine.registry import register
 from pricebook.foundation.money import Money
 from pricebook.foundation.results import PricingFailure, PricingResult
@@ -96,8 +97,7 @@ def integrated_variance_transform(params: HestonParams, psi: float, years: float
     `η = 0` is the deterministic case and is handled directly: the exponent `2λv̄/η²` is undefined
     there, while the limit is simply `e^{−ψ E[W_T]}`.
     """
-    if years <= 0.0:
-        raise ValueError(f"the variance transform needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the variance transform")
     if psi == 0.0:
         return 1.0
     if psi < 0.0:
@@ -125,8 +125,7 @@ def fair_volatility(params: HestonParams, years: float) -> float:
     `E[W_T]` (since `1 − F(ψ) ≈ ψ E[W_T]` for small `ψ`). Supplying that limit directly is why no
     epsilon offset is needed at the origin.
     """
-    if years <= 0.0:
-        raise ValueError(f"the fair volatility needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the fair volatility")
     mean = params.integrated_variance(years)
 
     def integrand(u: float) -> float:

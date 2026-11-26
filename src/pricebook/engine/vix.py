@@ -56,6 +56,7 @@ from __future__ import annotations
 
 import math
 
+from pricebook.foundation.time_grid import checked_positive_horizon
 from pricebook.engine.realized_variance_option import heston_fair_variance
 from pricebook.engine.registry import register
 from pricebook.foundation.inflation import CapFloorKind
@@ -116,8 +117,7 @@ def vix_affine_coefficients(params: HestonParams, window: float) -> tuple[float,
 
 def _terminal_variance_law(params: HestonParams, years: float) -> tuple[float, float, float]:
     """`(scale, dof, noncentrality)` with `V_T = scale · χ'²_dof(noncentrality)`."""
-    if years <= 0.0:
-        raise ValueError(f"the terminal-variance law needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the terminal-variance law")
     kappa, theta, sigma_v, v0 = params.kappa, params.theta, params.sigma_v, params.v0
     if sigma_v <= 0.0:
         raise ValueError("a deterministic variance process has no chi-squared law")
@@ -128,17 +128,49 @@ def _terminal_variance_law(params: HestonParams, years: float) -> tuple[float, f
     return scale, dof, noncentrality
 
 
+def quadrature_span(
+    params: HestonParams, years: float, lower: float
+) -> tuple[float, float]:
+    """`(start, stop)` for the survival integral — where the terminal variance's mass actually is.
+
+    **Named surface rather than four lines inside the integral, and the reason is reachability**
+    (§4: extract a buried step so a test can reach it). Re-audit #9's F-9.5 found that the span's
+    *centre* survived mutation while its *width* is a deliberate margin — two different kinds of
+    quantity that were indistinguishable from outside, because the only observable was a price in
+    which a mis-centred grid is invisible until the noncentrality is large. Measured: dropping the
+    `noncentrality` from the centre costs 1.1e-04 at `nc = 195` and 8.3e-04 at `nc = 438` — inside
+    any sane band — but **14.9% at `nc = 1100`** and 55% by `nc = 14000`. Pinning that through the
+    price would need a `nc ≈ 1100` integral *pair*; pinning it here costs nothing.
+
+    The **centre** `scale·(dof + nc)` is the law's mean and is a formula. The **width**
+    `12·scale·√(2(dof + 2nc))` is a margin, and `test_the_quadrature_SPAN_is_a_MARGIN_...` records
+    why widening it is not free: the node count is fixed, so a wider span thins the nodes.
+    """
+    return _span_from_law(_terminal_variance_law(params, years), lower)
+
+
+def _span_from_law(law: tuple[float, float, float], lower: float) -> tuple[float, float]:
+    """The span from an already-computed `(scale, dof, noncentrality)` — one definition, one call.
+
+    Taking the law rather than the parameters is what lets `_survival_integral` compute it **once**
+    and use it for both the span and the integrand, instead of either duplicating the lookup or
+    keeping a second copy of the span arithmetic.
+    """
+    scale, dof, noncentrality = law
+    mean = scale * (dof + noncentrality)
+    spread = scale * math.sqrt(2.0 * (dof + 2.0 * noncentrality))
+    return max(lower, mean - _SPREAD_SPANS * spread), mean + _SPREAD_SPANS * spread
+
+
 def _survival_integral(params: HestonParams, years: float, window: float, lower: float) -> float:
     """`∫_lower^∞ (a / 2√(ax+b)) · P(V_T > x) dx`, by the midpoint rule.
 
     The one integrand both payoffs reduce to after integrating by parts — see the module docstring.
     """
     a, b = vix_affine_coefficients(params, window)
-    scale, dof, noncentrality = _terminal_variance_law(params, years)
-    mean = scale * (dof + noncentrality)
-    spread = scale * math.sqrt(2.0 * (dof + 2.0 * noncentrality))
-    start = max(lower, mean - _SPREAD_SPANS * spread)
-    stop = mean + _SPREAD_SPANS * spread
+    law = _terminal_variance_law(params, years)
+    scale, dof, noncentrality = law
+    start, stop = _span_from_law(law, lower)
     if stop <= lower:
         return 0.0
 

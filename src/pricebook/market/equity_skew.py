@@ -62,6 +62,14 @@ class SmileLike(Protocol):
     **It lives at L1, with `ImpliedVolSkew`, so the dependency points DOWN** (§2): the L4 strip
     consumes a market-layer protocol, and the L3/L4 model-smile presenters implement it. Putting it
     beside its consumer at L4 would have made L1's `ImpliedVolSkew` implement an L4 type.
+
+    **`@runtime_checkable` here is load-bearing for the TESTS, not for production** — recorded at
+    re-audit #9 (F-9.4) because the decorator invites the opposite inference. In `src/` this protocol
+    is only ever a type annotation (`skew: SmileLike`), checked by pyright; no runtime `isinstance`
+    guard exists anywhere in the library. The decorator is what lets the suite assert the shape
+    directly — that a non-smile is rejected, and that the protocol carries `volatility` and nothing
+    else — which is why T33b's input-population hazard cannot apply to it: there is no production
+    guard with an unexercised rejecting branch.
     """
 
     def volatility(self, strike: float, forward: float, years: float = 0.0) -> float:

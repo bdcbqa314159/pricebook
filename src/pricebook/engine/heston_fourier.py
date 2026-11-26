@@ -46,6 +46,7 @@ import math
 from collections.abc import Sequence
 from datetime import date
 
+from pricebook.foundation.time_grid import checked_positive_horizon
 from pricebook.engine.fourier_inversion import (
     FourierGrid,
     adaptive_grid,
@@ -58,7 +59,7 @@ from pricebook.foundation.money import Money
 from pricebook.foundation.results import PricingFailure, PricingResult
 from pricebook.foundation.time_measure import is_historical
 from pricebook.market.curve import CurveHandle
-from pricebook.market.equity import EquityUnderlying, dividend_forward
+from pricebook.market.equity import EquityUnderlying, dividend_forward, implied_carry
 from pricebook.models.heston import HestonModel, HestonParams, heston_characteristic_function
 from pricebook.products.equity_option import EquityOptionKind, EuropeanEquityOption
 
@@ -77,11 +78,10 @@ def heston_probabilities(
     """
     discount, requested = quadrature if isinstance(quadrature, tuple) else (quadrature, None)
     years = discount.time_measure.year_fraction(expiry)
-    if years <= 0.0:
-        raise ValueError(f"the inversion needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the inversion")
 
     forward = dividend_forward(underlying, expiry, discount)
-    carry = math.log(forward / underlying.spot) / years
+    carry = implied_carry(forward, underlying.spot, years)
     log_strike = math.log(strike / underlying.spot)
     def characteristic(u: complex) -> complex:
         return heston_characteristic_function(params, u, years, carry)
@@ -125,11 +125,10 @@ def heston_call_prices(
         raise ValueError("pricing needs at least one strike")
     discount, requested = quadrature if isinstance(quadrature, tuple) else (quadrature, None)
     years = discount.time_measure.year_fraction(expiry)
-    if years <= 0.0:
-        raise ValueError(f"the inversion needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the inversion")
 
     forward = dividend_forward(underlying, expiry, discount)
-    carry = math.log(forward / underlying.spot) / years
+    carry = implied_carry(forward, underlying.spot, years)
 
     def characteristic(u: complex) -> complex:
         return heston_characteristic_function(params, u, years, carry)

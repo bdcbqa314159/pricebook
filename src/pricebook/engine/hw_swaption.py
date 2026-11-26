@@ -53,7 +53,6 @@ from pricebook.foundation.solvers import bracketed_root
 from pricebook.market.curve import CurveHandle
 from pricebook.models.hull_white import (
     HullWhiteParams,
-    bond_option_variance,
     hw_bond,
     zero_bond_option,
 )

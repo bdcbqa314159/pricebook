@@ -57,6 +57,7 @@ from __future__ import annotations
 
 import math
 
+from pricebook.foundation.time_grid import checked_positive_horizon
 from pricebook.engine.registry import register
 from pricebook.foundation.distributions import normal_positive_part
 from pricebook.foundation.inflation import CapFloorKind
@@ -103,8 +104,7 @@ def heston_fair_variance(params: HestonParams, years: float) -> float:
     **Annualised**, so it is directly comparable to tranche 74's `fair_variance` (which carries its
     own `2/T`) and to a squared volatility: this is the cross-method anchor's left-hand side.
     """
-    if years <= 0.0:
-        raise ValueError(f"the fair variance needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the fair variance")
     mean, _ = integrated_variance_moments(params, years)
     return mean / years
 
@@ -122,8 +122,7 @@ def realized_variance_option_value(
     The positive part is `normal_positive_part` (L0, tranche 71): a Bachelier call and a normal
     partial expectation are one closed form, so there is nothing to re-derive here.
     """
-    if years <= 0.0:
-        raise ValueError(f"a realized-variance option needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "a realized-variance option")
     mean, variance = integrated_variance_moments(params, years)
     return normal_positive_part(
         kind.omega * (mean / years - strike), math.sqrt(variance) / years

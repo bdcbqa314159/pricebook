@@ -43,6 +43,7 @@ from datetime import date
 
 import numpy as np
 
+from pricebook.foundation.time_grid import checked_positive_horizon
 from pricebook.foundation.mc_estimator import MonteCarloEstimate, estimate
 from pricebook.foundation.rng import UniformSource
 from pricebook.foundation.variates import standard_normals
@@ -85,8 +86,7 @@ def simulate_hybrid(
     if steps < 1:
         raise ValueError(f"the simulation needs at least one step, got {steps}")
     years = discount.time_measure.year_fraction(expiry)
-    if years <= 0.0:
-        raise ValueError(f"the simulation needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the simulation")
 
     kappa, sigma_r = model.rate_params.kappa, model.rate_params.sigma
     sigma_s, rho = model.equity_vol, model.correlation

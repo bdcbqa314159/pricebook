@@ -50,6 +50,7 @@ import cmath
 import math
 from dataclasses import dataclass
 
+from pricebook.foundation.time_grid import checked_positive_horizon
 from pricebook.market.snapshot import MarketSnapshot
 from pricebook.models.heston import HestonParams, heston_characteristic_function
 
@@ -106,8 +107,7 @@ def jump_characteristic_function(jumps: JumpParams, u: complex, years: float) ->
 
     the second term being the compensator. `intensity = 0` returns exactly `1`, which is what makes
     the reduction to Heston exact rather than merely close: no arithmetic runs at all."""
-    if years <= 0.0:
-        raise ValueError(f"the characteristic function needs a positive horizon, got {years}")
+    checked_positive_horizon(years, "the characteristic function")
     if jumps.intensity == 0.0:
         return 1.0 + 0j
     variance = jumps.volatility * jumps.volatility
