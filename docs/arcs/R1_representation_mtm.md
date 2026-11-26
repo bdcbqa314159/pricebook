@@ -1,7 +1,9 @@
 # Arc plan — R1: representation & mark-to-market (the first STRUCTURAL arc)
 
-**Cowork draft, 2026-11-26. Opens after re-audit #9 remediation, IF the two-track amendment is ruled
-(`docs/proposals/two_track_and_1_0_purpose.md`).** The first structural arc — architecture-first, not
+**Cowork, 2026-11-26. ADOPTED — the two-track amendment is ruled; the structural track is open.**
+**The track opens with T81 — the live status instrument** (`docs/tranches/81_status_instrument.md`): a
+tooling-emitted `docs/STATUS.md` scoreboard (the `mutation_sweep.py` instrument pattern) that the structural
+track then fills column by column, R1→R5. **R1 proper begins at T82** (the `Trade` type below). The first structural arc — architecture-first, not
 book-grounded: it builds the §0-promised representation layer *above* the existing pricers and does not
 rewrite any of the 45 engines. Oracle set = the existing verified catalogue (reduce a position's value to
 `price(product, model)` and its sum).
@@ -17,11 +19,14 @@ library from the top.
 per-trade breakdown, and a cashflow ladder, by dispatching each trade through the existing registry and
 aggregating. End state: value a small **mixed-asset book** (a swap + a swaption + a CDS) in one report.
 
-## Layer
-A new **L6 shell / representation** tier above L5 (the charter's L6 "lifecycle/shell — stateful; remembers,
-never computes"): `Trade`/`Position` are representation, the MtM procedure is the imperative shell calling
-the pure core. Nothing here enters L0–L4; the engines are consumed, not touched (`verify.py acyclic/layers`
-must stay green — the dependency points DOWN into the existing pricers).
+## Layer — corrected (the representation is FROZEN data, not L6)
+`Trade`/`Position`/`PricingRequest` are **frozen representation data at the L2 level** — they *describe,
+never price themselves* (the L2 contract), composing products; they are **not L6**, because L6 is *stateful*
+("remembers") and these are frozen. The **MtM procedure is a PURE function at the L4 level** — it dispatches
+each trade through the registry and aggregates, no state (the functional core, like every engine). **L6
+enters only at R4** (lifecycle — fixings as they set, rolls, the trading cycle; that is the genuinely
+stateful shell). Dependencies point DOWN into the existing pricers; the engines are consumed, not touched
+(`verify.py acyclic/layers` stays green — the build confirms the exact module placement).
 
 ## The tranche spine (~5–7 tranches, each oracled against the catalogue)
 - **R1.1 — `Trade`** — a product + notional + direction (buy/sell) + trade-level economics. Frozen (§2
