@@ -80,3 +80,29 @@ One **test/tooling/hygiene tranche** (the T45/T59/T65/T73 precedent): F-9.5's hi
 `implied_carry`/guard consolidations (C17, F-9.3) + F-9.1's `F401` close + F-9.6's row-pin + the
 F-9.2/F-9.4 records. Zero `src` defects. After it merges, re-audit #9 closes and — on Bernardo's ruling —
 the structural track opens with R1.
+
+## Remediation outcome (T80, v0.82.0, ruled 0435) — the scoped numbers above were corrected at build
+Applying F-9.2 to this very document: three of the ruled specifics were wrong counts/criteria, corrected
+mechanically during the remediation. The record, derived not eyeballed:
+- **F-9.5** — not a high-`nc` fixture (wrong criterion at `nc=195`, ~9s at the `nc` that bites). Remediated
+  by extracting **`quadrature_span` as named surface** (§4 reachability, T15/T18), asserting the delivered
+  property pointwise, + a **Jensen second killer** (the kill was a single-killer, F-8.3); centre dies to 2.
+  `_SPREAD_SPANS` untouched as ruled. Real regime effect: 8.31e-04 @438 / 1.49e-01 @1100 / 55% @14328.
+- **F-9.3 — 23 sites / 16 modules / 14 message forms, NOT 4** (the "4×" was one cluster mistaken for the
+  family). All 23 migrated (ruled in scope, 0435(a)) with a parameterised `subject` so each diagnostic
+  survives (0435(c) — a justified refinement of F-7.2, whose sites were message-identical). rule-of-two
+  fired 11× over.
+- **C17** — 7 sites confirmed, `implied_carry` at L1, bit-identical across 63 values, now **guarded**.
+- **F-9.6 — WITHDRAWN: the T26 row was correct all along.** Code measured the wrong site (`swaption_mc:139`,
+  11 killers); the real site is `risk/mc_exposure.py:259`, measures **1**, single-by-design as the row said
+  since #3. The row is **pinned by path** (`mc_exposure.py:259`) — the live re-conflation is the recorded
+  reason. F-9.6 is not a finding; the path-pinning fix stands.
+- **F-9.1** — closed zero-exemption; `F401` gate verified to *fail* on a planted dead import;
+  `_interest_rate_swap` imported by name, the quieting `assert` retired (no suppression, §7).
+- **F-9.2 — now five instances** (the three above + F-9.3's 4-vs-23 + F-9.6's wrong site), every one caught
+  by an instrument contradicting the eye. Practice sharpened (0435): **a count or identification filed in a
+  finding carries the command/parser output that derived it**, so it is checkable, not trusted. Practice,
+  not gate (§9 boundary), not a charter clause.
+
+**Re-audit #9 CLOSES on #101 merge.** Zero `src` defects (the ninth running). Next: Bernardo's §1/§9 ruling
+on the two-track + 1.0 amendment → the structural track opens with R1.
