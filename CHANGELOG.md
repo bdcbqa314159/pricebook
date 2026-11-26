@@ -6,6 +6,68 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.84.0] - 2026-11-26
+
+### Added — tranche 82, R1.1: the `Trade` type (the representation layer begins)
+
+The structural track's first representation unit. A capability added **over 46 existing engines without
+touching one of them** — which is the whole argument for a second arc type: the registry's
+`(product, model)` dispatch means a trade does not know what it holds, and the engines do not know they
+are held.
+
+- **`products/trade.py` (L2)** — `Trade` (product + units + direction) and `TradeDirection`. **L2, not
+  L6**, and the distinction is §2's contract rather than a filing preference: L6 is the tier that
+  *remembers*, and a `Trade` remembers nothing. The R1 plan originally placed representation at L6;
+  corrected at spec time, because `verify.py layers` would have rejected it and rightly.
+- **`engine/trade.py` (L4)** — `trade_value(trade, model) = direction · units · price(product, model)`,
+  projecting to a `PricingResult` with the SE scaled by `|units|` (§3.7) and the underlying
+  `PricingFailure` riding through untouched (§3.4).
+
+**Direction is its own enum, not a signed notional.** A signed size would make "how much" and "which
+way" one field, so a sign error and a size error could not be told apart — which is exactly what the
+asymmetry oracle exists to distinguish. `__post_init__` therefore refuses a non-positive size outright:
+a short has one spelling.
+
+#### The headline oracle is near-tautological by design, so the companions are the test
+
+`trade_value` is *defined* by its reduction to `price`, so `trade_value(long, 1 unit) == price(...)`
+bit-identically is satisfied the moment the wrapper delegates and multiplies — §4's
+**self-consistency-telescopes** shape in a new coordinate. It cannot see a wrong direction sign or a
+notional on the wrong side. Measured separations for the companions that can: the direction-sign
+mutation dies to **2** tests, an inverted sign to **3**, a dropped notional to **3**, `LONG`'s sign to
+**6**, and the **T43 notional-applied-twice** trap — which proportionality alone is blind to — to **4**.
+
+#### The sweep found a hole whose cause was the fixture POPULATION, not a value
+
+Dropping the SE's `abs(scale)` scaling **survived all 3314 tests**: every product in the file is priced
+by an **exact** engine, so `standard_error` is always `None` and the line never ran with a real value.
+Not a degenerate value or schedule — a degenerate **population of pricers** (T33b, one coordinate over).
+Closed with the only registry-dispatchable pair that carries an SE (`TimerOption` under Heston).
+
+The first version cost **10.56s** and pushed the file over the `slow` ceiling. §9's lossless reduction
+came before any exemption and produced a **better** test: comparing a **short** trade's band against a
+*positive* reference proves the scaling **and** the sign-independence in one assertion, because a signed
+`scale` would return a negative band and fail the equality. One call instead of three, **7.31s**, and
+strictly more asserted per call.
+
+Two **single-killers** were also closed (the currency guard and the failure pass-through, each dying to
+one test), with second killers that are independent by construction: they assert the failure's *content*
+— both currency codes, and the underlying reason preserved verbatim — rather than that a failure merely
+occurred.
+
+#### The status instrument earned its keep on the very next tranche, twice
+
+T81's drift gate **fired immediately**: T82 added a product and an engine, so `docs/STATUS.md` went
+stale and the gate said so. And the mutation sweep's **verified-baseline guard caught it first**,
+refusing to run nine mutations against a red suite — which would have made every mutant look killed for
+a reason unrelated to the mutation (re-audit #4's false clean sheet, prevented by design).
+
+Regenerating then surfaced a framing defect: `trade` was reported as an **"unclassified engine"** —
+correct behaviour (reported, not dropped) with the wrong category, since representation is cross-asset
+*by design*. It now has a **representation roster** detected by presence (the 0440 rule: if it can be
+detected, it must be), so the column fills itself as R1.2–R1.5 land: **1 of 5 built**. Its test asserts
+the detector can say *no*, since a default-`True` detector would pass on a tree with none of them.
+
 ## [0.83.0] - 2026-11-26
 
 ### Added — tranche 81, the live status instrument (the STRUCTURAL TRACK opens)
