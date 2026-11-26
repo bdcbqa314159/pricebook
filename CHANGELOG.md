@@ -6,6 +6,59 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.83.0] - 2026-11-26
+
+### Added — tranche 81, the live status instrument (the STRUCTURAL TRACK opens)
+
+The charter amendment Bernardo ruled at the re-audit-#9 boundary is adopted: **§1 gains two arc types**
+(literature, book-grounded; **structural**, anchored on the verified catalogue — same oracle gate), **1.0
+is defined as a PURPOSE** (represent, value and risk a *position*, provider-agnostic) rather than a module
+count, and **§9's re-audit becomes the track switch**. Ten literature arcs are done; this is the first
+structural tranche.
+
+- **`tests/tooling/status.py`** — a committed instrument (the `mutation_sweep.py` pattern) that walks the
+  tree and generates `docs/STATUS.md`'s inventory block: model/engine/product counts, the registry's
+  `(product, model)` pairs, and a per-asset-class engine-and-greeks table. **Structure and status only** —
+  no formula, no source line — asserted by its own test, since the page is tracked and may render publicly
+  while `_stock/` is gitignored for copyright.
+- **`docs/STATUS.md`** — now **tracked and generated**, resolving the 0425 objection that a hand-maintained
+  page duplicates four other docs. The judgement half (asset-class readiness, the bibliography, the 1.0
+  scorecard) lives between `curated` markers and is preserved verbatim, refreshed at each re-audit.
+
+#### The charter referenced a practice that did not exist yet — so both landed in one merge
+
+§1's amendment calls `docs/STATUS.md` "tooling-emitted", which was false until this tranche built the
+tool. That is the §9 defect the charter itself names (*"a charter asserting a practice that did not
+exist"*), and the established precedent is its fix: the clause and its enforcement land together, so the
+charter never ships the false practice. The amendment and the instrument are in the same PR.
+
+#### The drift gate, and why the page can now be trusted
+
+A test asserts the committed page equals a fresh generation, so **a stale `STATUS.md` fails the suite**.
+It is a pytest test rather than a new `verify.py` subcommand — §9 runs pytest *through* the `tests` gate,
+so it is already CI-invoked, and a subcommand would have meant growing the charter's gate list for
+coverage that exists. **Proven to fail rather than assumed to**: planting a model in `models/` reddens
+both the CLI (exit 1) and the test, and removing it returns both to green — F-9.1's discipline applied to
+a gate on its first day.
+
+#### The instrument contradicted a claim both surfaces had accepted, on its first run
+
+The hand-drafted page said *"Greeks are near-empty (Black MC only)"*, and re-audit #9's own F-9.1 note
+said `risk/sensitivities.py` holds *"`black_mc_delta`/`gamma`/`vega` and nothing else"*. Both wrong:
+**`digital_mc_delta` is there too** — four greek functions over two payoffs, not three over one. The
+column is still near-empty; it was near-empty by the wrong number. That is the **sixth** eyeballed count
+this re-audit cycle to be corrected by a parser (F-9.2), and the first corrected by an instrument built
+*because* of the previous five.
+
+#### One design defect caught in the building
+
+The generator's first draft classified engines by an explicit map **with a name-prefix fallback for the
+test fixtures** — and on the real tree the fallback fired *alongside* the map and invented two asset
+classes that do not exist (`black`, `digital`). A convenience kept only for the tests had corrupted
+production's answer. The maps are now **arguments with the real tree's as defaults**, one code path, and
+the fixture supplies its own. Unclassified engines are **reported, not dropped** — the applied-count
+discipline (§9) in a counting tool, since the alternative is a smaller, cleaner, wrong page.
+
 ## [0.82.0] - 2026-11-26
 
 ### Changed — tranche 80, re-audit #9's remediation (test/tooling/hygiene; zero `src` defects)
