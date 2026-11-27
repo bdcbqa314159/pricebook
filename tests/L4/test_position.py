@@ -125,7 +125,7 @@ def _estimate_book() -> tuple[Position, list[object]]:
         Trade(product=_EstimateA(USD), units=2.0, direction=TradeDirection.LONG),
         Trade(product=_EstimateB(USD), units=3.0, direction=TradeDirection.LONG),
     )
-    return Position(trades=trades), [_ModelA(_market()), _ModelB(_market())]
+    return Position(currency=USD, trades=trades), [_ModelA(_market()), _ModelB(_market())]
 
 
 # ============================================================================================
@@ -171,7 +171,7 @@ def test_the_book_PV_is_the_SUM_of_its_trades_a_guard_not_the_test():
 def test_a_SINGLE_trade_position_is_that_trade_exactly():
     trade = Trade(product=_EstimateA(USD), units=7.0, direction=TradeDirection.SHORT)
     model = _ModelA(_market())
-    book = position_value(Position(trades=(trade,)), [model])
+    book = position_value(Position(currency=USD, trades=(trade,)), [model])
     alone = trade_value(trade, model)
     assert isinstance(book, PricingResult) and isinstance(alone, PricingResult)
     assert book.pv.amount == alone.pv.amount
@@ -209,8 +209,7 @@ def test_WITHIN_a_group_the_standard_errors_add_LINEARLY_because_the_error_is_id
     their bands add. Treating them as independent would **understate** the book — for the entirely
     ordinary book that holds two lots of one contract.
     """
-    position = Position(
-        trades=(
+    position = Position(currency=USD, trades=(
             Trade(product=_EstimateA(USD), units=2.0, direction=TradeDirection.LONG),
             Trade(product=_EstimateA(USD), units=5.0, direction=TradeDirection.LONG),
         )
@@ -238,8 +237,7 @@ def test_a_SHORT_leg_within_a_group_still_ADDS_to_the_band_because_a_band_has_no
     difference. Asserted as the production convention, and flagged at handoff as the one place a
     reader might expect cancellation.
     """
-    position = Position(
-        trades=(
+    position = Position(currency=USD, trades=(
             Trade(product=_EstimateA(USD), units=4.0, direction=TradeDirection.LONG),
             Trade(product=_EstimateA(USD), units=4.0, direction=TradeDirection.SHORT),
         )
@@ -258,8 +256,7 @@ def test_a_MIXED_book_lets_the_exact_leg_contribute_ZERO_variance_not_a_crash():
 
     The spec names this explicitly, and it is the branch a naive `√(Σ se²)` would crash on.
     """
-    position = Position(
-        trades=(
+    position = Position(currency=USD, trades=(
             Trade(product=_EstimateA(USD), units=2.0, direction=TradeDirection.LONG),
             Trade(product=_ExactC(USD), units=6.0, direction=TradeDirection.LONG),
         )
@@ -272,8 +269,7 @@ def test_a_MIXED_book_lets_the_exact_leg_contribute_ZERO_variance_not_a_crash():
 
 
 def test_an_ALL_EXACT_book_has_NO_band_at_all():
-    position = Position(
-        trades=(
+    position = Position(currency=USD, trades=(
             Trade(product=_ExactC(USD), units=1.0, direction=TradeDirection.LONG),
             Trade(product=_ExactC(USD), units=2.0, direction=TradeDirection.SHORT),
         )
@@ -300,8 +296,7 @@ def _call(strike: float = 110.0) -> EuropeanEquityOption:
 
 def test_a_long_and_its_offsetting_SHORT_net_to_zero_on_a_non_symmetric_payoff():
     model = EquityBlackModel(market=_market(), volatility=0.28)
-    position = Position(
-        trades=(
+    position = Position(currency=USD, trades=(
             Trade(product=_call(), units=500.0, direction=TradeDirection.LONG),
             Trade(product=_call(), units=500.0, direction=TradeDirection.SHORT),
         )
@@ -318,7 +313,7 @@ def test_a_long_and_its_offsetting_SHORT_net_to_zero_on_a_non_symmetric_payoff()
 def test_the_book_value_is_INVARIANT_under_trade_ORDER():
     position, models = _estimate_book()
     forward = position_value(position, models)
-    reversed_position = Position(trades=tuple(reversed(position.trades)))
+    reversed_position = Position(currency=USD, trades=tuple(reversed(position.trades)))
     backward = position_value(reversed_position, list(reversed(models)))
     assert isinstance(forward, PricingResult) and isinstance(backward, PricingResult)
     assert forward.pv.amount == pytest.approx(backward.pv.amount, rel=1e-15, abs=0.0)
@@ -326,7 +321,7 @@ def test_the_book_value_is_INVARIANT_under_trade_ORDER():
 
 
 def test_an_EMPTY_book_is_PV_ZERO_with_NO_band():
-    book = position_value(Position(trades=()), [])
+    book = position_value(Position(currency=USD, trades=()), [])
     assert isinstance(book, PricingResult)
     assert book.pv.amount == 0.0
     # `None`, not 0.0: an empty book is not an estimate, so it has no error bar to report. A 0.0
@@ -349,8 +344,7 @@ def test_ONE_unpriceable_trade_fails_the_WHOLE_book_rather_than_silently_droppin
     class _Unpriceable:
         pass
 
-    position = Position(
-        trades=(
+    position = Position(currency=USD, trades=(
             Trade(product=_EstimateA(USD), units=2.0, direction=TradeDirection.LONG),
             Trade(product=_Unpriceable(), units=1.0, direction=TradeDirection.LONG),
         )
@@ -370,6 +364,134 @@ def test_a_models_LENGTH_MISMATCH_is_refused_rather_than_zipped_short():
     position, models = _estimate_book()
     with pytest.raises(ValueError, match="one model per trade"):
         position_value(position, models[:1])
+
+
+def test_a_MIXED_CURRENCY_book_is_REFUSED_rather_than_summed():
+    """Not in the spec, and found by building: the first draft summed unlike currencies silently.
+
+    It took the *first* trade's currency and ignored the rest, so a book holding a dollar contract
+    and a euro one reported their arithmetic sum as a number. "Multi-currency aggregation is out of
+    scope" licenses not *supporting* cross-currency netting; it does not license adding unlike
+    currencies and reporting the total. The book declares its currency and every trade is checked
+    against it.
+    """
+    euro = Currency("EUR")
+    position = Position(
+        currency=USD,
+        trades=(
+            Trade(product=_EstimateA(USD), units=1.0, direction=TradeDirection.LONG),
+            Trade(product=_EstimateA(euro), units=1.0, direction=TradeDirection.LONG),
+        ),
+    )
+    outcome = position_value(position, [_ModelA(_market()), _ModelA(_market())])
+    assert isinstance(outcome, PricingFailure)
+    assert "USD" in outcome.reason and "EUR" in outcome.reason, outcome.reason
+
+
+def test_the_SE_grouping_is_by_EQUALITY_not_identity():
+    """The premise the within-group oracle silently depended on, and which the build got wrong.
+
+    The first draft keyed its groups on `id(model)`, so two **structurally equal** models were two
+    groups and the within-group linear sum never fired — the grouping degraded to the independent
+    regime, which is the *understating* direction. This asserts the thing that was wrong: two
+    separately-constructed but equal models must group, which is what §3.1 implies (identical
+    *inputs*, not the same object).
+    """
+    first, second = _ModelA(_market()), _ModelA(_market())
+    assert first is not second          # genuinely distinct objects
+    assert first == second              # and structurally equal, so one group
+
+    position = Position(
+        currency=USD,
+        trades=(
+            Trade(product=_EstimateA(USD), units=1.0, direction=TradeDirection.LONG),
+            Trade(product=_EstimateA(USD), units=1.0, direction=TradeDirection.LONG),
+        ),
+    )
+    book = position_value(position, [first, second])
+    assert isinstance(book, PricingResult)
+    # linear (one group), not quadrature (two groups) -- and the two differ measurably
+    assert book.standard_error == pytest.approx(2.0 * SE_A, rel=1e-15, abs=0.0)
+    assert math.sqrt(2.0) * SE_A < 2.0 * SE_A
+
+
+# ============================================================================================
+# 6. Second killers — four guards died to ONE test each, and here hardening is free.
+# ============================================================================================
+
+def test_quadrature_is_STRICTLY_LESS_than_the_linear_sum_across_groups():
+    """Second killer for the across-group combination, as a REQUIREMENT not a restatement.
+
+    For two or more positive bands, `√(Σ SE²) < Σ SE` strictly — that is arithmetic, not a
+    convention, so it holds whatever the SEs are and survives a transcription error in the exact
+    expected value. A mutant that sums linearly across groups makes the two **equal**, so this
+    kills it from a different direction than the pointwise assertion above.
+    """
+    position, models = _estimate_book()
+    book = position_value(position, models)
+    assert isinstance(book, PricingResult)
+    assert book.standard_error is not None
+
+    linear = 2.0 * SE_A + 3.0 * SE_B
+    assert book.standard_error < linear
+    # and strictly, by a margin that is not floating-point noise
+    assert linear - book.standard_error > 0.1, (linear, book.standard_error)
+
+
+def test_a_currency_mismatch_in_the_FIRST_trade_is_caught_too():
+    """Second killer for the currency guard, and it probes a different failure mode.
+
+    The existing oracle puts the mismatching trade **second**, so a guard that only ran after the
+    first accumulation would still pass it. This puts it **first** — and additionally asserts the
+    book does not accumulate anything before refusing, which a guard placed after the sum would.
+    """
+    euro = Currency("EUR")
+    position = Position(
+        currency=USD,
+        trades=(
+            Trade(product=_EstimateA(euro), units=1.0, direction=TradeDirection.LONG),
+            Trade(product=_EstimateA(USD), units=1.0, direction=TradeDirection.LONG),
+        ),
+    )
+    outcome = position_value(position, [_ModelA(_market()), _ModelA(_market())])
+    assert isinstance(outcome, PricingFailure)
+    assert "EUR" in outcome.reason
+
+
+def test_a_failing_FIRST_trade_fails_the_book_before_any_partial_total():
+    """Second killer for the failure propagation, from the opposite end of the book.
+
+    The existing oracle's unpriceable trade is **second**, so a wrapper that returned the running
+    total on failure would still have summed one trade first. With the failure **first** there is
+    nothing to partially total, and a wrapper that swallowed it would return `PV 0` — a number, and
+    the worst possible answer for an unpriceable book.
+    """
+
+    class _AlsoUnpriceable:
+        pass
+
+    position = Position(
+        currency=USD,
+        trades=(
+            Trade(product=_AlsoUnpriceable(), units=1.0, direction=TradeDirection.LONG),
+            Trade(product=_EstimateA(USD), units=2.0, direction=TradeDirection.LONG),
+        ),
+    )
+    outcome = position_value(position, [_ModelA(_market()), _ModelA(_market())])
+    assert isinstance(outcome, PricingFailure)
+    assert "_AlsoUnpriceable" in outcome.reason, outcome.reason
+
+
+def test_TOO_MANY_models_is_refused_as_well_as_too_few():
+    """Second killer for the length guard — `zip` truncates in **both** directions.
+
+    The existing oracle passes too *few* models. Too *many* is the mirror and equally silent: `zip`
+    would price every trade and quietly ignore the surplus models, which means a caller who paired
+    them wrongly gets a confident total computed against the wrong models.
+    """
+    position, models = _estimate_book()
+    with pytest.raises(ValueError, match="one model per trade"):
+        position_value(position, [*models, _ModelA(_market())])
 
 
 def test_a_position_is_FROZEN():
