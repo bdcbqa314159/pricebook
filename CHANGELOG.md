@@ -19,11 +19,27 @@ The content is the error, and the spec deliberately left it as an **obligation**
 independence assumption and oracle against it — rather than pre-committing a form. Measuring it was the
 right instruction, because the form is richer than the hypothesis.
 
-#### The SE combination, and why its two halves have different standing
+#### The SE combination — measured, then OVERTURNED at review, and the second answer is the right one
 
-    SE_book = √( Σ_groups ( Σ_within-group SE )² )      a group being one `(product, model)` pair
+    SE_book = Σ SE_i          a conservative upper bound under unknown cross-trade correlation
 
-**§3.1 is what forces the within-group half.** Referential transparency means identical inputs give
+The build arrived at `√(Σ_groups (Σ_within SE)²)`: linear within a `(product, model)` pair, quadrature
+across. The within-pair half was right and is **forced** (below). The across-pair half was **wrong**, and
+review caught it with an argument about the architecture rather than the arithmetic — then verified
+independently at build: every Monte-Carlo dispatch draws from `UniformSource(config.seed)`, **nothing
+assigns distinct seeds per trade** (production carries a single hardcoded `seed=7`), and the same seed
+yields an **identical** uniform stream. So trades sharing a seed consume **overlapping** streams — common
+random numbers — and their errors are **correlated, not independent**. Quadrature assumes `ρ = 0`, which
+the architecture contradicts, and it fails toward **understating** a book's risk number: the dangerous
+direction. Ruled linear throughout (0450).
+
+**The grouping was then removed rather than kept as a seam**, departing from the ruling's wording with
+the reason recorded in both the module and `to_go_deeper`: with a linear sum `Σ_groups Σ_within = Σ_all`,
+so grouping code changes no answer and is **unexercisable** — a mutation to the grouping key would survive
+every test (§4's third survivor kind, §6's nothing-speculative). Reinstating it is a few lines *and
+testable* once independent per-trade seeding makes quadrature valid, which is the right order.
+
+**§3.1 is what forces the within-pair half, and it survives the overturning.** Referential transparency means identical inputs give
 identical output — verified on a real MC engine rather than assumed: dispatching the same
 `(product, model)` twice is **bit-identical** in PV *and* SE. So two trades of one product do not carry
 *independent* errors, they carry **the same** error, and their bands add **linearly**. The hypothesis
@@ -57,6 +73,13 @@ reader may reasonably expect the cancellation to carry through.
 
 All three failed in the silent direction — a plausible number rather than an error — and each has its
 own oracle, none of which the spec contained.
+
+#### Gates
+
+v0.85.0 · **3336 tests** (floor 3336, derived from the collected count rather than typed) · twelve gates ·
+ruff + pyright clean · `slow` ok. Representation stands at **2 of 5** on the generated scoreboard.
+Sweep: 8/8 applied, 8 killed, **zero single-killers** — the mutation that reinstates the overturned
+quadrature convention dies to 6 tests.
 
 #### The R1-plan premise paid off on its first intended use
 
