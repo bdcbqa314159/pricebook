@@ -445,3 +445,19 @@ rulings, which is where §1 says a deferred-but-oracle-able route lives. See fin
   track's **first concrete customer**, and when built it retro-anchors T79's MC exactly (the T74←T75 pattern).
   Eq (6.23)'s transcription is settled (the `√(2λ)`-alone reading, pinned by the density-integrates-to-1
   requirement — T79 step-1). *(Ruled 0424.)*
+- **Independent per-trade MC seeding, so a book's SE can tighten from linear to quadrature (R-track MC-infra;
+  surfaced T83/R1.2).** `position_value` combines trade SEs **linearly** (a conservative upper bound) because
+  every MC dispatch draws from `UniformSource(config.seed)` and nothing assigns distinct seeds across trades
+  — so two trades sharing a default seed consume overlapping PCG64 streams (common random numbers) and their
+  errors are **correlated, not independent**. Quadrature-across would understate the book risk (the dangerous
+  direction). When the infrastructure guarantees **independent per-trade streams** (distinct seeds, or a
+  per-trade sub-stream), across-group errors become genuinely independent and `SE_book = √(Σ SE_i²)` grouped
+  by `(product, model)`. **The grouping is NOT kept in the code, and the ruling's wording is corrected here
+  rather than left standing:** with a linear combination `Σ_groups Σ_within = Σ_all`, so grouping code would
+  change no answer and be **unexercisable** — a mutation to the grouping key would survive every test (§4's
+  third survivor kind, §6's nothing-speculative). It was removed at T83's build with the reasoning kept in
+  `engine/position.py`; reinstating it is a few lines *and testable* once quadrature is valid, which is the
+  right order. **R2 (greeks of an estimate) and R3 (scenario) face the
+  identical cross-trade-correlation question**, so this is a standing structural-track concern, not a one-off.
+  *(Ruled 0450; within-a-`(product,model)`-group the linear sum is forced by §3.1 referential transparency —
+  ρ=1 — and stays exact regardless.)*

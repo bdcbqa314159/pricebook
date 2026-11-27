@@ -6,6 +6,89 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.85.0] - 2026-11-26
+
+### Added — tranche 83, R1.2: `Position` and aggregation (a book's value, and its ERROR)
+
+- **`products/position.py` (L2)** — `Position`: the trades held, and the currency the book reports in.
+- **`engine/position.py` (L4)** — `position_value(position, models)`: the summed value, and the
+  standard error **combined by group**.
+
+The PV aggregation telescopes, exactly as T82's reduction did, so it is the guard rather than the test.
+The content is the error, and the spec deliberately left it as an **obligation** — state the
+independence assumption and oracle against it — rather than pre-committing a form. Measuring it was the
+right instruction, because the form is richer than the hypothesis.
+
+#### The SE combination — measured, then OVERTURNED at review, and the second answer is the right one
+
+    SE_book = Σ SE_i          a conservative upper bound under unknown cross-trade correlation
+
+The build arrived at `√(Σ_groups (Σ_within SE)²)`: linear within a `(product, model)` pair, quadrature
+across. The within-pair half was right and is **forced** (below). The across-pair half was **wrong**, and
+review caught it with an argument about the architecture rather than the arithmetic — then verified
+independently at build: every Monte-Carlo dispatch draws from `UniformSource(config.seed)`, **nothing
+assigns distinct seeds per trade** (production carries a single hardcoded `seed=7`), and the same seed
+yields an **identical** uniform stream. So trades sharing a seed consume **overlapping** streams — common
+random numbers — and their errors are **correlated, not independent**. Quadrature assumes `ρ = 0`, which
+the architecture contradicts, and it fails toward **understating** a book's risk number: the dangerous
+direction. Ruled linear throughout (0450).
+
+**The grouping was then removed rather than kept as a seam**, departing from the ruling's wording with
+the reason recorded in both the module and `to_go_deeper`: with a linear sum `Σ_groups Σ_within = Σ_all`,
+so grouping code changes no answer and is **unexercisable** — a mutation to the grouping key would survive
+every test (§4's third survivor kind, §6's nothing-speculative). Reinstating it is a few lines *and
+testable* once independent per-trade seeding makes quadrature valid, which is the right order.
+
+**§3.1 is what forces the within-pair half, and it survives the overturning.** Referential transparency means identical inputs give
+identical output — verified on a real MC engine rather than assumed: dispatching the same
+`(product, model)` twice is **bit-identical** in PV *and* SE. So two trades of one product do not carry
+*independent* errors, they carry **the same** error, and their bands add **linearly**. The hypothesis
+`√(Σ SE_i²)` throughout would **understate** any book holding two lots of one contract — an entirely
+ordinary book.
+
+So: **within a group the linear sum is a fact** about this library, forced by the charter's own
+determinism guarantee; **across groups independence is an assumption**, named as one — different
+pricers use different fixed seeds and different payoffs, which makes their errors different but not
+provably uncorrelated. A book that genuinely shared Monte-Carlo paths across trades would need the
+linear regime throughout, and `engine/position.py` says where to revisit it.
+
+A band has **no sign**, so a long and an offsetting short of the same contract net to zero *value* with
+their bands **adding** — the uncertainty about a netted zero is not zero. Oracled explicitly, because a
+reader may reasonably expect the cancellation to carry through.
+
+#### Three defects the spec did not anticipate, two of them in my own first draft
+
+- **Grouping keyed on `id(model)`** — identity, not equality. Two structurally equal models became two
+  groups, so the within-group sum never fired and the combination silently degraded to the independent
+  regime: the **understating** direction. Now grouped by equality, with a list scan rather than a dict
+  because `MarketSnapshot` holds mappings and is unhashable. The mutation that reverts it is in the
+  sweep.
+- **The spec's empty book was not expressible.** It asked for `PV 0` without noticing that a `Money`
+  needs a currency an empty collection of trades cannot supply. That forced a real answer rather than a
+  placeholder: `Position` **declares** its currency — not speculative, since the empty case requires it.
+- **And declaring it exposed the third:** the aggregator took the **first** trade's currency and ignored
+  the rest, so a dollar contract and a euro one were **summed** and reported as a total. "Multi-currency
+  aggregation is out of scope" licenses not *supporting* cross-currency netting; it does not license
+  adding unlike currencies. Now refused, naming both currencies.
+
+All three failed in the silent direction — a plausible number rather than an error — and each has its
+own oracle, none of which the spec contained.
+
+#### Gates
+
+v0.85.0 · **3336 tests** (floor 3336, derived from the collected count rather than typed) · twelve gates ·
+ruff + pyright clean · `slow` ok. Representation stands at **2 of 5** on the generated scoreboard.
+Sweep: 8/8 applied, 8 killed, **zero single-killers** — the mutation that reinstates the overturned
+quadrature convention dies to 6 tests.
+
+#### The R1-plan premise paid off on its first intended use
+
+T82 recorded that the structural track's fixture **population must include an estimate** (its sole sweep
+survivor was an SE path unexercised because every fixture pricer was exact). T83 is the first unit that
+needed it, and it needed **two**: the fixture carries two registered test-pricers with *known, unequal*
+SEs plus one exact pricer, so every book-level assertion is **exact** rather than banded — including the
+mixed book, where the exact leg contributes zero variance rather than crashing a naive `√(Σ se²)`.
+
 ## [0.84.0] - 2026-11-26
 
 ### Added — tranche 82, R1.1: the `Trade` type (the representation layer begins)
