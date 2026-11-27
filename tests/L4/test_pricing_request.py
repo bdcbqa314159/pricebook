@@ -202,6 +202,35 @@ def test_an_UNASSIGNED_product_type_is_refused_not_skipped():
     outcome = value(request)
     assert isinstance(outcome, PricingFailure)
     assert "_EstimateB" in outcome.reason, outcome.reason
+    # **The reason must say WHICH refusal this is**, and the first version of this assertion could
+    # not tell. Bypassing the unassigned-model guard still refuses the book — `model` becomes `None`,
+    # so the date lookup yields `None`, mismatches `as_of`, and the *date* refusal fires instead.
+    # Both messages name the product, so checking only the name let that mutation survive with zero
+    # killers: two guards falling through to each other, with the diagnostic silently wrong. The
+    # behaviour stays safe either way; what breaks is the message, which would tell someone
+    # debugging that a date is stale when in fact no model is assigned at all.
+    assert "assigns no model" in outcome.reason, outcome.reason
+    assert "valuation date" not in outcome.reason.lower(), outcome.reason
+
+
+def test_an_EMPTY_assignment_with_a_non_empty_book_refuses_for_the_RIGHT_reason():
+    """Second killer for the unassigned-type guard, from a different configuration shape.
+
+    The oracle above supplies a *partial* assignment; this supplies an **empty** one, so the guard is
+    probed on the first trade rather than a later one and on a degenerate map rather than an
+    incomplete one. It asserts the same thing that matters — that the refusal says *no model is
+    assigned* rather than complaining about a date — because bypassing the guard lets `model = None`
+    flow into the date check and produce a confidently wrong diagnosis.
+    """
+    position = Position(
+        currency=USD,
+        trades=(Trade(product=_EstimateA(USD), units=1.0, direction=TradeDirection.LONG),),
+    )
+    outcome = value(PricingRequest(position=position, assignment={}, as_of=TODAY))
+    assert isinstance(outcome, PricingFailure)
+    assert "assigns no model" in outcome.reason, outcome.reason
+    assert "_EstimateA" in outcome.reason, outcome.reason
+    assert "valuation date" not in outcome.reason.lower(), outcome.reason
 
 
 # ============================================================================================
