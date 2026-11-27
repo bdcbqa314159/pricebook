@@ -3,23 +3,35 @@
 `PV = Σ direction_i · units_i · price(product_i, model_i)`, which telescopes and is therefore the
 guard rather than the test. The tranche's real content is the **standard error**:
 
-    SE_book = √( Σ_groups ( Σ_within-group SE )² )      where a group is one `(product, model)` pair
+    SE_book = Σ SE_i          a conservative upper bound under unknown cross-trade correlation
 
-**Why not `√(Σ SE_i²)` throughout, which is the form one reaches for first.** §3.1 makes every pricer
-referentially transparent — identical inputs give identical output — and that is *verified* on a real
-MC engine in the oracle, not assumed: dispatching the same `(product, model)` twice is **bit-identical**
-in PV *and* SE. So two trades of the same product and model do not carry *independent* errors; they
-carry **the same** error. Their bands add **linearly**, and treating them as independent would
-**understate** the book — for the entirely ordinary book that holds two lots of one contract.
+**Why a linear sum and not `√(Σ SE_i²)`, which is the form one reaches for first.** Two separate facts
+point the same way, and the first was verified rather than assumed:
 
-So the two halves have different standing, and the difference is worth keeping visible:
+* **Within one `(product, model)` pair the errors are the SAME error.** §3.1 makes every pricer
+  referentially transparent, and dispatching the same pair twice is **bit-identical** in PV *and* SE
+  (asserted in the oracle). So `ρ = 1` exactly, and bands add linearly. This half is a **fact** about
+  this library, not a convention.
+* **Across pairs the errors are CORRELATED, not independent.** Every Monte-Carlo dispatch draws from
+  `UniformSource(config.seed)` and **nothing assigns distinct seeds per trade** — production has a
+  single hardcoded `seed=7` — so two trades whose configs share a seed consume **overlapping streams**
+  (common random numbers). Quadrature assumes `ρ = 0`, which the architecture does not support, and it
+  fails in the **understating** direction: the dangerous one for a book's risk number. *(Ruled 0450 by
+  Cowork, which checked `rng.py`/`mc_path_engine`/`heston_mc`; verified here independently — the same
+  seed yields an identical uniform stream.)*
 
-* **within a group the linear sum is a FACT** about this library, forced by §3.1's determinism;
-* **across groups independence is an ASSUMPTION.** Different pricers use different fixed seeds and
-  different payoffs, which makes their errors different but not provably uncorrelated. Books whose
-  trades genuinely share Monte-Carlo paths would need the linear regime throughout; nothing in the
-  tree does that today, and if a later unit shares paths across trades, this is where it must be
-  revisited.
+So the combination is linear throughout: **exact** within a group, and a **conservative upper bound**
+across them. It tightens to quadrature only once the infrastructure guarantees independent per-trade
+seeding, which is recorded in `to_go_deeper.md` as an R-track MC-infrastructure item — R2 (greeks of an
+estimate) and R3 (scenario) meet the identical question.
+
+**The `(product, model)` grouping is NOT kept as a seam, deliberately, and that departs from the
+ruling's wording.** With a linear combination, `Σ_groups Σ_within = Σ_all`: no grouping changes the
+answer, so grouping code would be **unexercisable** — a mutation to the grouping key would survive every
+test, which is §4's third survivor kind (surface that cannot be tested should not exist) and §6's
+nothing-speculative rule. Keeping it would trade a real hole for a hypothetical future. The *reasoning*
+is preserved here and in `to_go_deeper`, which is where a future seam belongs; reinstating the grouping
+is a few lines when quadrature becomes valid, and it will then be testable.
 
 A band has **no sign**, so a long and an offsetting short of the same contract net to zero *value* with
 their bands **adding**: the uncertainty about a netted zero is not zero. That falls out of
@@ -40,7 +52,6 @@ Provenance:
 
 from __future__ import annotations
 
-import math
 from collections.abc import Sequence
 
 from pricebook.engine.trade import trade_value
@@ -69,14 +80,12 @@ def position_value(
         )
 
     total = 0.0
-    # `(product, model)` → the summed band of the trades sharing it, grouped **by equality and not
-    # by identity**. The first draft keyed on `id(model)`, so two structurally equal models were
-    # different groups and the within-group linear sum never fired — the grouping silently degraded
-    # to the independent regime, which is the understating direction. Equality is the right test
-    # because §3.1 is about identical *inputs*: a frozen dataclass compares structurally, and a
-    # list scan rather than a dict is required because `MarketSnapshot` holds mappings and so is
-    # unhashable.
-    grouped: list[tuple[object, object, float]] = []
+    # The bands sum LINEARLY (ruled 0450): exact within a `(product, model)` pair, where §3.1 forces
+    # the same error, and a conservative upper bound across pairs, where the shared-seed architecture
+    # makes the errors correlated rather than independent. No grouping, because with a linear sum no
+    # grouping changes the answer and the code would be unexercisable -- see the module docstring.
+    bands = 0.0
+    seen_estimate = False
 
     for trade, model in zip(position.trades, models):
         priced = trade_value(trade, model)
@@ -92,17 +101,11 @@ def position_value(
             )
         total += priced.pv.amount
         if priced.standard_error is not None:
-            for index, (product, grouped_model, band) in enumerate(grouped):
-                if product == trade.product and grouped_model == model:
-                    grouped[index] = (product, grouped_model, band + priced.standard_error)
-                    break
-            else:
-                grouped.append((trade.product, model, priced.standard_error))
+            bands += priced.standard_error
+            seen_estimate = True
 
-    # No band at all when nothing in the book is an estimate — including the empty book, which is
-    # not an estimate either. A `0.0` would claim a *measured* zero uncertainty, a stronger and
-    # different statement than "there is no error bar here".
-    combined = (
-        math.sqrt(sum(band * band for _, _, band in grouped)) if grouped else None
-    )
+    # No band when nothing in the book is an estimate — including the empty book, which is an exact
+    # sum of nothing. `None` is §3's marker for "not a Monte-Carlo estimate"; a `0.0` would claim a
+    # *measured* zero uncertainty, a stronger and different statement (ruled 0450(c)).
+    combined = bands if seen_estimate else None
     return PricingResult(pv=Money(total, position.currency), standard_error=combined)

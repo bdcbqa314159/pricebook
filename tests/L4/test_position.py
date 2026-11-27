@@ -182,23 +182,33 @@ def test_a_SINGLE_trade_position_is_that_trade_exactly():
 # 3. The SE combination — the load-bearing new oracle, in BOTH regimes.
 # ============================================================================================
 
-def test_ACROSS_groups_the_variances_add_the_stated_independence_assumption():
-    """Different `(product, model)` groups: variances add — `√(Σ SE_i²)`.
+def test_ACROSS_pairs_the_bands_also_add_LINEARLY_a_conservative_upper_bound():
+    """Different `(product, model)` pairs: the bands **add**, they do not combine in quadrature.
 
-    This is the **assumed** half, and the assumption is named: different pricers use different fixed
-    seeds and different payoffs, so their errors are different but not provably uncorrelated. The
-    assertion is **exact** (known SEs), not banded, so a mutant combining them linearly dies.
+    **This oracle asserted the opposite until it was overturned at review (0450), and the reason is
+    architectural rather than numerical.** Quadrature across pairs assumes the errors are
+    independent (`ρ = 0`). They are not: every Monte-Carlo dispatch draws from
+    `UniformSource(config.seed)` and **nothing assigns distinct seeds per trade** — production
+    carries a single hardcoded `seed=7` — so two trades whose configs share a seed consume
+    **overlapping** streams. Verified directly: the same seed yields an identical uniform stream.
+
+    Quadrature would therefore have **understated** the book, which is the dangerous direction for a
+    risk number. The linear sum is a **conservative upper bound** under unknown-but-positive
+    cross-trade correlation, and it is *exact* in the one case the architecture pins (`ρ = 1` within
+    a pair). It tightens to quadrature only when per-trade seeding is guaranteed independent —
+    recorded in `to_go_deeper.md`.
     """
     position, models = _estimate_book()
     book = position_value(position, models)
     assert isinstance(book, PricingResult)
 
-    expected = math.sqrt((2.0 * SE_A) ** 2 + (3.0 * SE_B) ** 2)
+    expected = 2.0 * SE_A + 3.0 * SE_B
     assert book.standard_error == pytest.approx(expected, rel=1e-15, abs=0.0)
-    # the premise that makes this discriminating: the LINEAR sum is a materially different number,
-    # so the oracle distinguishes the two conventions rather than passing under either.
-    linear = 2.0 * SE_A + 3.0 * SE_B
-    assert abs(linear / expected - 1.0) > 0.1, (linear, expected)
+    # the premise that makes this discriminating: quadrature is a materially different (smaller)
+    # number, so the oracle distinguishes the two conventions rather than passing under either.
+    quadrature = math.sqrt((2.0 * SE_A) ** 2 + (3.0 * SE_B) ** 2)
+    assert quadrature < expected
+    assert abs(quadrature / expected - 1.0) > 0.1, (quadrature, expected)
 
 
 def test_WITHIN_a_group_the_standard_errors_add_LINEARLY_because_the_error_is_identical():
@@ -388,62 +398,60 @@ def test_a_MIXED_CURRENCY_book_is_REFUSED_rather_than_summed():
     assert "USD" in outcome.reason and "EUR" in outcome.reason, outcome.reason
 
 
-def test_the_SE_grouping_is_by_EQUALITY_not_identity():
-    """The premise the within-group oracle silently depended on, and which the build got wrong.
+def test_two_equal_models_are_INDISTINGUISHABLE_to_the_book_as_they_must_be():
+    """What the removed grouping rested on, kept because the fact outlives the mechanism.
 
-    The first draft keyed its groups on `id(model)`, so two **structurally equal** models were two
-    groups and the within-group linear sum never fired — the grouping degraded to the independent
-    regime, which is the *understating* direction. This asserts the thing that was wrong: two
-    separately-constructed but equal models must group, which is what §3.1 implies (identical
-    *inputs*, not the same object).
+    An earlier draft grouped trades by `(product, model)` to make the within-pair sum linear and the
+    across-pair sum quadrature, and keyed the grouping on `id(model)` — identity rather than
+    equality — so two structurally equal models split into separate groups and the combination
+    silently degraded to the understating regime. The ruling collapsed the combination to linear
+    throughout, which removed the grouping entirely (with a linear sum no grouping changes the
+    answer, so grouping code would be unexercisable — §4's third survivor kind).
+
+    The *fact* survives the mechanism and is still worth pinning: two separately-constructed but
+    equal models are the same input, so §3.1 makes them the same dispatch. If that ever stops being
+    true, the reasoning in `engine/position.py` about `ρ = 1` within a pair stops being true with it.
     """
     first, second = _ModelA(_market()), _ModelA(_market())
     assert first is not second          # genuinely distinct objects
-    assert first == second              # and structurally equal, so one group
+    assert first == second              # and structurally equal, so the same input
 
-    position = Position(
-        currency=USD,
-        trades=(
-            Trade(product=_EstimateA(USD), units=1.0, direction=TradeDirection.LONG),
-            Trade(product=_EstimateA(USD), units=1.0, direction=TradeDirection.LONG),
-        ),
-    )
-    book = position_value(position, [first, second])
-    assert isinstance(book, PricingResult)
-    # linear (one group), not quadrature (two groups) -- and the two differ measurably
-    assert book.standard_error == pytest.approx(2.0 * SE_A, rel=1e-15, abs=0.0)
-    assert math.sqrt(2.0) * SE_A < 2.0 * SE_A
+    one = price(_EstimateA(USD), first)
+    other = price(_EstimateA(USD), second)
+    assert isinstance(one, PricingResult) and isinstance(other, PricingResult)
+    assert one.pv.amount == other.pv.amount
+    assert one.standard_error == other.standard_error
 
 
 # ============================================================================================
 # 6. Second killers — four guards died to ONE test each, and here hardening is free.
 # ============================================================================================
 
-def test_quadrature_is_STRICTLY_LESS_than_the_linear_sum_across_groups():
-    """Second killer for the across-group combination, as a REQUIREMENT not a restatement.
+def test_the_book_band_is_STRICTLY_GREATER_than_quadrature_would_give():
+    """Second killer for the combination, as a REQUIREMENT rather than a restatement.
 
-    For two or more positive bands, `√(Σ SE²) < Σ SE` strictly — that is arithmetic, not a
-    convention, so it holds whatever the SEs are and survives a transcription error in the exact
-    expected value. A mutant that sums linearly across groups makes the two **equal**, so this
-    kills it from a different direction than the pointwise assertion above.
+    For two or more positive bands, `Σ SE > √(Σ SE²)` strictly — arithmetic, not a convention, so it
+    holds whatever the SEs are and survives a transcription error in the expected value. A mutant
+    that combines in quadrature makes the book's band the *smaller* quantity, so this kills it from a
+    different direction than the pointwise assertion above — and in the direction that matters: a
+    book's reported uncertainty must not become the optimistic one by accident.
     """
     position, models = _estimate_book()
     book = position_value(position, models)
     assert isinstance(book, PricingResult)
     assert book.standard_error is not None
 
-    linear = 2.0 * SE_A + 3.0 * SE_B
-    assert book.standard_error < linear
-    # and strictly, by a margin that is not floating-point noise
-    assert linear - book.standard_error > 0.1, (linear, book.standard_error)
+    quadrature = math.sqrt((2.0 * SE_A) ** 2 + (3.0 * SE_B) ** 2)
+    assert book.standard_error > quadrature
+    assert book.standard_error - quadrature > 0.1, (book.standard_error, quadrature)
 
 
 def test_a_currency_mismatch_in_the_FIRST_trade_is_caught_too():
-    """Second killer for the currency guard, and it probes a different failure mode.
+    """Second killer for the currency guard, probing a different failure mode.
 
-    The existing oracle puts the mismatching trade **second**, so a guard that only ran after the
-    first accumulation would still pass it. This puts it **first** — and additionally asserts the
-    book does not accumulate anything before refusing, which a guard placed after the sum would.
+    The oracle above puts the mismatching trade **second**, so a guard that only ran after the first
+    accumulation would still pass it. This puts it **first**, where a guard placed after the sum
+    would have already added a euro amount into a dollar book.
     """
     euro = Currency("EUR")
     position = Position(
@@ -461,10 +469,10 @@ def test_a_currency_mismatch_in_the_FIRST_trade_is_caught_too():
 def test_a_failing_FIRST_trade_fails_the_book_before_any_partial_total():
     """Second killer for the failure propagation, from the opposite end of the book.
 
-    The existing oracle's unpriceable trade is **second**, so a wrapper that returned the running
-    total on failure would still have summed one trade first. With the failure **first** there is
-    nothing to partially total, and a wrapper that swallowed it would return `PV 0` — a number, and
-    the worst possible answer for an unpriceable book.
+    The other oracle's unpriceable trade is **second**, so a wrapper that returned the running total
+    on failure would still have summed one trade first. With the failure **first** there is nothing
+    to partially total, and a wrapper that swallowed it would return `PV 0` — a number, and the worst
+    possible answer for a book that cannot be valued.
     """
 
     class _AlsoUnpriceable:
@@ -485,9 +493,9 @@ def test_a_failing_FIRST_trade_fails_the_book_before_any_partial_total():
 def test_TOO_MANY_models_is_refused_as_well_as_too_few():
     """Second killer for the length guard — `zip` truncates in **both** directions.
 
-    The existing oracle passes too *few* models. Too *many* is the mirror and equally silent: `zip`
-    would price every trade and quietly ignore the surplus models, which means a caller who paired
-    them wrongly gets a confident total computed against the wrong models.
+    The other oracle passes too *few* models. Too *many* is the mirror and equally silent: `zip`
+    would price every trade and quietly ignore the surplus, so a caller who paired them wrongly gets
+    a confident total computed against the wrong models.
     """
     position, models = _estimate_book()
     with pytest.raises(ValueError, match="one model per trade"):
