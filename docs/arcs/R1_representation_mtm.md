@@ -66,6 +66,14 @@ blocked on the rework. Recorded so R1 stays scoped to representation, not founda
 - **Notional is a DIMENSIONLESS quantity** (`units: float`), never `Money` — `price().pv` is money, so the
   trade multiplier must be dimensionless or `trade_value` is money² (T82(a)). The product carries the
   currency; the trade carries how many.
+- **The §3 ENGINE CONTRACT is the semantic authority for structural arcs — the catalogue is the oracle, the
+  contract is the source of truth** (as the held source is for a literature arc, §5). Twice the real content
+  came from the contract, not finance: T82's SE scaling from §3.7 (an estimate carries its error), T83's SE
+  combination from §3.1 (referential transparency ⇒ same `(product,model)` ⇒ bit-identical error ⇒ ρ=1,
+  linear). Read §3 before guessing a representation's semantics. *(Ruled 0453.)*
+- **A product does NOT determine its model** (one-to-many: 5 products carry multiple registered models), and
+  §3 models carry their own calibrated market — so model choice is **supplied data**, never resolved from a
+  product (T83→R1.3; the "resolve the snapshot per trade" wording is retired, 0453).
 
 ## Reuse / what it does NOT do
 - Reuses the **registry** (dispatch is already `(product, model) → pricer`), every existing engine, the
