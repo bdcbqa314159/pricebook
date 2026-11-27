@@ -6,6 +6,72 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.86.0] - 2026-11-27
+
+### Added — tranche 84, R1.3: `PricingRequest` and `value` (marking a book as of one date)
+
+- **`products/pricing_request.py` (L2)** — `PricingRequest`: a `Position`, a `{product_type → model}`
+  assignment, and the date the book is marked as of.
+- **`engine/pricing_request.py` (L4)** — `value(request)`: resolve each trade to its assigned model,
+  then reuse T83's aggregation wholesale. It adds exactly two things of its own, and both are refusals.
+
+#### The shape came from a build-time finding that contradicted the arc plan
+
+The R1 plan had the request *"resolve the correct snapshot per trade"*. **It cannot**, and holding the
+tranche to establish that was the right call: measured against the registry, the product→model mapping is
+**one-to-many** and materially so — `EuropeanEquityOption` has four registered models,
+`NominalCap` four, `VarianceSwap` three (replication, 3/2, Lévy) — and *which* model prices a variance
+swap is a modelling choice nothing in the trade records. Compounding it, §3 makes every model carry the
+`MarketSnapshot` it was calibrated to, so "supply a market, get a model" would be **calibration**, not
+representation.
+
+Ruled 0453: the request carries an explicit `{product_type → model}` assignment of already-calibrated
+choices — the desk's pricing configuration — and the plan's resolution language is retired. It is a
+**mapping, not a policy** (§6: a house-model choice is data; a rule picking models would be the
+speculative engine the charter forbids). The finding is now a **fixture** rather than an argument: a
+test product with *two* registered pricers worth 10 and 999, so resolution must be a choice and an
+implementation reaching into the registry for "the" model could not work at all.
+
+#### `as_of` is DECLARED, not derived — the one decision the type turns on
+
+Every assigned model already carries `market.valuation_date` (§3 invariant 2), so the date *could* be
+read off the models and checked for mutual agreement. **That check is strictly weaker**, and the oracle
+asserts the case it cannot catch: two models that agree **with each other** on yesterday's date are
+perfectly self-consistent, so a consistency scan finds nothing, the book values as-of yesterday, and the
+caller believes it is today's mark. Declaring the date states what the caller *meant*, so each model is
+checked against the intent rather than against the others — the same argument accepted for
+`Position.currency` at 0446. Both branches are oracled, including that the identical assignment is
+**accepted** once the request says what it means.
+
+#### Invariant 6 is inherited, not re-implemented
+
+A settled trade already prices to PV 0 inside its engine (§3 invariant 6), so `value` adds **no** date
+filtering — a second copy of that guard is what §4's consolidation rule warns against. The oracle checks
+the inheritance survives **two** wrappers (`trade_value`, then `value`) using an **in-the-money** settled
+option, because an out-of-the-money one has intrinsic 0 and the guard would stay invisible (F-4.1's
+premise).
+
+#### Gates
+
+v0.86.0 · **3349 tests** (floor 3349, derived from the collected count) · twelve gates · ruff + pyright
+clean · `slow` ok. Representation is **3 of 5**. Sweep: 7/7 applied, 7 killed, **zero single-killers**.
+
+#### The sweep's survivor was a wrong DIAGNOSTIC, not a wrong answer
+
+Bypassing the unassigned-model guard still **refused** the book: `model` becomes `None`, the date lookup
+yields `None`, it mismatches `as_of`, and the *date* refusal fires instead. Both messages name the
+product, so an oracle checking only the product name passed the mutation with **zero** killers. The
+behaviour was safe either way; what broke was the diagnosis — a debugger would be told a date was stale
+when no model was assigned at all. Two guards falling through to each other, indistinguishable from
+outside. The oracle now asserts *which* refusal fired, with a second killer from a degenerate
+(empty-assignment) configuration.
+
+#### R1.3 and R1.4 stay separate
+
+Raised at review as possibly one unit. Keeping them apart: `value()` returns a PV and a band, while
+R1.4's content is a **report** — per-trade breakdown and cashflow ladder — which is a new type with new
+structure rather than a richer return. The seam is the report, not the valuation.
+
 ## [0.85.0] - 2026-11-26
 
 ### Added — tranche 83, R1.2: `Position` and aggregation (a book's value, and its ERROR)
