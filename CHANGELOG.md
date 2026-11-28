@@ -6,6 +6,58 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.87.0] — 2026-11-28
+
+### T85 · R1.4 — the mark-to-market breakdown report
+
+`value(request)` answers *what the book is worth*; `mark_to_market(request)` answers **where that
+number comes from**: an `MtMReport` carrying the totals, the date marked, and one row per trade with
+that trade's `PricingResult` and **the model that priced it**. A distinct type, not a richer `value()`
+return (ruled 0456), so the engine's return shape never varies with how much detail a caller wants.
+
+#### Two views of one computation, structurally rather than by assertion
+
+The report and the scalar share every step: `resolve_models` (extracted here at its second consumer),
+`priced_trades`, and `combine`. The only difference is that the report *keeps* the per-trade results
+instead of discarding them after the sum. So the reconciliation oracle
+(`report.total == value(request)`) **telescopes** and is the guard; the tests are the rows — each
+against its own `trade_value`, the rows summing to the total in every column, and the attribution.
+
+#### `trade_value` was discarding the decomposition, which "reuse wholesale" could not survive
+
+The spec called for per-row dirty/clean/accrued by reusing T82–T84 wholesale, but `trade_value`
+built its result from `pv` and `standard_error` only — dropping `accrued` and `basis`. It now scales
+`accrued` by the **signed** scale, which is forced rather than chosen: `clean = pv − accrued` must
+commute with scaling, so `scale·pv − scale·accrued = scale·clean`. A short owes its accrued interest,
+which is why it cannot borrow the band's `abs(scale)` — a conflation the sweep probes from both
+sides (one row's sign, and an offsetting long/short netting to zero).
+
+#### The accrued aggregation rule is derived from the sum identity, not chosen
+
+A row whose `accrued is None` has `clean == pv`, so the book's clean equals the sum of the rows'
+cleans **only if** an undecomposed row contributes zero accrued. Hence `None` contributes nothing and
+the total is `None` only when no row decomposed. A foreign-currency `accrued` is **refused** rather
+than summed, because `Money` raises on mixing and a raise would break §3.4 — reachable only from a
+test pricer that decomposes, which is how it is oracled rather than left as untestable surface.
+
+#### The clean/accrued columns are type-present and engine-dormant — said plainly
+
+**No engine in the tree populates `accrued`** (0 of 50), so on every real book `accrued is None` and
+`clean ≡ pv`. Cowork's spec first claimed the decomposition came "for free"; that is true of the
+*type* and degenerate in *practice* — the T33b input-population shape, with the one respect the code
+discriminates on uniform across the entire population. Ruled 0459(b): keep the columns (a mark *is*
+dirty/clean/accrued, and `PricingResult` already commits to the decomposition), oracle them against a
+**known-accrued test pricer** so they are exact and non-degenerate, and record the dormancy in
+`to_go_deeper.md` rather than let a green lit only by a test pricer read as production coverage.
+
+#### Gates
+
+v0.87.0 · **3369 tests** (floor 3369, derived from the collected count) · twelve gates · ruff +
+pyright clean · `slow` ok. Representation is **4 of 5**; only `Portfolio` is outstanding. Sweep:
+11/11 applied, 11 killed, **zero survivors and zero single-killers** — the first pass left four
+single-killers, every one on the accrued axis, which is the one axis with no production path to
+corroborate it, so each got an independent second killer before the stamp.
+
 ## [0.86.0] - 2026-11-27
 
 ### Added — tranche 84, R1.3: `PricingRequest` and `value` (marking a book as of one date)
