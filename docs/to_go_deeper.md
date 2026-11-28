@@ -461,3 +461,11 @@ rulings, which is where §1 says a deferred-but-oracle-able route lives. See fin
   identical cross-trade-correlation question**, so this is a standing structural-track concern, not a one-off.
   *(Ruled 0450; within-a-`(product,model)`-group the linear sum is forced by §3.1 referential transparency —
   ρ=1 — and stays exact regardless.)*
+- **Engines should decompose `accrued` (earned-but-unpaid interest), so clean/dirty is live in production, not
+  only under a test pricer (surfaced T84→R1.4).** `PricingResult` commits to a dirty/clean/accrued
+  decomposition (its docstring: "a DECOMPOSITION, not a scalar"), but **0 of 50 engines populate `accrued`**,
+  so `accrued is None` and `clean ≡ pv` on every real path — the MtM report's clean/accrued columns are
+  **type-present, engine-dormant**, oracled only by a known-accrued test pricer (R1.4/0459(b)). A product with
+  a running coupon (a swap mid-period, a bond between coupons) has real accrued interest; the engine that
+  prices it should split it out. Pulled when a product needs clean/dirty in production (desk marks routinely
+  do) — until then the test pricer keeps the report's handling non-degenerate and exact. *(Surfaced 0459.)*
