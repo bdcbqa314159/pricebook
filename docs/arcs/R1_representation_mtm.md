@@ -39,10 +39,14 @@ stateful shell). Dependencies point DOWN into the existing pricers; the engines 
   (§0's missing half). **Oracle:** a one-trade request == `price(product, model)`; the request resolves the
   correct snapshot per trade (a multi-asset book reaches each asset's curves/surfaces); valuation-date
   handling reuses invariant-6 (a settled trade is PV 0, §3).
-- **R1.4 — the mark-to-market procedure** — dispatch each trade, aggregate, emit PV + per-trade breakdown +
-  cashflow ladder. **Oracle:** MtM == the manual sum of `price()` calls (a reconciliation identity, exact);
-  the cashflow ladder ties to each product's own schedule. **The imperative shell** — it orchestrates, the
-  pure engines compute (§3 unchanged).
+- **R1.4 — the MtM breakdown REPORT** (ruled 0456 — a distinct type, not a richer `value()` return). A
+  `MtMReport` built from a `PricingRequest`: book totals + a **per-trade breakdown** (each trade's
+  `PricingResult` contribution, which model priced it; **dirty/clean/accrued come free** — `PricingResult`
+  already decomposes). **The cashflow ladder is DEFERRED**: `PricingResult` carries no dated cashflows and no
+  engine exposes them, so the ladder waits for the **schedule/calendar rework arc** (cashflow exposure) — R1.4
+  does not dig that foundation. **Oracle:** the report's totals == `value(request)` exactly (reconciliation);
+  each breakdown row == its own `trade_value`; the rows sum to the total. Separate type so the engine return
+  shape never varies by caller appetite (§3).
 - **R1.5 (capstone) — the mixed-asset book** — value a swap + swaption + CDS book end-to-end in one report.
   **Oracle:** the book PV == the sum of the three independently-priced trades; a scenario preview (reprice the
   book under one shocked snapshot) as a seam to R3, not built here.
@@ -66,6 +70,20 @@ blocked on the rework. Recorded so R1 stays scoped to representation, not founda
 - **Notional is a DIMENSIONLESS quantity** (`units: float`), never `Money` — `price().pv` is money, so the
   trade multiplier must be dimensionless or `trade_value` is money² (T82(a)). The product carries the
   currency; the trade carries how many.
+- **The §3 ENGINE CONTRACT is the semantic authority for structural arcs — the catalogue is the oracle, the
+  contract is the source of truth** (as the held source is for a literature arc, §5). Twice the real content
+  came from the contract, not finance: T82's SE scaling from §3.7 (an estimate carries its error), T83's SE
+  combination from §3.1 (referential transparency ⇒ same `(product,model)` ⇒ bit-identical error ⇒ ρ=1,
+  linear). Read §3 before guessing a representation's semantics. *(Ruled 0453.)*
+- **A product does NOT determine its model** (one-to-many: 5 products carry multiple registered models), and
+  §3 models carry their own calibrated market — so model choice is **supplied data**, never resolved from a
+  product (T83→R1.3; the "resolve the snapshot per trade" wording is retired, 0453).
+- **A refusal oracle pins WHICH guard refused, not merely that one did** (WATCH, candidate §4 clause on a
+  second instance — T84). When two refusal guards can catch the same malformed input, an oracle checking only
+  the *outcome* (even the message's product name) cannot tell which fired, so bypassing one survives — the
+  answer stays safe while the diagnosis breaks. Representation code is **guard-heavy**, so assert *which*
+  refusal fires, and give each guard a second killer. *(T84: bypassing `model is None` survived because the
+  date-mismatch guard then refused the `None`-dated book with an indistinguishable message.)*
 
 ## Reuse / what it does NOT do
 - Reuses the **registry** (dispatch is already `(product, model) → pricer`), every existing engine, the
