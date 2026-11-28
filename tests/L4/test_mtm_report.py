@@ -320,6 +320,45 @@ def test_a_book_where_NOTHING_decomposes_reports_accrued_as_None_not_zero():
     assert report.total.clean == report.total.pv
 
 
+def test_TWO_accruing_trades_sum_their_accrued_in_the_total():
+    """A second, independent killer for the accrued aggregation — and it needs to be independent.
+
+    Every oracle on this axis rests on a test pricer, because no engine populates `accrued`: there is
+    no production path that would notice a dropped decomposition, so a single-killer here has no
+    second line of defence anywhere in the tree (§9's single-point-of-failure oracle, in the one place
+    the periodic sweep is the *only* backstop). Two accruing trades with **different units** also pin
+    the scaling in the aggregate as well as per row: `1.5 x 2 + 1.5 x 3 = 7.5`.
+    """
+    request = _request(_long(_Accruing(USD), 2.0), _long(_Accruing(USD), 3.0))
+    report = mark_to_market(request)
+    assert not isinstance(report, PricingFailure)
+    assert report.total.pv == Money(250.0, USD)
+    assert report.total.accrued == Money(7.5, USD)
+    assert report.total.clean == Money(242.5, USD)
+    assert report.total.accrued.amount == sum(row.result.accrued.amount for row in report.rows)
+
+
+def test_an_offsetting_long_and_short_net_their_accrued_to_zero():
+    """The signed scaling, asserted a second way: by NETTING rather than by one row's sign.
+
+    A long and a short of the same size net to zero PV *and* zero accrued, because accrued carries the
+    direction. Were accrued to borrow the band's `abs(scale)`, both rows would report `+3.0` and the
+    total would read `6.0` against a true `0.0` — so this kills the conflation from the opposite side
+    of the one-row oracle above. Note the **band does not net**: the uncertainty about a netted zero is
+    not zero (T83), and here there is none only because the accruing pricer is exact.
+    """
+    request = _request(
+        _long(_Accruing(USD), 2.0),
+        Trade(product=_Accruing(USD), units=2.0, direction=TradeDirection.SHORT),
+    )
+    report = mark_to_market(request)
+    assert not isinstance(report, PricingFailure)
+    assert report.total.pv == Money(0.0, USD)
+    assert report.total.accrued == Money(0.0, USD)
+    assert report.rows[0].result.accrued == Money(3.0, USD)
+    assert report.rows[1].result.accrued == Money(-3.0, USD)
+
+
 # ============================================================================================
 # 5. The SE in the breakdown — per row faithfully, and linear in the total (T83).
 # ============================================================================================
@@ -377,6 +416,19 @@ def test_a_trade_pricing_in_the_wrong_currency_refuses_the_whole_report():
     outcome = mark_to_market(_request(_long(_EstimateA(EUR))))
     assert isinstance(outcome, PricingFailure)
     assert "cannot be summed" in outcome.reason, outcome.reason
+
+
+def test_a_foreign_accrued_is_refused_even_when_it_is_NOT_the_FIRST_trade():
+    """The second killer for that guard, and it probes a different thing: the loop keeps checking.
+
+    A guard that examined only the first trade would pass the one-trade oracle below and let a foreign
+    accrued through on any book with something in front of it — the duplicated-coverage shape, here as
+    position-in-the-loop rather than position-in-the-code.
+    """
+    outcome = mark_to_market(_request(_long(_EstimateA(USD)), _long(_BadAccrual(USD))))
+    assert isinstance(outcome, PricingFailure)
+    assert "accrued" in outcome.reason.lower(), outcome.reason
+    assert "_BadAccrual" in outcome.reason, outcome.reason
 
 
 def test_an_accrued_in_a_foreign_currency_is_REFUSED_rather_than_raising():

@@ -40,6 +40,12 @@ def trade_value(trade: Trade, model: object) -> PricingResult | PricingFailure:
     The standard error scales with the **units** where the underlying pricer supplies one (§3.7): for
     an estimate the band is part of the result, so a trade ten times the size has a band ten times as
     wide. The direction does **not** scale it — an error bar has no sign, hence `abs(scale)`.
+
+    **`accrued` scales SIGNED, and that is forced rather than chosen** (T85): `clean = pv − accrued`
+    must commute with scaling, so `scale·pv − scale·accrued = scale·clean` and accrued takes the same
+    signed `scale` as the PV. A short owes its accrued interest, so the sign is the point — which is
+    exactly why it cannot borrow the band's `abs`. `basis` (the discounting currency) is carried
+    through unchanged, being a property of the pricing and not of the size of the holding.
     """
     priced = dispatch(trade.product, model)
     if isinstance(priced, PricingFailure):
@@ -52,7 +58,14 @@ def trade_value(trade: Trade, model: object) -> PricingResult | PricingFailure:
     standard_error = (
         None if priced.standard_error is None else abs(scale) * priced.standard_error
     )
+    accrued = (
+        None
+        if priced.accrued is None
+        else Money(scale * priced.accrued.amount, priced.accrued.currency)
+    )
     return PricingResult(
         pv=Money(scale * priced.pv.amount, priced.pv.currency),
+        accrued=accrued,
+        basis=priced.basis,
         standard_error=standard_error,
     )
