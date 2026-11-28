@@ -13,8 +13,8 @@
 ### Inventory — derived from the tree, regenerated and drift-gated
 
 - **Models:** 39
-- **Engines:** 49, dispatching **36** `(product, model)` pairs
-- **Products:** 25
+- **Engines:** 50, dispatching **36** `(product, model)` pairs
+- **Products:** 26
 
 **Greeks and book-level risk are DETECTED, not asserted** — the columns below are derived from the risk layer, so they cannot drift. A hand-curated greeks cell said "Black MC only" and was wrong on this instrument's first run.
 
@@ -27,7 +27,7 @@
 | rates | 12 | — | `collateral`, `collateralised_capstone`, `mc_exposure` |
 | volatility | 7 | — | — |
 
-**Representation (R1) — 3 of 5 built.** Detected by presence, so this column fills itself as the structural track proceeds.
+**Representation (R1) — 4 of 5 built.** Detected by presence, so this column fills itself as the structural track proceeds.
 
 | Piece | Built | What it is |
 |---|---|---|
@@ -35,9 +35,9 @@
 | `Position` | **yes** | trades in one product, netted (R1.2) |
 | `Portfolio` | — | positions across products (R1.2) |
 | `PricingRequest` | **yes** | what to value, as of when, against which market (R1.3) |
-| `MarkToMarket` | — | the valuation procedure over a book (R1.4) |
+| `MtMReport` | **yes** | a book's mark, broken down by trade (R1.4) |
 
-**Unclassified engines (2):** `position`, `pricing_request` — reported rather than dropped, so the table cannot look complete when it is not.
+**Unclassified engines (3):** `mtm`, `position`, `pricing_request` — reported rather than dropped, so the table cannot look complete when it is not.
 <!-- generated:end -->
 
 <!-- curated:start -->
