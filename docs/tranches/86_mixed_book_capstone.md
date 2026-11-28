@@ -21,9 +21,12 @@ snapshot), as the seam to R3, not the R3 engine.
 - **A one-shock scenario preview** (test-level, no new API): build a shocked `MarketSnapshot` (bump one
   curve), re-run the pricing, show the book PV moves. This exercises the architecture's scenario readiness
   (immutable snapshot ⇒ a scenario is a reprice) without building R3's scenario engine.
-- **Status roster correction (ruled 0461):** drop `Portfolio` from the R1 target or mark it a deferred §6
-  pull, so the scoreboard reads **4 of 4 built** at the capstone, not a perpetual "4 of 5". Follow the plan,
-  not the T81 forecast (as `MtMReport` did).
+- **Status roster correction (ruled 0461/0464):** **MARK `Portfolio` a deferred §6 pull** (not drop the
+  row) — a scoreboard should keep the *decision* visible, so the row reads "deferred (§6 — a hierarchy of
+  positions; a flat multi-product `Position` is the book)", and the R1 count reads **4 of 4 built** at the
+  capstone, not a perpetual "4 of 5". And **T86's `CHANGELOG` entry names the supersession explicitly**
+  (v0.87.0 said "4 of 5, `Portfolio` outstanding"; T86 makes it 4 of 4) so the two releases do not read as a
+  silent reversal (§9). Follow the plan, not the T81 forecast (as `MtMReport` did).
 
 ## Oracles (RED-first, §4)
 1. **End-to-end reconciliation (the capstone identity):** the mixed book's `MtMReport` totals ==

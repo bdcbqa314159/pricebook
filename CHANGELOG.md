@@ -6,6 +6,65 @@ single source of truth and CI asserts it matches the top entry.
 
 ## [Unreleased]
 
+## [0.88.0] — 2026-11-28
+
+### T86 · R1.5 — the mixed-asset book capstone: the R1 arc closes
+
+Three asset classes — **rates** (an interest-rate swap), **credit** (a CDS), **equity** (a European
+option) — in one `Position`, priced by three models off **one `MarketSnapshot`**, valued by one
+`mark_to_market(request)` call into one `MtMReport`, and reconciled against the manual composition.
+No new `src/` surface: the capstone's content is that R1.1–R1.4 compose over the real catalogue.
+
+#### There is no RED commit, and that is not a lapse
+
+§4 pre-registers a failing test before *the code that satisfies it*. A capstone adds no code, so
+there is nothing to write afterwards and nothing to bend toward a number. What §4 asks for in that
+position is the mutation sweep, and it is reported rather than assumed: **9 mutations of the R1 stack
+applied, 9 killed, zero survivors** against the capstone file **alone** — cross-asset mis-routing, a
+reversed attribution, a dropped direction, dropped units, a non-accumulating total, uncollected rows,
+and all three whole-book refusals. Scoped to one file the sweep showed four single-killers; measured
+**tree-wide** the same mutations have 3–34 killers each, so the four were an artefact of the sweep's
+scope, not holes. Recording the distinction because "single-killer" is only meaningful against the
+test set it was measured over.
+
+#### Two axes are exercised by test pricers, and the reason is measured rather than preferred
+
+The book's **band** and its **clean/accrued** columns have no production path on the real catalogue:
+no engine populates `accrued` (0 of 50, T85), and the only registered estimate pricer is
+`TimerOption <- HestonModel`, measured here at **~2.8s per dispatch locally** — 6–9s per call on the
+CI runners against a ~10s per-file budget. §9 is explicit that CI is the reading and that an oracle
+must not be traded for the stopwatch, so the band rides on the T82 known-estimate pricer and the cost
+is recorded in `to_go_deeper.md` rather than gambled against the gate. The real-catalogue trades
+carry the integration; the test pricers carry the two axes the catalogue cannot reach.
+
+#### The scenario preview — the seam to R3, and a real check
+
+A parallel bump of the discount curve (which is also the projection curve, so the shock reaches the
+swap's forwards, the CDS's discounting and the option's carry) reprices the whole book: the shocked
+total equals an **independent** manual reprice exactly, **every** row moves, and repricing the base
+afterwards is bit-identical — the immutable-snapshot guarantee asserted rather than trusted. A
+scenario engine on a mutable snapshot would corrupt the mark it measures against, and that symptom
+gets noticed months later.
+
+#### `Portfolio` is deferred, and the scoreboard now says so — superseding v0.87.0
+
+v0.87.0 reported Representation as **4 of 5, `Portfolio` outstanding**. That was true of the
+scoreboard at that commit and is **superseded**: the T81 roster modelled `Position` as "one product,
+netted" with `Portfolio` as the cross-product type, but T83's `Position` is `tuple[Trade, ...]` with
+no same-product constraint and its own tests already build two-product books — so it subsumed the
+flat cross-product case, and a `Portfolio` would be a *hierarchy* of positions, which nothing needs
+(ruled 0461/0464, re-derived from the code before acceptance). The roster now reads **4 of 4 built**
+with `Portfolio` shown as **deferred** rather than dropped: a dropped row would read as "never
+considered", and a scoreboard exists to keep decisions visible. Saying this here is deliberate, so
+the two releases do not read as a silent reversal.
+
+#### Gates
+
+v0.88.0 · **3385 tests** (floor 3385, derived from the collected count) · twelve gates · ruff +
+pyright clean · `slow` ok (the capstone file runs in 0.30s). **R1 is complete** — representation,
+pricing request, and mark-to-market over a genuinely mixed book. Next: re-audit #10, the first
+structural-arc close.
+
 ## [0.87.0] — 2026-11-28
 
 ### T85 · R1.4 — the mark-to-market breakdown report

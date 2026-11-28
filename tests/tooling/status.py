@@ -66,10 +66,24 @@ ASSET_CLASSES: dict[str, str] = {
 #: self-corrects as R1.2–R1.5 land rather than needing a hand edit per tranche.
 REPRESENTATION_ROSTER: tuple[tuple[str, str], ...] = (
     ("Trade", "a holding: product + units + direction (R1.1)"),
-    ("Position", "trades in one product, netted (R1.2)"),
-    ("Portfolio", "positions across products (R1.2)"),
+    ("Position", "the trades held, across any number of products (R1.2)"),
     ("PricingRequest", "what to value, as of when, against which market (R1.3)"),
     ("MtMReport", "a book's mark, broken down by trade (R1.4)"),
+)
+
+#: Representation types **considered and deliberately deferred** — shown on the scoreboard but not
+#: counted in the R1 target. A dropped row would read as "never considered", and a scoreboard exists
+#: to keep decisions visible; this is the `to_go_deeper` discipline applied to the status page
+#: (ruled 0461/0464, under the charter's nothing-speculative rule). Detection still applies,
+#: so if one is ever built the row flips by itself. The row's text carries no section mark
+#: deliberately — the generated block is asserted to be structure only, so the *reason* lives
+#: here and in the arc plan, while the scoreboard says only that it was deferred.
+DEFERRED_REPRESENTATION: tuple[tuple[str, str], ...] = (
+    (
+        "Portfolio",
+        "a *hierarchy* of positions — deferred, because a flat multi-product `Position` is the "
+        "book and nothing needs the hierarchy yet",
+    ),
 )
 
 #: Risk-layer module stem → the asset class whose *book-level risk* it covers. Same explicit-map
@@ -191,7 +205,10 @@ def survey(
         greek_functions=dict(sorted(greek_counts.items())),
         risk_by_class={k: tuple(sorted(v)) for k, v in sorted(risk.items())},
         unclassified_risk=tuple(sorted(unclassified_risk)),
-        representation={name: name in declared for name, _ in REPRESENTATION_ROSTER},
+        representation={
+            name: name in declared
+            for name, _ in REPRESENTATION_ROSTER + DEFERRED_REPRESENTATION
+        },
     )
 
 
@@ -230,7 +247,9 @@ def mechanical_rows(
         modules = inventory.risk_by_class.get(asset_class, ())
         risk_cell = ", ".join(f"`{m}`" for m in modules) if modules else "—"
         lines.append(f"| {asset_class} | {count} | {greek_cell} | {risk_cell} |")
-    built = sum(inventory.representation.values())
+    built = sum(
+        inventory.representation.get(name, False) for name, _ in REPRESENTATION_ROSTER
+    )
     lines += [
         "",
         f"**Representation (R1) — {built} of {len(REPRESENTATION_ROSTER)} built.** Detected by "
@@ -241,6 +260,9 @@ def mechanical_rows(
     ]
     for name, description in REPRESENTATION_ROSTER:
         mark = "**yes**" if inventory.representation.get(name) else "—"
+        lines.append(f"| `{name}` | {mark} | {description} |")
+    for name, description in DEFERRED_REPRESENTATION:
+        mark = "**yes**" if inventory.representation.get(name) else "deferred"
         lines.append(f"| `{name}` | {mark} | {description} |")
     if inventory.unclassified_risk:
         lines += [

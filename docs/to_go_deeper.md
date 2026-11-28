@@ -469,3 +469,14 @@ rulings, which is where §1 says a deferred-but-oracle-able route lives. See fin
   a running coupon (a swap mid-period, a bond between coupons) has real accrued interest; the engine that
   prices it should split it out. Pulled when a product needs clean/dirty in production (desk marks routinely
   do) — until then the test pricer keeps the report's handling non-degenerate and exact. *(Surfaced 0459.)*
+- **A registered estimate pricer cheap enough for an integration test (surfaced T86).** The only
+  registered Monte-Carlo pricer in the tree is `TimerOption <- HestonModel`, measured at **~2.8s per
+  dispatch locally** — so 6-9s per call on the CI runners, against a ~10s per-file `slow` budget. A
+  book-level test that wants a *real* MC band therefore cannot have one: T86's capstone exercises the
+  band with the T82 known-estimate test pricer instead, which is correct but means no oracle anywhere
+  shows a real MC standard error flowing through `trade_value` → `combine` into a book total. Two
+  routes, neither pulled yet: a **config-aware dispatch** (so a test can ask for 200 paths where
+  production asks for 50,000 — `price(product, model)` currently gives the pricer's own default and
+  nothing can override it), or a **genuinely cheap registered MC pricer**. The first is the more
+  valuable and the more invasive, since it touches the §3 contract's shape; R2 (greeks of an estimate)
+  meets the same wall and is the natural place to rule on it. *(Surfaced T86.)*
