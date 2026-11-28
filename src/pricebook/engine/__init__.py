@@ -93,6 +93,7 @@ from pricebook.engine.timer_option import (
     timer_option_estimate,
 )
 from pricebook.engine.position import position_value
+from pricebook.engine.mtm import mark_to_market
 from pricebook.engine.pricing_request import value
 from pricebook.engine.trade import trade_value
 from pricebook.engine.registry import dispatch as price
@@ -134,7 +135,7 @@ __all__ = [
     "clock_increment_variance", "levy_fair_variance", "discrete_monitoring_adjustment",
     "price_levy_variance_swap", "price_discrete_levy_variance_swap",
     "simulate_timer_first_passage", "timer_option_estimate", "price_timer_option",
-    "trade_value", "position_value", "value",
+    "trade_value", "position_value", "value", "mark_to_market",
     "price_gamma_swap", "price_corridor_variance_swap",
     "price_variance_swap",
     "price_european_equity_option",

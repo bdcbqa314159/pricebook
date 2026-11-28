@@ -78,6 +78,11 @@ blocked on the rework. Recorded so R1 stays scoped to representation, not founda
 - **A product does NOT determine its model** (one-to-many: 5 products carry multiple registered models), and
   §3 models carry their own calibrated market — so model choice is **supplied data**, never resolved from a
   product (T83→R1.3; the "resolve the snapshot per trade" wording is retired, 0453).
+- **A test-pricer-only axis's single-killers take the §9 CEILING, not the floor** (standing premise,
+  candidate §9 clause on a second instance — T85). Where a capability is oracled only by test pricers (no
+  production path exercises it — `accrued`, the estimate axes), a deleted killer has **no second line of
+  defence**, so the periodic sweep is its sole backstop — harden such single-killers proactively (second
+  killers), do not merely record them. *(T85: all four accrued-axis single-killers hardened before stamp.)*
 - **A refusal oracle pins WHICH guard refused, not merely that one did** (WATCH, candidate §4 clause on a
   second instance — T84). When two refusal guards can catch the same malformed input, an oracle checking only
   the *outcome* (even the message's product name) cannot tell which fired, so bypassing one survives — the

@@ -69,7 +69,7 @@ REPRESENTATION_ROSTER: tuple[tuple[str, str], ...] = (
     ("Position", "trades in one product, netted (R1.2)"),
     ("Portfolio", "positions across products (R1.2)"),
     ("PricingRequest", "what to value, as of when, against which market (R1.3)"),
-    ("MarkToMarket", "the valuation procedure over a book (R1.4)"),
+    ("MtMReport", "a book's mark, broken down by trade (R1.4)"),
 )
 
 #: Risk-layer module stem → the asset class whose *book-level risk* it covers. Same explicit-map

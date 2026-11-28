@@ -37,8 +37,20 @@ from pricebook.foundation.results import PricingFailure, PricingResult
 from pricebook.products.pricing_request import PricingRequest
 
 
-def value(request: PricingRequest) -> PricingResult | PricingFailure:
-    """The book's value under the requested models, or the first refusal that prevents it."""
+def resolve_models(request: PricingRequest) -> list[object] | PricingFailure:
+    """One model per trade, in order — or the refusal that makes the request unanswerable.
+
+    **Extracted at its second consumer** (T85's `mark_to_market`), so the report and the scalar
+    refuse identically rather than by two coincidentally-similar implementations. Both refusals are
+    the request's own, as distinct from the aggregation's (which are about summing).
+
+    **The two refusals are deliberately distinguishable in their wording**, and that is load-bearing
+    rather than cosmetic: a caller handed an unassigned type and a caller handed a stale model have
+    different things to fix. It is also what makes them separately *oracle-able* — bypassing the
+    unassigned-model check leaves `model` as `None`, whose carried date is `None`, which the date
+    check then refuses, so an oracle that asserted only *that* the book was refused would pass under
+    a mutation of the first guard (the T84 watch: a refusal oracle pins **which** guard refused).
+    """
     models: list[object] = []
     for trade in request.position.trades:
         product_type = type(trade.product)
@@ -57,5 +69,12 @@ def value(request: PricingRequest) -> PricingResult | PricingFailure:
                 "cannot be marked as of two dates"
             )
         models.append(model)
+    return models
 
+
+def value(request: PricingRequest) -> PricingResult | PricingFailure:
+    """The book's value under the requested models, or the first refusal that prevents it."""
+    models = resolve_models(request)
+    if isinstance(models, PricingFailure):
+        return models
     return position_value(request.position, models)

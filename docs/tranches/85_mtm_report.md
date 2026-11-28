@@ -9,11 +9,19 @@ return (0456), so the engine's return shape never varies by caller appetite (§3
 A frozen `MtMReport` and a pure `mark_to_market(request) → MtMReport` that carries the book totals and a
 **per-trade breakdown** — each trade's `PricingResult` contribution and which model priced it.
 
-## Scope — the breakdown, NOT the cashflow ladder
-`PricingResult` carries `pv`/`accrued`/`clean`/`basis`/`standard_error` but **no dated cashflows**, and no
-engine exposes them (checked, 0456). So:
-- **In scope:** the per-trade breakdown + book totals, with **dirty/clean/accrued for free** (the result
-  already decomposes — the report surfaces that decomposition per trade and aggregated).
+## Scope — the breakdown, NOT the cashflow ladder; and clean/accrued per ruling 0459(b)
+`PricingResult` fields are `pv`/`accrued`/`basis`/`standard_error`; **`clean` is a property** (`= pv` when
+`accrued is None`). `accrued` is **populated by no engine today** (0/50 — checked at 0458), so in production
+`accrued` is `None` and `clean ≡ pv` everywhere — "for free" is true of the *type* and **degenerate in
+practice** (T33b input-population). So:
+- **In scope:** the per-trade breakdown + book totals, PV and SE.
+- **Clean/accrued ARE kept (ruled 0459(b)) — constitutive of a mark, not speculative** (a mark *is*
+  dirty/clean/accrued; `PricingResult` commits to the decomposition). But oracle the clean/accrued handling
+  against a **known-accrued TEST PRICER** (a registered test-pricer returning non-`None` `accrued` — the
+  standing R1 premise on the accrued axis), so the decomposition is **non-degenerate** and asserted exact; a
+  mutant summing `clean` as `pv` or dropping `accrued` dies. Production stays `None`/`pv` correctly
+  (type-present, engine-dormant) until an engine decomposes earned-but-unpaid interest — tracked in
+  `to_go_deeper`.
 - **Deferred:** the **cashflow ladder** — it needs cashflow exposure, which is the **schedule/calendar rework
   arc**'s to build. R1.4 does not dig that foundation; the report is the breakdown.
 
@@ -52,6 +60,8 @@ engine exposes them (checked, 0456). So:
    report path re-enters the guard-heavy code).
 
 ## Degeneracy premises (§4 / §9, the standing R1 premises)
+- **≥1 known-accrued test pricer** (non-`None` `accrued`), else the clean/accrued decomposition is degenerate
+  (T33b — every real engine returns `accrued=None`, so `clean ≡ pv` and a dropped-accrued mutant survives).
 - Fixture population: **≥2 estimate pricers** (total SE live), **≥2 product types with different models**
   (attribution does real work), a **mix of exact and estimate** (the None-SE row is exercised).
 - The model-attribution fixture pairs the **same product type is not reused with one model only** — two rows
